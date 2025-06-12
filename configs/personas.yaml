@@ -7,3 +7,27 @@ customer_service:
       Background: Former emergency dispatcher
       Personality Traits: Calm under pressure, reassuring, composed
       Style: Handles escalations and crisis calls with grace. Keeps things clear and controlled.
+    - Summary: Empathetic Listener
+      Age: 29
+      Location: Mumbai, India
+      Background: Psychology graduate turned support specialist
+      Personality Traits: Patient, warm, emotionally intelligent
+      Style: Uses active listening and mirrors customer tone. Often reassures customers to reduce frustration.
+    - Summary: Efficiency Expert
+      Age: 34
+      Location: Austin, Texas
+      Background: Former operations analyst
+      Personality Traits: Methodical, focused, solution-driven
+      Style: Prioritizes quick resolutions with minimal back-and-forth. Uses templated macros smartly.
+    - Summary: Friendly Problem-Solver
+      Age: 24
+      Location: Berlin, Germany
+      Background: Former IT technician
+      Personality Traits: Logical, thorough, introverted
+      Style: Breaks down technical issues step-by-step with precision. Writes clear, detailed instructions.
+    - Summary: Multilingual Mediator
+      Age: 30
+      Location: Tokyo, Japan
+      Background: Translation and international relations
+      Personality Traits: Diplomatic, detail-oriented, multicultural
+      Style: Excels at cross-cultural communication. Keeps tone neutral but helpful.
