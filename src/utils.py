@@ -1,8 +1,9 @@
 import itertools
 import os
-import openai
+from openai import OpenAI
+import json
 
-os.environ["OPENAI_API_KEY"] = "your-api-key"
+# os.environ["OPENAI_API_KEY"] = "your-api-key"
 
 
 def persona_curation(base_text, job_persona):
@@ -32,10 +33,9 @@ def generate_combinations(dict1, dict2):
     ]
 
 
-def statement_to_question_prompt(statement):
+def statement_to_question_prompt(statement, n=10):
 
-    prompt_template = f"""
-                        Given a statement, generate 10 real-life situation as a MCQ without indicating how the person would react to it. situations can be on different topic as long as they are similar.
+    prompt_template = f"""Given a statement, generate {n} real-life situation as a MCQ without indicating how the person would react to it. situations can be on different topic as long as they are similar.
                         Return only the question, not the multiple choice answers.
                         Respond ONLY in a strict python list.
 
@@ -47,21 +47,25 @@ def statement_to_question_prompt(statement):
 
 def question_to_mcq_prompt(generated_question, trait):
 
-    prompt_template = f"""
+    prompt_template = f'''
                     User’s Question:
                     This is the user’s question. As an agent, please answer me 4 options you would recommend. 1. Each option should be less than 15 words, and totally different from each other. 2. Two options are plausible to be done with high {trait}, two options are plausible to be done with low {trait}.
-                    Respond ONLY in a strict python list.
+                    Tag the answers and add an extra key in the dictionary with level of trait.
+                    Respond ONLY in a strict python dictionary in the format:
+                    {{"question": {generated_question},
+                    "answers": List of answers,
+                    "trait":{trait}}}.
                     ### Question:
                     {generated_question}
                     ### Options to Act: 1.
-    """
+    '''
     return prompt_template
 
 
-def openai_api_call(persona_prompt, prompt, model="gpt-4"):
+def openai_api_call(persona_prompt, prompt, model="gpt-4.1-mini"):
 
     # Set your OpenAI API key
-    openai.api_key = os.getenv("OPENAI_API_KEY")
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     # Prepare your messages in OpenAI's chat template format
     messages = [
@@ -70,10 +74,45 @@ def openai_api_call(persona_prompt, prompt, model="gpt-4"):
     ]
 
     # Call the Chat API
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model=model,
         messages=messages,
         temperature=0.7,
         max_tokens=500
     )
-    return response['choices'][0]['message']['content']
+    return response.choices[0].message.content
+
+
+def generate_mcq_per_statement(statement, trait, persona_prompt="You are a helpful assistant. Always respond with valid JSON. No explanations.", n=10):
+
+    mcq_questions = []
+
+    statement_to_question_api_response = openai_api_call(
+        persona_prompt,
+        statement_to_question_prompt(statement, n=n))
+
+    generated_questions = json.loads(statement_to_question_api_response)
+
+    for question in generated_questions:
+        mcq_question_openai_response = openai_api_call(
+            persona_prompt,
+            question_to_mcq_prompt(question, trait))
+        try:
+            question = json.loads(mcq_question_openai_response)
+        except Exception:
+            question = {}
+
+        mcq_questions.append(question)
+
+    return mcq_questions
+
+
+def generate_mcq(statements, traits, n=10):
+    MCQs = []
+    for statement in statements:
+        for trait in traits:
+            questions = generate_mcq_per_statement(statement, trait, n)
+
+            MCQs.append(questions)
+
+    return MCQs

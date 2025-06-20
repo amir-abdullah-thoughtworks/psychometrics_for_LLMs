@@ -23,3 +23,12 @@ text_generation_config:
   reasoning:
     - False
     - True
+traits:
+  - honesty-humility
+  - emotionality
+  - extraversion
+  - agreeableness
+  - conscientiousness
+  - openness to experience
+mcq_config:
+  paraphrase_no: 10
