@@ -36,7 +36,8 @@ def statement_to_question_prompt(statement):
 
     prompt_template = f"""
                         Given a statement, generate 10 real-life situation as a MCQ without indicating how the person would react to it. situations can be on different topic as long as they are similar.
-                        Return only the question, not the multiple choice answers
+                        Return only the question, not the multiple choice answers.
+                        Respond ONLY in a strict python list.
 
                         ### Statement:
                         {statement}
@@ -49,6 +50,7 @@ def question_to_mcq_prompt(generated_question, trait):
     prompt_template = f"""
                     User’s Question:
                     This is the user’s question. As an agent, please answer me 4 options you would recommend. 1. Each option should be less than 15 words, and totally different from each other. 2. Two options are plausible to be done with high {trait}, two options are plausible to be done with low {trait}.
+                    Respond ONLY in a strict python list.
                     ### Question:
                     {generated_question}
                     ### Options to Act: 1.
