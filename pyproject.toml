@@ -5,9 +5,9 @@ description = ""
 authors = [
     {name = "Shreyas Jain",email = "amir.abdullah@thoughtworks.com"}
 ]
-packages = [
-    { include = "llm-psychometrics", from = "src" }
-]
+
+packages = [{ include = "llm_psychometrics" }]
+
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
