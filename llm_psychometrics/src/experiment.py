@@ -1,5 +1,5 @@
 import random
-from utils import prompt_formatting, persona_curation
+from src.utils import prompt_formatting, persona_curation
 
 
 def text_generate(prompts, pipeline, pipeline_config, generation_config):
