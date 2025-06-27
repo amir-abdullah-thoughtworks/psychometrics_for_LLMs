@@ -2,8 +2,33 @@ import itertools
 import os
 from openai import OpenAI
 import json
+from typing import List
 
 # os.environ["OPENAI_API_KEY"] = "your-api-key"
+
+
+def list_to_str(question_list: List):
+
+    return " \n".join([f"{i+1}. {value}" for i, value in
+                       enumerate(question_list)])
+
+
+def inverse_likert(likert_values: List):
+
+    inverted_likert = likert_values[::-1]
+
+    return list_to_str(inverted_likert)
+
+
+def paraphrasing_prompt_template(question_list: List):
+
+    questions = list_to_str(question_list)
+
+    prompt_template = f"""
+    Paraphrase the below mentioned questions. Use different words while keeping the meaning same 
+    {questions}
+    """
+    return prompt_template
 
 
 def persona_curation(base_text, job_persona):

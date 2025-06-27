@@ -1,5 +1,20 @@
 import random
-from src.utils import prompt_formatting, persona_curation
+from typing import List
+from src.utils import prompt_formatting, persona_curation, paraphrasing_prompt_template
+
+
+def paraphrasing_questions(question_list: List, pipeline, tokenizer,
+                           pipeline_config):
+
+    prompt = paraphrasing_prompt_template(question_list)
+
+    chat = [
+        {"role": "user", "content": prompt}
+    ]
+    prompt = tokenizer.apply_chat_template(
+        chat, tokenize=False, add_generation_prompt=True)
+
+    return pipeline(prompt, return_full_text=False, **pipeline_config)
 
 
 def text_generate(prompts, pipeline, pipeline_config, generation_config):

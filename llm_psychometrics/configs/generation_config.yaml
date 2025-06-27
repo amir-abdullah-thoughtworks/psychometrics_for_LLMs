@@ -1,6 +1,5 @@
 pipeline_config:
   temperature:
-    - 0
     - 0.1
     - 0.5
     - 1
@@ -32,3 +31,9 @@ traits:
   - openness to experience
 mcq_config:
   paraphrase_no: 10
+likert_scale:
+  - strongly disagree
+  - disagree
+  - neutral
+  - agree
+  - strongly agree
