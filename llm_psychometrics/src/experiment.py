@@ -1,5 +1,20 @@
 import random
-from utils import prompt_formatting, persona_curation
+from typing import List
+from src.utils import prompt_formatting, persona_curation, paraphrasing_prompt_template
+
+
+def paraphrasing_questions(question_list: List, pipeline, tokenizer,
+                           pipeline_config):
+
+    prompt = paraphrasing_prompt_template(question_list)
+
+    chat = [
+        {"role": "user", "content": prompt}
+    ]
+    prompt = tokenizer.apply_chat_template(
+        chat, tokenize=False, add_generation_prompt=True)
+
+    return pipeline(prompt, return_full_text=False, **pipeline_config)
 
 
 def text_generate(prompts, pipeline, pipeline_config, generation_config):
@@ -56,6 +71,7 @@ def experiment_setup(job_title, question_list, config_combinations, pipeline,
 
             if generation_config['generation_type'] == "one_at_time":
                 prompts = []
+                base_prompts = []
 
                 for question in question_list:
 
@@ -67,6 +83,9 @@ def experiment_setup(job_title, question_list, config_combinations, pipeline,
                     prompt = tokenizer.apply_chat_template(
                         chat, tokenize=False, add_generation_prompt=True)
                     prompts.append(prompt)
+                    base_prompts.append(prompt_formatting(
+                        persona_curation(base_text, persona), base_prompt,
+                        question))
 
             else:
                 questions = "\n ".join(
@@ -79,12 +98,16 @@ def experiment_setup(job_title, question_list, config_combinations, pipeline,
                 ]
                 prompts = [tokenizer.apply_chat_template(
                     chat, tokenize=False, add_generation_prompt=True)]
+                base_prompts = [prompt_formatting(
+                    persona_curation(base_text, persona), base_prompt,
+                    questions)]
 
             text_generation_output_dict = text_generate(
                 prompts, pipeline, pipeline_config, generation_config)
 
             text_generation_output_dict['generation_config'] = generation_config
             text_generation_output_dict['pipeline_config'] = pipeline_config
+            text_generation_output_dict['base_prompts'] = base_prompts
 
             persona_result.append(text_generation_output_dict)
 
