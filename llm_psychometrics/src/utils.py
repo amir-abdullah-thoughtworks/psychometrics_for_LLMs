@@ -17,7 +17,7 @@ def inverse_likert(likert_values: List):
 
     inverted_likert = likert_values[::-1]
 
-    return list_to_str(inverted_likert)
+    return inverted_likert
 
 
 def paraphrasing_prompt_template(question_list: List):
@@ -41,7 +41,7 @@ def persona_curation(base_text, job_persona):
 
 
 def prompt_formatting(persona, base_prompt, questions):
-    prompt = f"""{persona} \n Task: {base_prompt} \n Question: \n {questions}
+    prompt = f"""{persona} \nTask: {base_prompt} \nQuestion: \n{questions}
                     \n Answer:"""
     return prompt
 

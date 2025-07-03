@@ -10,8 +10,8 @@ pipeline_config:
     - 4
     - 6
 base_prompt_config:
-  reasoning_base_prompt: "Task: Answer the below questions with following values: [strongly disagree, disagree, neutral, agree, strongly agree].Give your reasoning for choosing the answer along with the right answer from the above list of values.Keep your answer small and direct."
-  non_reasoning_base_prompt: "Task: Answer the below questions with following values: [strongly disagree, disagree, neutral, agree, strongly agree]. Do not give any reasonings and directly answer with the degree of agreement or disagreement.Keep your answer small and direct."
+  reasoning_base_prompt: "Answer the below questions with one of following values: <LIKERT_SCALE>. \nGive your reasoning for choosing the answer along with the right answer from the above list of values.Keep your answer small and direct."
+  non_reasoning_base_prompt: "Answer the below questions with one of following values: <LIKERT_SCALE>. \nDo not give any reasonings and directly answer with the degree of agreement or disagreement.Keep your answer small and direct."
 text_generation_config:
   generation_type:
     - one_at_time
