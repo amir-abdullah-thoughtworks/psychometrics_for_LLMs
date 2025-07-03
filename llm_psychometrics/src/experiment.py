@@ -18,13 +18,8 @@ def paraphrasing_questions(question_list: List, pipeline, tokenizer,
 
 
 def text_generate(prompts, pipeline, pipeline_config, generation_config):
-    if generation_config["shuffle"]:
-        shuffled_prompts = prompts.copy()
-        random.shuffle(prompts)
-        indices = [prompts.index(item) for item in shuffled_prompts]
-    else:
-        print(f"No of prompts: {len(prompts)}")
-        indices = list(range(len(prompts)))
+
+    print(f"No of prompts: {len(prompts)}")
 
     if generation_config["generation_type"] == "one_at_time":
         outputs = []
@@ -34,13 +29,7 @@ def text_generate(prompts, pipeline, pipeline_config, generation_config):
     else:
         outputs = pipeline(prompts, return_full_text=False, **pipeline_config)
 
-    output_dict = {
-        "indices": indices,
-        "outputs": outputs,
-        # "chat_prompts": prompts
-    }
-
-    return output_dict
+    return outputs
 
 
 def experiment_setup(job_title,
@@ -92,6 +81,16 @@ def experiment_setup(job_title,
                 "<LIKERT_SCALE>", "\n" + list_to_str(likert_scale))
             inverse_likert_base_prompt = base_prompt.replace(
                 "<LIKERT_SCALE>", "\n" + list_to_str(inverse_likert(likert_scale)))
+
+            if generation_config["shuffle"]:
+                shuffled_questions = question_list.copy()
+                random.shuffle(question_list)
+                indices = [question_list.index(item)
+                           for item in shuffled_questions]
+                paraphrased_question_list = paraphrased_question_list[indices]
+            else:
+                print(f"No of Questions: {len(question_list)}")
+                indices = list(range(len(question_list)))
 
             if generation_config['generation_type'] == "one_at_time":
                 normal_chat_prompts = []
@@ -188,6 +187,7 @@ def experiment_setup(job_title,
 
             text_generation_output_dict['generation_config'] = generation_config
             text_generation_output_dict['pipeline_config'] = pipeline_config
+            text_generation_output_dict['indices'] = indices
             text_generation_output_dict['normal_likert'] = {}
             text_generation_output_dict['normal_likert']['prompts'] = normal_likert_prompts
             text_generation_output_dict['normal_likert']['output'] = normal_output_dict
