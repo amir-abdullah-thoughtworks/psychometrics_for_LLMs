@@ -64,8 +64,8 @@ emotionality:
     reverse:
       - False
       - True
-      - False
       - True
+      - False
   dependence:
     indices:
       - 17
