@@ -32,8 +32,8 @@ traits:
 mcq_config:
   paraphrase_no: 10
 likert_scale:
-  - strongly disagree
-  - disagree
-  - neutral
-  - agree
-  - strongly agree
+  - Strongly Disagree
+  - Disagree
+  - Neutral
+  - Agree
+  - Strongly Agree
