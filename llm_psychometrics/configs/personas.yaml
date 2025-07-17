@@ -5,7 +5,7 @@ customer_service:
       Age: 42
       Location: Lagos, Nigeria
       Background: Former emergency dispatcher
-      Personality Traits: Calm under pressure, reassuring, composed
+      # Personality Traits: Calm under pressure, reassuring, composed
       Style: Handles escalations and crisis calls with grace. Keeps things clear and controlled.
     - Summary: Empathetic Listener
       Age: 29
