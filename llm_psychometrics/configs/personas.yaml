@@ -6,13 +6,13 @@ customer_service:
       Location: Lagos, Nigeria
       Background: Former emergency dispatcher
       # Personality Traits: Calm under pressure, reassuring, composed
-      Style: Handles escalations and crisis calls with grace. Keeps things clear and controlled.
+      # Style: Handles escalations and crisis calls with grace. Keeps things clear and controlled.
     - Summary: Empathetic Listener
       Age: 29
       Location: Mumbai, India
       Background: Psychology graduate turned support specialist
-      Personality Traits: Patient, warm, emotionally intelligent
-      Style: Uses active listening and mirrors customer tone. Often reassures customers to reduce frustration.
+      # Personality Traits: Patient, warm, emotionally intelligent
+      # Style: Uses active listening and mirrors customer tone. Often reassures customers to reduce frustration.
     # - Summary: Efficiency Expert
     #   Age: 34
     #   Location: Austin, Texas
