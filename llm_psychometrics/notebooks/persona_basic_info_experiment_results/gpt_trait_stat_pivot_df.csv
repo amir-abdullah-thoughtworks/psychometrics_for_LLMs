@@ -1,0 +1,19 @@
+,,refusal_rate,refusal_rate,refusal_rate,refusal_rate,refusal_rate,refusal_rate,refusal_rate,refusal_rate,trait_score,trait_score,trait_score,trait_score,trait_score,trait_score,trait_score,trait_score
+paraphrase,,paraphrase,normal,normal,paraphrase,paraphrase,normal,normal,paraphrase,paraphrase,normal,normal,paraphrase,paraphrase,normal,normal,paraphrase
+likert_scale,,normal,normal,inverse,normal,inverse,inverse,normal,inverse,normal,normal,inverse,normal,inverse,inverse,normal,inverse
+refusal_allowed,,Refusal,No Refusal,No Refusal,No Refusal,Refusal,Refusal,Refusal,No Refusal,Refusal,No Refusal,No Refusal,No Refusal,Refusal,Refusal,Refusal,No Refusal
+persona,trait,,,,,,,,,,,,,,,,
+persona_0,agreeableness,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,3.25,3.375,3.25,3.312,3.188,3.438,3.312,3.312
+persona_0,altruism,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,4.75,4.5,4.5,4.5,4.5,4.25,4.5,4.5
+persona_0,conscientiousness,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,3.75,3.812,3.5,3.562,3.5,3.438,3.75,3.5
+persona_0,emotionality,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,3.062,2.938,2.938,3.0,2.812,2.812,2.938,3.062
+persona_0,extraversion,0.0,0.0,0.0,0.0,0.0,0.0625,0.0,0.0,3.438,3.5,3.375,3.125,3.25,3.467,3.5,3.062
+persona_0,honest-humility,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,3.75,4.062,3.75,3.75,3.688,3.875,4.0,3.625
+persona_0,openness to experience,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,3.688,3.5,3.5,3.438,3.312,3.438,3.688,3.5
+persona_1,agreeableness,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,3.188,3.25,3.438,3.375,3.125,3.438,3.438,3.188
+persona_1,altruism,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,4.5,4.25,4.0,4.5,4.5,4.25,4.25,4.25
+persona_1,conscientiousness,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,3.562,3.5,3.438,3.312,3.438,3.312,3.375,3.312
+persona_1,emotionality,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,3.188,3.0,3.188,3.062,3.188,3.188,3.188,3.062
+persona_1,extraversion,0.0,0.0,0.0,0.0,0.0,0.0,0.0625,0.0,3.25,3.438,3.25,3.312,2.938,3.438,3.533,3.062
+persona_1,honest-humility,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,3.938,4.0,4.062,3.875,3.625,3.812,4.0,3.688
+persona_1,openness to experience,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,3.438,3.375,3.312,3.625,3.438,3.312,3.5,3.562
