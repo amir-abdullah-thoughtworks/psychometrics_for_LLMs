@@ -1,0 +1,55 @@
+,,,refusal_rate,refusal_rate,refusal_rate,refusal_rate,refusal_rate,refusal_rate,refusal_rate,refusal_rate,subtrait_score,subtrait_score,subtrait_score,subtrait_score,subtrait_score,subtrait_score,subtrait_score,subtrait_score
+paraphrase,,,paraphrase,normal,paraphrase,normal,normal,normal,paraphrase,paraphrase,paraphrase,normal,paraphrase,normal,normal,normal,paraphrase,paraphrase
+likert_scale,,,normal,normal,normal,inverse,inverse,normal,inverse,inverse,normal,normal,normal,inverse,inverse,normal,inverse,inverse
+refusal_allowed,,,No Refusal,No Refusal,Refusal,No Refusal,Refusal,Refusal,No Refusal,Refusal,No Refusal,No Refusal,Refusal,No Refusal,Refusal,Refusal,No Refusal,Refusal
+persona,trait,subtrait,,,,,,,,,,,,,,,,
+persona_0,agreeableness,flexibility,0.0,0.0,0.25,0.0,0.0,0.0,0.0,0.25,3.5,4.0,2.333,3.25,2.5,4.0,4.25,3.667
+persona_0,agreeableness,forgiveness,0.0,0.0,0.25,0.0,0.25,0.0,0.0,0.0,3.75,3.5,3.667,3.25,2.667,4.0,3.0,3.75
+persona_0,agreeableness,gentleness,0.0,0.0,0.25,0.0,0.0,0.25,0.0,0.25,2.25,2.0,2.333,3.0,3.5,2.333,2.0,2.333
+persona_0,agreeableness,patience,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,2.75,3.75,3.25,3.0,2.5,3.25,1.5,2.5
+persona_0,altruism,altruism,0.0,0.0,0.25,0.0,0.25,0.0,0.0,0.25,3.75,3.5,2.333,2.5,3.0,4.25,3.5,3.0
+persona_0,conscientiousness,diligence,0.0,0.0,0.0,0.0,0.25,0.0,0.0,0.0,3.5,3.25,3.75,2.25,3.333,3.0,3.5,3.25
+persona_0,conscientiousness,organization,0.0,0.0,0.0,0.0,0.25,0.25,0.0,0.0,2.75,2.75,2.5,4.25,2.0,2.667,2.25,2.5
+persona_0,conscientiousness,perfectionism,0.0,0.0,0.0,0.0,0.5,0.25,0.0,0.25,2.0,3.0,2.5,3.25,2.5,3.0,2.25,4.333
+persona_0,conscientiousness,prudence,0.0,0.0,0.5,0.0,0.25,0.0,0.0,0.25,3.0,3.0,5.0,4.5,3.0,3.25,4.0,3.0
+persona_0,emotionality,anxiety,0.0,0.0,0.25,0.0,0.75,0.25,0.0,0.25,3.75,2.75,4.333,3.75,2.0,2.333,3.0,3.0
+persona_0,emotionality,dependence,0.0,0.0,0.0,0.0,0.25,0.25,0.0,0.0,2.75,3.25,2.0,2.5,1.667,1.667,2.75,3.75
+persona_0,emotionality,fearfulness,0.0,0.0,0.5,0.0,0.0,0.0,0.0,0.0,3.0,3.25,1.5,3.25,3.5,3.0,3.5,2.75
+persona_0,emotionality,sentimentality,0.0,0.0,0.25,0.0,0.0,0.0,0.0,0.25,2.75,2.25,1.0,3.0,2.75,2.0,2.0,3.0
+persona_0,extraversion,liveliness,0.0,0.0,0.25,0.0,0.0,0.25,0.0,0.25,3.0,3.25,2.333,2.75,3.25,2.333,3.5,2.333
+persona_0,extraversion,sociability,0.0,0.0,0.25,0.0,0.0,0.25,0.0,0.0,2.5,2.5,3.333,2.0,2.25,1.667,3.5,2.0
+persona_0,extraversion,social boldness,0.0,0.0,0.0,0.0,0.25,0.0,0.0,0.0,3.25,3.0,3.0,2.5,2.667,2.25,3.5,3.75
+persona_0,extraversion,social self-esteem,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,3.75,3.75,4.25,3.5,3.75,2.75,2.75,3.25
+persona_0,honest-humility,fairness,0.0,0.0,0.0,0.0,0.25,0.25,0.0,0.0,4.5,4.5,4.75,3.5,4.333,3.333,4.25,4.25
+persona_0,honest-humility,greed-avoidance,0.0,0.0,0.25,0.0,0.0,0.0,0.0,0.75,3.25,3.75,4.0,2.75,3.25,3.25,4.5,4.0
+persona_0,honest-humility,modesty,0.0,0.0,0.25,0.0,0.25,0.5,0.0,0.0,3.75,3.25,3.333,3.0,1.667,1.0,2.75,3.5
+persona_0,honest-humility,sincerity,0.0,0.0,0.25,0.0,0.0,0.0,0.0,0.0,3.5,4.0,3.333,2.5,3.75,2.75,3.5,1.75
+persona_0,openness to experience,aesthetic appreciation,0.0,0.0,0.25,0.0,0.5,0.75,0.0,0.0,2.25,3.25,3.667,3.0,5.0,4.0,2.75,3.0
+persona_0,openness to experience,creativity,0.0,0.0,0.0,0.0,0.25,0.25,0.0,0.0,2.5,3.5,2.75,2.5,3.333,3.0,4.0,3.0
+persona_0,openness to experience,inquisitiveness,0.0,0.0,0.5,0.0,0.25,0.25,0.0,0.0,4.0,4.0,0.5,4.25,1.667,2.667,3.25,2.5
+persona_0,openness to experience,unconventionality,0.0,0.0,0.5,0.0,0.0,0.0,0.0,0.0,2.0,3.25,3.5,3.25,3.25,3.5,2.75,3.0
+persona_1,agreeableness,flexibility,0.0,0.0,0.75,0.0,0.5,0.5,0.0,0.5,4.75,4.5,4.0,4.25,3.0,3.0,4.0,3.0
+persona_1,agreeableness,forgiveness,0.0,0.0,0.25,0.0,0.25,0.25,0.0,0.5,2.25,2.75,1.667,2.75,3.0,3.667,2.25,3.5
+persona_1,agreeableness,gentleness,0.0,0.0,0.25,0.0,0.5,0.25,0.0,0.0,2.0,2.5,3.667,2.5,3.0,3.333,2.25,2.5
+persona_1,agreeableness,patience,0.0,0.0,0.5,0.0,0.5,0.25,0.0,0.25,2.75,3.5,2.0,1.75,3.5,2.667,3.0,3.667
+persona_1,altruism,altruism,0.0,0.0,0.25,0.0,0.5,0.5,0.0,0.5,2.75,2.75,3.0,3.5,1.5,2.5,2.25,3.0
+persona_1,conscientiousness,diligence,0.0,0.0,0.0,0.0,0.25,0.75,0.0,1.0,2.75,2.5,2.75,3.0,3.0,2.0,2.75,
+persona_1,conscientiousness,organization,0.0,0.0,0.5,0.0,1.0,0.5,0.0,0.75,3.75,3.5,1.0,3.0,,3.5,2.75,1.0
+persona_1,conscientiousness,perfectionism,0.0,0.0,0.5,0.0,0.5,0.5,0.0,0.0,2.25,2.0,2.5,3.0,2.5,2.5,2.0,2.0
+persona_1,conscientiousness,prudence,0.0,0.0,0.0,0.0,0.5,0.0,0.0,0.25,4.25,3.5,3.0,3.0,3.0,3.25,3.0,3.333
+persona_1,emotionality,anxiety,0.0,0.0,0.75,0.0,0.25,0.5,0.0,0.5,3.0,2.5,0.0,2.75,3.0,3.0,2.25,2.5
+persona_1,emotionality,dependence,0.0,0.0,0.5,0.0,0.25,0.75,0.0,0.5,2.0,2.75,3.0,2.75,3.0,2.0,3.0,4.5
+persona_1,emotionality,fearfulness,0.0,0.0,0.75,0.0,0.25,0.5,0.0,0.75,3.75,3.25,1.0,3.0,3.333,4.0,3.25,2.0
+persona_1,emotionality,sentimentality,0.0,0.0,0.25,0.0,0.0,0.5,0.0,0.75,1.5,2.75,1.333,2.75,2.75,2.0,2.25,2.0
+persona_1,extraversion,liveliness,0.0,0.0,0.5,0.0,1.0,0.75,0.0,0.75,3.5,4.0,2.5,2.75,,2.0,3.5,2.0
+persona_1,extraversion,sociability,0.0,0.0,0.75,0.0,0.75,0.75,0.0,0.5,2.25,3.5,5.0,2.5,4.0,5.0,2.75,2.5
+persona_1,extraversion,social boldness,0.0,0.0,0.5,0.0,0.25,0.5,0.0,0.5,3.25,2.75,4.0,2.75,2.333,2.5,3.0,2.5
+persona_1,extraversion,social self-esteem,0.0,0.0,0.25,0.0,0.25,0.5,0.0,0.25,3.5,3.0,2.667,3.0,3.0,2.0,3.25,2.667
+persona_1,honest-humility,fairness,0.0,0.0,0.5,0.0,0.5,0.5,0.0,0.25,2.75,4.5,3.5,4.0,4.5,6.0,4.25,3.0
+persona_1,honest-humility,greed-avoidance,0.0,0.0,0.25,0.0,0.5,1.0,0.0,0.5,3.5,4.25,4.0,3.75,4.5,,3.75,3.5
+persona_1,honest-humility,modesty,0.0,0.0,0.5,0.0,0.25,0.25,0.0,0.5,3.0,3.5,1.0,3.5,2.667,2.667,3.75,1.0
+persona_1,honest-humility,sincerity,0.0,0.0,0.75,0.0,0.25,0.25,0.0,0.75,2.25,1.5,6.0,3.5,2.333,3.0,2.5,5.0
+persona_1,openness to experience,aesthetic appreciation,0.0,0.0,0.75,0.0,0.0,0.75,0.0,0.5,3.25,3.0,4.0,2.0,2.75,4.0,2.75,2.5
+persona_1,openness to experience,creativity,0.0,0.0,0.75,0.0,0.5,0.75,0.0,0.5,3.0,3.5,3.0,3.25,2.5,3.0,2.25,2.0
+persona_1,openness to experience,inquisitiveness,0.0,0.0,0.5,0.0,1.0,0.75,0.0,0.5,3.0,2.5,1.5,2.25,,1.0,3.75,2.5
+persona_1,openness to experience,unconventionality,0.0,0.0,0.75,0.0,0.5,0.75,0.0,0.75,3.5,4.0,4.0,3.25,3.5,5.0,2.75,3.0

@@ -1,0 +1,19 @@
+,,refusal_rate,refusal_rate,refusal_rate,refusal_rate,refusal_rate,refusal_rate,refusal_rate,refusal_rate,trait_score,trait_score,trait_score,trait_score,trait_score,trait_score,trait_score,trait_score
+paraphrase,,paraphrase,normal,paraphrase,normal,normal,normal,paraphrase,paraphrase,paraphrase,normal,paraphrase,normal,normal,normal,paraphrase,paraphrase
+likert_scale,,normal,normal,normal,inverse,inverse,normal,inverse,inverse,normal,normal,normal,inverse,inverse,normal,inverse,inverse
+refusal_allowed,,No Refusal,No Refusal,Refusal,No Refusal,Refusal,Refusal,No Refusal,Refusal,No Refusal,No Refusal,Refusal,No Refusal,Refusal,Refusal,No Refusal,Refusal
+persona,trait,,,,,,,,,,,,,,,,
+persona_0,agreeableness,0.0,0.0,0.1875,0.0,0.0625,0.0625,0.0,0.125,3.062,3.312,2.923,3.125,2.8,3.467,2.688,3.071
+persona_0,altruism,0.0,0.0,0.25,0.0,0.25,0.0,0.0,0.25,3.75,3.5,2.333,2.5,3.0,4.25,3.5,3.0
+persona_0,conscientiousness,0.0,0.0,0.125,0.0,0.3125,0.125,0.0,0.125,2.812,3.0,3.214,3.562,2.727,3.0,3.0,3.214
+persona_0,emotionality,0.0,0.0,0.25,0.0,0.25,0.125,0.0,0.125,3.062,2.875,2.25,3.125,2.667,2.286,2.812,3.143
+persona_0,extraversion,0.0,0.0,0.125,0.0,0.0625,0.125,0.0,0.0625,3.125,3.125,3.286,2.688,3.0,2.286,3.312,2.867
+persona_0,honest-humility,0.0,0.0,0.1875,0.0,0.125,0.1875,0.0,0.1875,3.75,3.875,3.923,2.938,3.286,2.769,3.75,3.231
+persona_0,openness to experience,0.0,0.0,0.3125,0.0,0.25,0.3125,0.0,0.0,2.688,3.5,2.727,3.25,3.167,3.182,3.188,2.875
+persona_1,agreeableness,0.0,0.0,0.4375,0.0,0.4375,0.3125,0.0,0.3125,2.938,3.312,2.667,2.812,3.111,3.182,2.875,3.091
+persona_1,altruism,0.0,0.0,0.25,0.0,0.5,0.5,0.0,0.5,2.75,2.75,3.0,3.5,1.5,2.5,2.25,3.0
+persona_1,conscientiousness,0.0,0.0,0.25,0.0,0.5625,0.4375,0.0,0.5,3.25,2.875,2.5,3.0,2.857,3.0,2.625,2.375
+persona_1,emotionality,0.0,0.0,0.5625,0.0,0.1875,0.5625,0.0,0.625,2.562,2.812,1.571,2.812,3.0,2.857,2.688,3.0
+persona_1,extraversion,0.0,0.0,0.5,0.0,0.5625,0.625,0.0,0.5,3.125,3.312,3.25,2.75,2.857,2.667,3.125,2.5
+persona_1,honest-humility,0.0,0.0,0.5,0.0,0.375,0.5,0.0,0.5,2.875,3.438,3.375,3.688,3.3,3.625,3.562,2.875
+persona_1,openness to experience,0.0,0.0,0.6875,0.0,0.5,0.75,0.0,0.5625,3.188,3.25,2.8,2.688,2.875,3.25,2.875,2.429
