@@ -1,0 +1,11 @@
+pydantic
+openai
+lm-format-enforcer
+fundus
+transformers
+pyreft
+peft
+bitsandbytes
+accelerate
+wandb
+clize
