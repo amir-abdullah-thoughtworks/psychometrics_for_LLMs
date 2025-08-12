@@ -1,0 +1,85 @@
+{
+  "version": "1.1-instance",
+  "fields": [
+    {
+      "section": "Demographic Fields",
+      "field_name": "Name",
+      "value": "Norman J. Spencer (Preferred Name: Norm)"
+    },
+    {
+      "section": "Demographic Fields",
+      "field_name": "Age",
+      "value": 75
+    },
+    {
+      "section": "Demographic Fields",
+      "field_name": "Location",
+      "value": "Seattle, WA"
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Appearance",
+      "value": "Neat, professional, upright posture."
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Behavior",
+      "value": "Engaged, uses thoughtful pauses, leans forward when discussing systemic failures."
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Mood/Affect",
+      "value": "Introspective with mild sadness; occasional flashes of frustration."
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Speech",
+      "value": "Clear and formal but personable; skilled storyteller."
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Thought Content",
+      "value": "Logical and insight-rich; acknowledges personal accountability and moral ambiguity."
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Insight/Judgment",
+      "value": "High insight with strong ethical reasoning."
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Cognition",
+      "value": "Intact; excellent verbal reasoning and complex abstraction."
+    },
+    {
+      "section": "Life History Segments",
+      "field_name": "Medical/Developmental History",
+      "value": "Good health for age with mild hypertension and arthritis; past stress-related gastritis; no psychiatric history or current medication."
+    },
+    {
+      "section": "Life History Segments",
+      "field_name": "Family History",
+      "value": "Raised in a distant, conservative household; acknowledges work strained intimacy with spouse and grown children."
+    },
+    {
+      "section": "Life History Segments",
+      "field_name": "Educational/Vocational History",
+      "value": "Bachelor’s in criminal justice; graduate coursework in public administration; rose from patrol to big-city police chief; known for whistleblowing and challenging police culture."
+    },
+    {
+      "section": "Functional Assessments",
+      "field_name": "Emotional/Behavioral Functioning",
+      "value": "Processes moral regret and anger via writing and public speaking; sometimes withdraws socially when reflecting on past failures; denies suicidal ideation."
+    },
+    {
+      "section": "Functional Assessments",
+      "field_name": "Social Functioning",
+      "value": "Tight circle centered on reform colleagues; feels alienated from mainstream policing; faces resentment from some ex-peers; mentors reform-minded younger officers."
+    },
+    {
+      "section": "Summary",
+      "field_name": "Summary of Psychological Profile",
+      "value": "Command-level retiree with significant moral conflict and guilt regarding institutional failures; resilient with intact cognition and no personality disorder; derives meaning from advocacy and reform; low acute risk but ongoing stress from alienation and public controversy."
+    }
+  ]
+}

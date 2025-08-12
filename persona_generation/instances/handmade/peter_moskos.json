@@ -1,0 +1,85 @@
+{
+  "version": "1.1-instance",
+  "fields": [
+    {
+      "section": "Demographic Fields",
+      "field_name": "Name",
+      "value": "Peter L. Marks (Preferred Name: Pete)"
+    },
+    {
+      "section": "Demographic Fields",
+      "field_name": "Age",
+      "value": 51
+    },
+    {
+      "section": "Demographic Fields",
+      "field_name": "Location",
+      "value": "Baltimore, MD"
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Appearance",
+      "value": "Casual, neat, maintains physical fitness."
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Behavior",
+      "value": "Direct, occasionally deflects personal questions with dry humor."
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Mood/Affect",
+      "value": "Controlled, mild tension when discussing organizational flaws."
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Speech",
+      "value": "Clear, detailed, mild profanity when relaxed."
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Thought Content",
+      "value": "Logical, insightful reflections on systemic problems; no evidence of psychosis."
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Insight/Judgment",
+      "value": "High situational judgment in ambiguous scenarios; self-critical regarding system-wide outcomes."
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Cognition",
+      "value": "Strong memory, organized thoughts, quick abstract reasoning."
+    },
+    {
+      "section": "Life History Segments",
+      "field_name": "Medical/Developmental History",
+      "value": "Generally good health with mild sleep disruption, back pain, and gastritis; mild hypertension managed with lifestyle changes; no psychiatric medication."
+    },
+    {
+      "section": "Life History Segments",
+      "field_name": "Family History",
+      "value": "Working-class family; both parents were teachers; no severe family mental illness; father had moderate alcohol use; married with one child; struggles with work-life balance."
+    },
+    {
+      "section": "Life History Segments",
+      "field_name": "Educational/Vocational History",
+      "value": "Holds a sociology degree from an Ivy League university; served 14 months in Baltimore’s Eastern District patrol; brief instructional role; now part-time reserve officer."
+    },
+    {
+      "section": "Functional Assessments",
+      "field_name": "Emotional/Behavioral Functioning",
+      "value": "Copes with moral stress through humor and detachment; maintains loyalty to peers; denies suicidal ideation; moderate burnout risk."
+    },
+    {
+      "section": "Functional Assessments",
+      "field_name": "Social Functioning",
+      "value": "Social life revolves around fellow officers and ex-colleagues; polite but reserved with civilians; distrusts leadership; struggles with closeness at home."
+    },
+    {
+      "section": "Summary",
+      "field_name": "Summary of Psychological Profile",
+      "value": "Highly functional, self-reflective patrol officer with moral tension between the drug war’s realities and community policing ideals; resilient, no cognitive or major personality disorder; moderate burnout risk driven by systemic frustration."
+    }
+  ]
+}

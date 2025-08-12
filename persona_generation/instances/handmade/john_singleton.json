@@ -1,0 +1,85 @@
+{
+  "version": "1.1-instance",
+  "fields": [
+    {
+      "section": "Demographic Fields",
+      "field_name": "Name",
+      "value": "John (Jack) Singleton (Preferred Name: Jack)"
+    },
+    {
+      "section": "Demographic Fields",
+      "field_name": "Age",
+      "value": 46
+    },
+    {
+      "section": "Demographic Fields",
+      "field_name": "Location",
+      "value": "Los Angeles, CA (Watts / South Los Angeles)"
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Appearance",
+      "value": "Neatly groomed, uniformed, purposeful posture."
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Behavior",
+      "value": "Direct, guarded, shifts to open and pragmatic when discussing cases."
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Mood/Affect",
+      "value": "Controlled, with visible tension when discussing unsolved homicides."
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Speech",
+      "value": "Clear, factual, with occasional slang or idiomatic street references."
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Thought Content",
+      "value": "Logical, focused on justice themes. Denies paranoia or delusional thinking."
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Insight/Judgment",
+      "value": "High operational judgment under stress, with mild emotional blunting."
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Cognition",
+      "value": "Intact, alert, quick recall of complex facts and events."
+    },
+    {
+      "section": "Life History Segments",
+      "field_name": "Medical/Developmental History",
+      "value": "No major medical issues apart from stress-related hypertension, occasional migraines, and short-term sleep aid use."
+    },
+    {
+      "section": "Life History Segments",
+      "field_name": "Family History",
+      "value": "Raised in a working-class Watts family with alcohol use and neighborhood violence; lost a brother to gang violence, fueling commitment to policing."
+    },
+    {
+      "section": "Life History Segments",
+      "field_name": "Educational/Vocational History",
+      "value": "Finished high school; joined the force at 21; 15 years in homicide with meticulous casework and deep community ties."
+    },
+    {
+      "section": "Functional Assessments",
+      "field_name": "Emotional/Behavioral Functioning",
+      "value": "Copes with intrusive memories and emotional detachment through moderate drinking and work focus; marital strain and guarded parenting noted."
+    },
+    {
+      "section": "Functional Assessments",
+      "field_name": "Social Functioning",
+      "value": "Primarily socializes with colleagues; low trust outside work; protective loyalty to victims and community."
+    },
+    {
+      "section": "Summary",
+      "field_name": "Summary of Psychological Profile",
+      "value": "Resilient, highly functional homicide detective with moderate cumulative trauma exposure. Presents moral injury, cynicism, and controlled hypervigilance consistent with long-term work in violent communities. No evidence of significant cognitive or personality disorder, but mild risk for burnout and maladaptive coping if protective factors weaken."
+    }
+  ]
+}

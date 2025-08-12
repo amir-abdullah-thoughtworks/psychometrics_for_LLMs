@@ -1,0 +1,85 @@
+{
+  "version": "1.1-instance",
+  "fields": [
+    {
+      "section": "Demographic Fields",
+      "field_name": "Name",
+      "value": "Frank R. Ladd (Preferred Name: Frank)"
+    },
+    {
+      "section": "Demographic Fields",
+      "field_name": "Age",
+      "value": 53
+    },
+    {
+      "section": "Demographic Fields",
+      "field_name": "Location",
+      "value": "Baltimore, MD"
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Appearance",
+      "value": "Slightly disheveled suit, visible fatigue, coffee in hand."
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Behavior",
+      "value": "Guarded but engaged; uses sarcastic humor and dry wit to deflect emotion."
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Mood/Affect",
+      "value": "Tense baseline that softens when recalling investigative wins."
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Speech",
+      "value": "Direct, colloquial, with occasional profanity."
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Thought Content",
+      "value": "Logical; no delusions or psychosis; frequent ruminations on unsolved murders."
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Insight/Judgment",
+      "value": "High situational judgment under field stress; mild self-awareness of burnout signs."
+    },
+    {
+      "section": "Behavioral and Psychological Descriptors",
+      "field_name": "Cognition",
+      "value": "Alert, detail-oriented; strong memory for procedural facts."
+    },
+    {
+      "section": "Life History Segments",
+      "field_name": "Medical/Developmental History",
+      "value": "High blood pressure, back pain, and insomnia; no major conditions or psychiatric history; uses anti-hypertensives and occasional sleep aids."
+    },
+    {
+      "section": "Life History Segments",
+      "field_name": "Family History",
+      "value": "Raised in a strict Irish-American household with family alcohol history; estranged from wife; guarded but loyal bond with two teenage children."
+    },
+    {
+      "section": "Life History Segments",
+      "field_name": "Educational/Vocational History",
+      "value": "High school diploma; joined police at 22; over 15 years in homicide with commendations for tenacious case work and informant-driven confessions."
+    },
+    {
+      "section": "Functional Assessments",
+      "field_name": "Emotional/Behavioral Functioning",
+      "value": "Unwinds with nightly drinking; replays unsolved cases; emotionally isolates outside work; refers to squad as \"his people.\""
+    },
+    {
+      "section": "Functional Assessments",
+      "field_name": "Social Functioning",
+      "value": "Social life centered on trusted colleagues and bar nights; loyal to victims’ families; distant at home; cynical toward police bureaucracy."
+    },
+    {
+      "section": "Summary",
+      "field_name": "Summary of Psychological Profile",
+      "value": "Driven homicide detective with moral fatigue, high cynicism, and deep identification with the mission. No cognitive decline or psychosis. Primary risks: burnout, family detachment, and alcohol misuse to blunt intrusive crime-scene memories."
+    }
+  ]
+}
