@@ -37,7 +37,7 @@ DEFAULT_SIM_THRESHOLD = 0.98
 DEFAULT_MODEL = "gpt-4o"
 DEFAULT_SCHEMA_PATH = "schema.json"
 DEFAULT_OUT_PATH = "output.json"
-DEFAULT_BATCH_SIZE = 10
+DEFAULT_BATCH_SIZE = 5
 DEFAULT_TOTAL = 300
 DEFAULT_PRIVATE = False  # always push private unless overridden
 
