@@ -1,6 +1,5 @@
 from huggingface_hub import login
-hf_token = "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"
-login(token=hf_token, add_to_git_credential=True)
+login(add_to_git_credential=True)
 
 import json
 import os
@@ -21,7 +20,6 @@ from datasets import load_dataset
 from methods.control_vectors.control import ControlModel
 from methods.control_vectors.extract import ControlVector, DatasetEntry 
 from langchain.chat_models import ChatOpenAI
-os.environ['OPENAI_API_KEY'] = "sk-proj-RhpNuVTcfW3mEoSyMQwNT3BlbkFJrlHIHpVZCAiqHWw9ZyDr"
 
 import re
 import pdb

@@ -1,6 +1,5 @@
 from huggingface_hub import login
-hf_token = "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"
-login(token=hf_token, add_to_git_credential=True)
+login(add_to_git_credential=True)
 
 import json
 import os
@@ -27,7 +26,7 @@ from tqdm import tqdm
 
 import pdb
 
-os.environ['OPENAI_API_KEY'] = "sk-proj-RhpNuVTcfW3mEoSyMQwNT3BlbkFJrlHIHpVZCAiqHWw9ZyDr"
+
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 

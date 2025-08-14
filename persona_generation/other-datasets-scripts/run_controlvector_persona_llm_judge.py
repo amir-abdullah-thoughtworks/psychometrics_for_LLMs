@@ -24,7 +24,7 @@ from tqdm import tqdm
 
 import pdb
 
-os.environ['OPENAI_API_KEY'] = "sk-proj-RhpNuVTcfW3mEoSyMQwNT3BlbkFJrlHIHpVZCAiqHWw9ZyDr"
+
 
 
 templates = {
