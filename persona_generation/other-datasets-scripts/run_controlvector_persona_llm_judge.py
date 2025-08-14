@@ -1,6 +1,5 @@
 from huggingface_hub import login
-hf_token = "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"
-login(token=hf_token, add_to_git_credential=True)
+login(add_to_git_credential=True)
 
 import json
 import os
