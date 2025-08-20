@@ -87,7 +87,7 @@ def question_to_mcq_prompt(generated_question, trait):
     return prompt_template
 
 
-def openai_api_call(persona_prompt, prompt, model="gpt-4.1-mini"):
+def openai_api_call(prompt, persona_prompt="You are a helpful assistant.", model="gpt-4.1-mini"):
 
     # Set your OpenAI API key
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -102,8 +102,7 @@ def openai_api_call(persona_prompt, prompt, model="gpt-4.1-mini"):
     response = client.chat.completions.create(
         model=model,
         messages=messages,
-        temperature=0.7,
-        max_tokens=500
+        max_completion_tokens=10000
     )
     return response.choices[0].message.content
 
