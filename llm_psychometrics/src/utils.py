@@ -87,7 +87,7 @@ def question_to_mcq_prompt(generated_question, trait):
     return prompt_template
 
 
-def openai_api_call(prompt, persona_prompt="You are a helpful assistant.", model="gpt-4.1-mini"):
+def openai_api_call(prompt, response_format, persona_prompt="You are a helpful assistant. Always respond with valid JSON. No explanations.", model="gpt-4.1-mini"):
 
     # Set your OpenAI API key
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -102,9 +102,16 @@ def openai_api_call(prompt, persona_prompt="You are a helpful assistant.", model
     response = client.chat.completions.create(
         model=model,
         messages=messages,
-        max_completion_tokens=10000
+        response_format={
+            "type": "json_schema",
+            "json_schema": {
+                "name": "SyntheticSJT",
+                "schema": response_format.model_json_schema()
+            }
+        }
     )
-    return response.choices[0].message.content
+    parsed = response.choices[0].message.content
+    return response_format.model_validate_json(parsed)
 
 
 def generate_mcq_per_statement(statement, trait, persona_prompt="You are a helpful assistant. Always respond with valid JSON. No explanations.", n=10):
