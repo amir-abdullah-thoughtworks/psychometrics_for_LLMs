@@ -1,0 +1,70 @@
+urgency_level:
+  - low
+  - medium
+  - high
+
+threat_level:
+  - low
+  - medium
+  - high
+
+ambiguity_level:
+  - clear
+  - moderate
+  - high
+
+individuals_involved:
+  - simple
+  - moderate
+  - complex
+
+authority_relationships:
+  - peer_level
+  - subordinate
+  - authority
+
+ethical_considerations:
+  - policy_compliance_vs_shortcuts
+  - transparency_vs_self_protection
+  - individual_vs_team_loyalty
+  - authority_vs_compassion
+  - procedure_vs_innovation
+
+situation_type:
+  - patrol_traffic_stop
+  - crime_scene_investigation
+  - emergency_response
+  - administrative_reporting
+  - training_supervision
+  - inter_agency_cooperation
+  - mental_health_crises
+
+time_of_day:
+  - morning
+  - afternoon
+  - evening
+  - night
+
+race:
+  - white
+  - black_or_african_american
+  - hispanic_latino
+  - asian
+  - native_american_alaska_native
+  - pacific_islander
+  - other_multiracial
+  - unknown
+
+gender:
+  - male
+  - female
+  - non_binary
+  - unknown
+
+age:
+  - juvenile
+  - young_adult
+  - adult
+  - middle_aged
+  - senior
+  - unknown
