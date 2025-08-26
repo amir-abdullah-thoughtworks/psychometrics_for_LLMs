@@ -63,7 +63,7 @@ else:
     ).to(device)
 
     # Create outlines-wrapped model
-    model = outlines.from_transformers(hf_model, tokenizer)
+    model = outlines.from_transformers(hf_model, tokenizer,  temperature=0)
 
 synthetic_sjts = read_json('sjt_data/synthetic_generated_sjt_list.json')
 synthetic_sjts_v2 = read_json('sjt_data/synthetic_generated_sjt_list_v2.json')
