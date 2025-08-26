@@ -17,6 +17,7 @@ law_enforcement:
       Insight/Judgment: High operational judgment under stress, with mild emotional blunting.
       Cognition: Intact, alert, quick recall of complex facts and events.
       Summary: Jack Singleton is a resilient, highly functional homicide detective with moderate cumulative trauma exposure. He shows classic traits of moral injury, cynicism, and controlled hypervigilance, consistent with long-term police work in violent communities. While there is no evidence of significant cognitive or personality disorder, he is at mild risk for burnout and maladaptive coping if protective factors weaken.
+      uuid: d6b15b6d-79f5-4f26-88c1-6df277a72460
     - Name: Norman J. Spencer (Preferred Name - Norm)
       Age: 75 years
       Presenting Problems: Retired police chief burdened by moral conflict and guilt about institutional failures but remains driven to advocate for reform.
@@ -33,6 +34,7 @@ law_enforcement:
       Insight/Judgment: High, with strong ethical reasoning.
       Cognition: Intact; excellent verbal reasoning and complex abstraction.
       Summary: Norm’s profile illustrates the emotional toll of decades in high command, marked by internal conflict between loyalty and conscience. He shows no cognitive decline, no personality disorder, and no significant active risk behaviors. His resilience stems from meaningful advocacy and his belief in constructive reform.
+      uuid: 49f2a07d-dade-4622-a9f4-511a82b2a89f
     - Name: Frank R. Ladd (Preferred Name - Frank)
       Age: 53 years
       Presenting Problems: A driven homicide detective who lives for solving murders but carries chronic stress, moral fatigue, and strained family ties without significant functional impairment.
@@ -49,6 +51,7 @@ law_enforcement:
       Insight/Judgment: High situational judgment under field stress; mild self-awareness of burnout signs.
       Cognition: Alert, detail-oriented, high memory for procedural facts.
       Summary: Frank Ladd shows classic “murder police” traits, fierce work ethic, moral weariness, high cynicism, and deep identification with the homicide mission. He demonstrates no cognitive decline and no active psychosis. His biggest risks are burnout, family detachment, and alcohol misuse to dull intrusive crime-scene memories.
+      uuid: b38d43e4-8072-4014-826d-4689fb237e18
     - Name: Peter L. Marks (Preferred Name - Pete)
       Age: 51 years
       Presenting Problems: Mid-career urban patrol officer who struggles with stress, moral injury, and frustration about the drug war but stays loyal to the police brotherhood.
@@ -65,3 +68,4 @@ law_enforcement:
       Insight/Judgment: High situational judgment in ambiguous scenarios. Self-critical regarding system-wide outcomes.
       Cognition: Strong memory, organized thoughts, quick abstract reasoning.
       Summary: Highly functional, self-reflective patrol officer with moral tension between the drug war’s realities and the ideals of community policing. He shows no evidence of cognitive or severe personality disorder. He is resilient but carries moderate burnout risk, driven by systemic frustration more than personal trauma.
+      uuid: f963ef2d-e45b-4b8e-99eb-daa40ca4d201

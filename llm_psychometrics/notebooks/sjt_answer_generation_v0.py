@@ -36,6 +36,12 @@ openai_model_name = "gpt-4.1-mini"
 openai_model = outlines.from_openai(OpenAI(), openai_model_name)
 
 synthetic_sjts = read_json('sjt_data/synthetic_generated_sjt_list.json')
+synthetic_sjts_v2 = read_json('sjt_data/synthetic_generated_sjt_list_v2.json')
+
+synthetic_sjts = synthetic_sjts + synthetic_sjts_v2
+
+with open('../configs/personas_v2.yaml', 'r') as file:
+    personas = yaml.safe_load(file)
 
 hf_persona_dataset = load_dataset("thoughtworks/psychometric_personas")
 hf_persona_dataset = hf_persona_dataset['train']
@@ -66,22 +72,34 @@ def batch_list(lst, n):
         yield lst[i:i + n]
         
 def openai_answer(prompt):
-    response = openai_model(prompt, OpenaiResponse)
+    response = openai_model(prompt, OpenaiResponse,temperature=0)
     return json.loads(response)['response']
         
-def generate_answers(hf_persona_dataset, sjt_list, batch_size = 5,answer_shuffle=False):
+def generate_answers(sjt_list, batch_size = 5,answer_shuffle=False, hf_personas = False):
     
     answer_index = [0,1,2,3,4,5]
+    job_title = 'law_enforcement'
     if answer_shuffle:
         random.shuffle(answer_index)
     sjt_answers = []
-    for index, persona_dataset in enumerate(hf_persona_dataset):
-        print(index)
-        persona = persona_dataset['persona_text']
+    
+    if hf_personas:
+        persona_datasets = hf_persona_dataset
+    else:
+        persona_datasets = personas[job_title]['personas']
+        
+    print(f"No of personas: {len(persona_datasets)}")
+    print(f"No of SJTs: {len(sjt_list)}")
+    
+    for persona_dataset in tqdm(persona_datasets, desc="Personas", position=0):
+        if hf_personas:
+            persona = persona_dataset['persona_text']
+        else:
+            persona = ",\n".join([f"{key} : {persona_dataset[key]}" for key in persona_dataset if key != 'uuid'])
         
         persona_answers = []
         question_hashes = []
-        for sjt_batch in tqdm(batch_list(sjt_list, batch_size), desc="Batches", position=2):
+        for sjt_batch in tqdm(batch_list(sjt_list, batch_size), desc="Batches", position=1):
             prompt_list = []
             hash_list = []
             for sjt in sjt_batch:
@@ -116,5 +134,5 @@ def generate_answers(hf_persona_dataset, sjt_list, batch_size = 5,answer_shuffle
 
 
 if __name__ == "__main__":
-    sjt_answers = generate_answers([hf_persona_dataset[0]],synthetic_sjts[:5])
-    write_to_json(sjt_answers,"sjt_answers_sample.json")
+    sjt_answers = generate_answers(synthetic_sjts)
+    write_to_json(sjt_answers,"sjt_answers_handmade_personas_62_sjts.json")
