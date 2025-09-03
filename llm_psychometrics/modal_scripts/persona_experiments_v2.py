@@ -40,7 +40,7 @@ with open('personas_v2.yaml', 'r') as file:
     
 
 from huggingface_hub import login
-login("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")
+login("")
 
 MODEL_NAME = "meta-llama/Llama-3.2-1B-Instruct"
 
