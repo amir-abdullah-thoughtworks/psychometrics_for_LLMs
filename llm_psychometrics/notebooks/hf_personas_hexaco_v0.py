@@ -1,39 +1,52 @@
 import torch as t
 import outlines
-from outlines import Generator
+import transformers
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from pydantic import BaseModel
 from typing import Literal
-from enum import Enum
+import argparse
 import yaml
-import pandas as pd
-import numpy as np
 import sys
 import os
 import json
-import re
+from huggingface_hub import login
 from tqdm import tqdm
+from datasets import load_dataset
 from openai import OpenAI
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 sys.path.append("../")
-from src.utils import inverse_likert, list_to_str
+
+transformers.logging.set_verbosity_error()
+
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
-from datasets import Dataset, load_dataset
+print(f"Device: {device}")
+
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument("--model-name", type=str, help="Model Name",
+                    default="gpt-4.1-mini")
+
+args = parser.parse_args()
+
+print(f"Model Used: {args.model_name}")
+
+
+class OpenaiResponse(BaseModel):
+    response: str
 
 
 def write_to_json(file, file_path):
     with open(file_path, 'w') as f:
         json.dump(file, f)
-        
+
+
 def read_json(file_path):
     with open(file_path, "r") as f:
         file = json.load(f)
     return file
 
-class OpenaiResponse(BaseModel):
-    response: str
-    
-from huggingface_hub import login
+
 login("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")
 
 with open('../configs/generation_config.yaml', 'r') as file:
@@ -50,10 +63,23 @@ with open('../psychometric_tests/hexaco_100_eval.yaml', 'r') as file:
 
 with open('../configs/personas_v2.yaml', 'r') as file:
     personas = yaml.safe_load(file)
-    
-openai_model_name = "gpt-4.1-mini"
-openai_model = outlines.from_openai(OpenAI(), openai_model_name)
 
+if "gpt" in args.model_name:
+    # print(f"Using GPT Generation. Model Used: {args.model_name}")
+    model = outlines.from_openai(OpenAI(), args.model_name)
+else:
+    # print(f"Using Local Generation. Model Used: {args.model_name}")
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+    hf_model = AutoModelForCausalLM.from_pretrained(
+        args.model_name,
+        torch_dtype=t.float16
+    ).to(device)
+    
+    # tokenizer.pad_token = tokenizer.eos_token
+    # hf_model.config.pad_token_id = tokenizer.eos_token_id
+
+    # Create outlines-wrapped model
+    model = outlines.from_transformers(hf_model, tokenizer)
 
 NO_ANSWER = "Do not wish to answer"
 likert_scale = generation_config['likert_scale'].copy()
@@ -79,32 +105,53 @@ Answer the question as either {{ likert_scale }}.
 <|im_start>assistant
 """)
 
-def answer(prompt):
-    response = openai_model(prompt, OpenaiResponse)
+
+def openai_answer(prompt):
+    response = model(prompt, OpenaiResponse, temperature=0)
     return json.loads(response)['response']
 
-def openai_generation(hexaco_template, model, question_batch, likert_scale, batching = False,persona_str=None, persona_base_text=None):
+
+def local_answer(prompt, answer_options=likert_scale):
+    response = model(prompt, Literal[*answer_options])
+    return response
+
+
+def generation_function(hexaco_template, question_batch, likert_scale,
+                      batching=False, persona_str=None, persona_base_text=None):
     if batching:
         raise NotImplementedError()
     else:
         prompt_list = []
         for question in question_batch:
-            prompt = hexaco_template(text=question, likert_scale = ", ".join(likert_scale), base_text = persona_base_text, attributes = persona_str)
+            prompt = hexaco_template(text=question,
+                                     likert_scale=", ".join(likert_scale),
+                                     base_text=persona_base_text,
+                                     attributes=persona_str)
             prompt = f"{prompt}, use the json format."
             prompt_list.append(prompt)
-    
-        
-    
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            results = list(executor.map(answer, prompt_list))
+
+        if "gpt" in args.model_name:
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                results = list(executor.map(openai_answer, prompt_list))
+        else:
+            results = []
+            for prompt in prompt_list:
+                results.append(local_answer(prompt))
+            # with ThreadPoolExecutor(max_workers=4) as executor:
+            #     results = list(executor.map(local_answer, prompt_list))
+
         return results
-    
+
+
 def batch_list(lst, n):
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
 
-def generate_answers(persona_datasets, generation_function ,model, question_list, likert_scale, n_times = 1, batch_size = 5, batching = False):
-    
+
+def generate_answers(persona_datasets, generation_function,
+                     question_list, likert_scale, n_times=1,
+                     batch_size=5, batching=False):
+
     answers = {}
     hexaco_template = persona_hexaco_template
     # base_text = personas[job_title]['base_text']
@@ -116,13 +163,12 @@ def generate_answers(persona_datasets, generation_function ,model, question_list
         for i in tqdm(range(n_times), desc="Iterations", position=1):
             persona_answer = []
             for question_batch in tqdm(batch_list(question_list, batch_size), desc="Batches", position=2):
-                batch_answers = generation_function(hexaco_template = hexaco_template, 
-                                                    model = model, 
-                                                    question_batch = question_batch,
-                                                    likert_scale = likert_scale,
-                                                    persona_str = persona_str,
-                                                    persona_base_text = base_text,
-                                                    batching = batching)
+                batch_answers = generation_function(hexaco_template=hexaco_template, 
+                                                    question_batch=question_batch,
+                                                    likert_scale=likert_scale,
+                                                    persona_str=persona_str,
+                                                    persona_base_text=base_text,
+                                                    batching=batching)
                 persona_answer.extend(batch_answers)
             repeated_answers.append(persona_answer)
         persona_dict = {}
@@ -143,6 +189,8 @@ for start in range(40, len(persona_dataset_df), batch_size):
     print(f"Batch {start}")
     batch = persona_dataset_df.iloc[start:start+batch_size]
     batch = batch.to_dict("records")
-    hf_persona_answers = generate_answers(batch,openai_generation, openai_model, question_list, likert_scale)
-    write_to_json(hf_persona_answers, os.path.join("hf_personas_hexaco_results_v0",f"hf_persona_answers_v{start}.json"))
+    hf_persona_answers = generate_answers(batch, generation_function,
+                                          question_list, likert_scale)
+    
+    # write_to_json(hf_persona_answers, os.path.join("hf_personas_hexaco_results_v0",f"hf_persona_answers_v{start}.json"))
 
