@@ -2,9 +2,25 @@ import itertools
 import os
 from openai import OpenAI
 import json
-from typing import List
+from typing import List, Any
 
 # os.environ["OPENAI_API_KEY"] = "your-api-key"
+
+
+def write_to_json(file: Any, file_path: str):
+    with open(file_path, 'w') as f:
+        json.dump(file, f)
+
+
+def read_json(file_path: str):
+    with open(file_path, "r") as f:
+        file = json.load(f)
+    return file
+
+
+def batch_list(lst, n):
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
 
 
 def list_to_str(question_list: List):
@@ -29,21 +45,6 @@ def paraphrasing_prompt_template(question_list: List):
     {questions}
     """
     return prompt_template
-
-
-def persona_curation(base_text, job_persona):
-    return f"""{base_text} who is a {job_persona['Summary']}.
-                You are {job_persona['Age']} years old, based out of
-                {job_persona['Location']}.
-                You have a background as a {job_persona['Background']},
-                you are {job_persona['Personality Traits']}
-                and {job_persona['Style']}"""
-
-
-def prompt_formatting(persona, base_prompt, questions):
-    prompt = f"""{persona} \nTask: {base_prompt} \nQuestion: \n{questions}
-                    \n Answer:"""
-    return prompt
 
 
 def generate_combinations(dict1, dict2):
