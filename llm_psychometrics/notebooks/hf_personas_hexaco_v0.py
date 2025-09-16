@@ -1,5 +1,6 @@
 import torch as t
 import outlines
+from outlines import Generator
 import transformers
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from pydantic import BaseModel
@@ -8,6 +9,7 @@ import argparse
 import yaml
 import sys
 import os
+import re
 import json
 from huggingface_hub import login
 from tqdm import tqdm
@@ -15,6 +17,7 @@ from datasets import load_dataset
 from openai import OpenAI
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 sys.path.append("../")
+from src.utils import list_to_str
 
 transformers.logging.set_verbosity_error()
 
@@ -100,7 +103,7 @@ Task: Answer the below questions:
 
 {{ text }}
 
-Answer the question as either {{ likert_scale }}.
+Answer the question as either {{ likert_scale }}. Do not return the question, just return the answer directly.
 <|im_end>
 <|im_start>assistant
 """)
@@ -119,7 +122,14 @@ def local_answer(prompt, answer_options=likert_scale):
 def generation_function(hexaco_template, question_batch, likert_scale,
                       batching=False, persona_str=None, persona_base_text=None):
     if batching:
-        raise NotImplementedError()
+        generator = Generator(model)
+        prompt = hexaco_template(text=list_to_str(question_batch),
+                                 likert_scale=", ".join(likert_scale),
+                                 base_text=persona_base_text,
+                                 attributes=persona_str)
+        answers = generator(prompt).strip().replace(">","").splitlines()
+        results = [re.sub(r"[^a-zA-Z]", "", answer).strip()
+                   for answer in answers]
     else:
         prompt_list = []
         for question in question_batch:
@@ -140,7 +150,7 @@ def generation_function(hexaco_template, question_batch, likert_scale,
             # with ThreadPoolExecutor(max_workers=4) as executor:
             #     results = list(executor.map(local_answer, prompt_list))
 
-        return results
+    return results
 
 
 def batch_list(lst, n):
@@ -152,6 +162,10 @@ def generate_answers(persona_datasets, generation_function,
                      question_list, likert_scale, n_times=1,
                      batch_size=5, batching=False):
 
+    if batching:
+        print(f"Batching {batch_size} Questions together in one prompt")
+    else:
+        print("Passing One question per prompt")
     answers = {}
     hexaco_template = persona_hexaco_template
     # base_text = personas[job_title]['base_text']
@@ -183,14 +197,13 @@ def generate_answers(persona_datasets, generation_function,
     return answers
 
 
-batch_size = 20
+batch_size = 10
 persona_dataset_df = persona_datasets.to_pandas()
-for start in range(40, len(persona_dataset_df), batch_size):
+for start in range(0, 30, batch_size):
     print(f"Batch {start}")
     batch = persona_dataset_df.iloc[start:start+batch_size]
     batch = batch.to_dict("records")
     hf_persona_answers = generate_answers(batch, generation_function,
-                                          question_list, likert_scale)
-    
-    # write_to_json(hf_persona_answers, os.path.join("hf_personas_hexaco_results_v0",f"hf_persona_answers_v{start}.json"))
+                                          question_list, likert_scale, batching=True)
 
+    write_to_json(hf_persona_answers, os.path.join("hf_persona_batching_vs_individual_questions_results_v0",f"hf_persona_answers_with_batching_v{start}.json"))
