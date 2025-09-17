@@ -1,4 +1,85 @@
 import pandas as pd
+import re
+
+
+def locations_distribution_by_state(
+        csv_path: str,
+        year: int = 2024,
+        location_sumlev: int = 162,  # 162 = Places; change to 050 for counties if desired
+):
+    """
+    Return a nested dict of per-state location distributions (dropping 'United States' and state aggregates).
+
+    Output shape:
+    {
+        "Utah": {"Salt Lake City": 0.0662, "West Valley City": 0.0420, ...},
+        "California": {"Los Angeles": 0.093..., "San Diego": ...},
+        ...
+    }
+    Probabilities for each state sum to 1 across its locations.
+    """
+    # Robust read (Census files often need latin-1 + python engine)
+    df = pd.read_csv(csv_path, encoding="latin-1", engine="python")
+
+    # Drop national aggregate if present
+    if "STNAME" in df.columns:
+        df = df[df["STNAME"].ne("United States")]
+    if "NAME" in df.columns:
+        df = df[df["NAME"].ne("United States")]
+
+    # Keep only desired geography level (drop state/county aggregates)
+    if "SUMLEV" in df.columns:
+        df = df[df["SUMLEV"] == location_sumlev]
+
+    # Choose population column for requested year; fallback to latest available
+    pop_col = f"POPESTIMATE{year}"
+    if pop_col not in df.columns:
+        pop_cols = sorted([c for c in df.columns if c.startswith("POPESTIMATE")])
+        if not pop_cols:
+            raise ValueError("No POPESTIMATE* columns found.")
+        pop_col = pop_cols[-1]
+
+    # Clean trailing legal designations from place names (e.g., "Salt Lake City city" -> "Salt Lake City")
+    suffixes = [
+        r"city and borough", r"charter township", r"charter town",
+        r"metropolitan government", r"consolidated government",
+        r"metro government", r"urban county", r"city-county consolidated government",
+        r"municipality", r"borough", r"village", r"plantation", r"town", r"city", r"cdp", r"balance"
+    ]
+    suffix_pattern = re.compile(r"\s+(?:" + "|".join(suffixes) + r")$", flags=re.IGNORECASE)
+    balance_paren_pattern = re.compile(r"\s*\(balance\)$", flags=re.IGNORECASE)
+
+    def clean_place(name: str) -> str:
+        s = str(name).strip()
+        # Remove "(balance)" if present
+        s = balance_paren_pattern.sub("", s)
+        # Iteratively strip trailing legal suffixes
+        while suffix_pattern.search(s):
+            s = suffix_pattern.sub("", s).strip()
+        return s
+
+    df["clean_place"] = df["NAME"].apply(clean_place)
+
+    # Aggregate by state and cleaned place name (in case multiple rows roll up to the same cleaned name)
+    grouped = (
+        df.groupby(["STNAME", "clean_place"], as_index=False)[pop_col]
+        .sum()
+        .rename(columns={pop_col: "weight"})
+    )
+
+    # Build per-state normalized distributions
+    result = {}
+    for state, g in grouped.groupby("STNAME"):
+        total = g["weight"].sum()
+        dist = {row["clean_place"]: (row["weight"] / total if total > 0 else 0.0)
+                for _, row in g.iterrows()}
+        result[state] = dist
+
+    return result
+# Show top 10 for Utah and California as a quick sanity check
+def top_k(d, k=10):
+    return dict(sorted(d.items(), key=lambda x: x[1], reverse=True)[:k])
+
 
 def load_state_age_distribution_full(csv_path: str, year: int = 2024, min_age: int = 21, max_age: int = 65):
     """
