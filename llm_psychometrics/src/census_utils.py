@@ -30,6 +30,9 @@ def load_state_age_distribution_full(csv_path: str, year: int = 2024, min_age: i
     result = {}
     state_weights = {}
     for state, g_state in df.groupby("NAME"):
+        if state == 'United States':
+            continue
+
         out = {}
 
         # totals by sex for gender weighting
