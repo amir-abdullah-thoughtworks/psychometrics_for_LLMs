@@ -1,18 +1,12 @@
 from jinja2 import Template
 import pandas as pd
-import os
 import yaml
 import sys
 import json
 import random
 import hashlib
 from itertools import product
-import torch as t
-from transformers import AutoTokenizer, AutoModelForCausalLM
 from pydantic import BaseModel
-import outlines
-from outlines import Generator
-from openai import OpenAI
 from tqdm import tqdm
 sys.path.append("../")
 from src.utils import list_to_str, openai_api_call
@@ -22,20 +16,23 @@ device = "cpu"
 def write_to_json(file, file_path):
     with open(file_path, 'w') as f:
         json.dump(file, f)
-        
+
+
 def read_json(file_path):
     with open(file_path, "r") as f:
         file = json.load(f)
     return file
 
+
 def expand_dict_combinations(data):
     keys = list(data.keys())
     values = [data[k] for k in keys]
-    
+
     combos = []
     for prod in product(*values):
         combos.append(dict(zip(keys, prod)))
     return combos
+
 
 def generate_hash(prompt):
     hash_object = hashlib.sha256()
@@ -56,7 +53,7 @@ class SyntheticSJT(BaseModel):
 with open('../configs/synthetic_sjt_seeds.yaml', 'r') as file:
     synthetic_sjt_seeds = yaml.safe_load(file)
 
-handmade_sjt_template_df = pd.read_csv("sjt_data/sjt_jinja_template.csv")
+handmade_sjt_template_df = pd.read_csv("sjt_data/sjt_jinja_template_v2.csv")
 
 
 all_seed_combos = expand_dict_combinations(synthetic_sjt_seeds)
@@ -65,7 +62,7 @@ print(f"No of  Combos: {len(all_seed_combos)}")
 
 random.seed(42)
 n = 60
-sampled_seed_combos =  random.sample(all_seed_combos, n)
+sampled_seed_combos = random.sample(all_seed_combos, n)
 
 SJT_GENERATION_TEMPLATE_STR = """You are creating a new law enforcement Situational Judgment Test (SJT) scenario by modifying an existing scenario with new attribute values. Follow the template below to generate a realistic, professionally appropriate scenario that maintains the core decision-making structure while incorporating the specified attributes.
 
@@ -137,13 +134,13 @@ Generate six response options (1-6) that:
 Provide the complete SJT scenario followed by the six response options as a JSON object with the following schema:
 
 {
-  "question": "<string>",
-  "honesty_humility_option": "<string>",
-  "emotionality_option": "<string>",
-  "extraversion_option": "<string>",
-  "agreeableness_option": "<string>",
-  "conscientiousness_option": "<string>",
-  "openness_option": "<string>"
+  'question': '<string>',
+  'honesty_humility_option': '<string>',
+  'emotionality_option': '<string>',
+  'extraversion_option': '<string>',
+  'agreeableness_option': '<string>',
+  'conscientiousness_option': '<string>',
+  'openness_option': '<string>'
 }
 
 Do not include any extra text, explanation, or formatting outside of the JSON object.
@@ -152,7 +149,7 @@ Do not include any extra text, explanation, or formatting outside of the JSON ob
 sjt_example_template_str = """
 
 Question: {{ question }}
-Options: 
+Options:
 
 {{ answer_options}}
 
@@ -165,22 +162,28 @@ option_cols = ['Option 1', 'Option 2', 'Option 3', 'Option 4', 'Option 5','Optio
 
 synthetic_generated_sjt_list = []
 handmade_sjt_sample = handmade_sjt_template_df.sample(7)
-for index, row in tqdm(handmade_sjt_sample.iterrows(), desc = "base_scenario", position=0):
+for index, row in tqdm(handmade_sjt_sample.iterrows(), desc="base_scenario",
+                       position=0):
     question = row['Question']
     answer_options = list_to_str(row[option_cols])
-    
-    base_scenario = sjt_example_template.render(question = question, answer_options=answer_options)
-    for seed_dict in tqdm(random.sample(sampled_seed_combos,8), desc = "seeds", position=1):
+
+    base_scenario = sjt_example_template.render(question=question,
+                                                answer_options=answer_options)
+    for seed_dict in tqdm(random.sample(sampled_seed_combos, 8), desc="seeds",
+                          position=1):
         generated_sjt_dict = {}
         # generated_sjt_dict['base_scenario'] = base_scenario
         seed_dict['base_scenario'] = base_scenario
         sjt_generation_prompt = SJT_GENERATION_TEMPLATE.render(seed_dict)
         generated_sjt_dict['config'] = seed_dict
-        openai_sjt_response = openai_api_call(prompt=sjt_generation_prompt, response_format=SyntheticSJT ,model="gpt-5-mini")
+        openai_sjt_response = openai_api_call(prompt=sjt_generation_prompt,
+                                              response_format=SyntheticSJT,
+                                              model="gpt-5-mini")
         openai_response_dict = openai_sjt_response.model_dump()
         generated_sjt_dict['hash_id'] = generate_hash(json.dumps(openai_response_dict))
-        generated_sjt_dict['generation_prompt'] = sjt_generation_prompt
+        generated_sjt_dict['sjt_generation_prompt'] = sjt_generation_prompt
         generated_sjt_dict.update(openai_response_dict)
         synthetic_generated_sjt_list.append(generated_sjt_dict)
-        
-write_to_json(synthetic_generated_sjt_list,"sjt_data/synthetic_generated_sjt_list_v3.json")
+
+write_to_json(synthetic_generated_sjt_list,
+              "sjt_data/synthetic_generated_sjt_list_v4.json")
