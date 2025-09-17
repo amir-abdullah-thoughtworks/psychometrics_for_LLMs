@@ -4,7 +4,7 @@ from outlines import Generator
 import transformers
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from pydantic import BaseModel
-from typing import Literal
+from typing import Literal, List
 import argparse
 import yaml
 import sys
@@ -29,6 +29,8 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument("--model-name", type=str, help="Model Name",
                     default="gpt-4.1-mini")
+parser.add_argument("--persona-source", type=str, help="Source of Persona Being Used",
+                    default="huggingface")
 
 args = parser.parse_args()
 
@@ -36,6 +38,10 @@ print(f"Model Used: {args.model_name}")
 
 
 class OpenaiResponse(BaseModel):
+    response: str
+
+
+class LocalResponse(BaseModel):
     response: str
 
 
@@ -50,7 +56,7 @@ def read_json(file_path):
     return file
 
 
-login("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")
+
 
 with open('../configs/generation_config.yaml', 'r') as file:
     generation_config = yaml.safe_load(file)
@@ -77,7 +83,7 @@ else:
         args.model_name,
         torch_dtype=t.float16
     ).to(device)
-    
+
     # tokenizer.pad_token = tokenizer.eos_token
     # hf_model.config.pad_token_id = tokenizer.eos_token_id
 
@@ -88,9 +94,30 @@ NO_ANSWER = "Do not wish to answer"
 likert_scale = generation_config['likert_scale'].copy()
 likert_scale.append(NO_ANSWER)
 
+if args.persona_source == "huggingface":
+    login("")
+    hf_persona_dataset = load_dataset("thoughtworks/psychometric_personas")
+    persona_datasets = hf_persona_dataset['train']
 
-hf_persona_dataset = load_dataset("thoughtworks/psychometric_personas")
-persona_datasets = hf_persona_dataset['train']
+
+base_hexaco_template = outlines.Template.from_string("""
+<|im_start>user
+Task: Answer the below questions:
+
+{{ text }}
+
+Answer the question as either {{ likert_scale }}. Do not return the question, just return the answer directly.
+
+**Output Format**
+Provide the response as a JSON object with the following schema:
+
+{
+  'response': '<string>'
+}
+
+<|im_end>
+<|im_start>assistant
+""")
 
 
 persona_hexaco_template = outlines.Template.from_string("""
@@ -104,6 +131,14 @@ Task: Answer the below questions:
 {{ text }}
 
 Answer the question as either {{ likert_scale }}. Do not return the question, just return the answer directly.
+
+**Output Format**
+Provide the response as a JSON object with the following schema:
+
+{
+  'response': '<string>'
+}
+
 <|im_end>
 <|im_start>assistant
 """)
@@ -114,9 +149,10 @@ def openai_answer(prompt):
     return json.loads(response)['response']
 
 
-def local_answer(prompt, answer_options=likert_scale):
-    response = model(prompt, Literal[*answer_options])
-    return response
+def local_answer(prompt_list: List):
+    responses = model.batch(prompt_list, LocalResponse)
+    import ipdb;ipdb.set_trace()
+    return [json.loads(response)['response'] for response in responses]
 
 
 def generation_function(hexaco_template, question_batch, likert_scale,
@@ -144,11 +180,7 @@ def generation_function(hexaco_template, question_batch, likert_scale,
             with ThreadPoolExecutor(max_workers=4) as executor:
                 results = list(executor.map(openai_answer, prompt_list))
         else:
-            results = []
-            for prompt in prompt_list:
-                results.append(local_answer(prompt))
-            # with ThreadPoolExecutor(max_workers=4) as executor:
-            #     results = list(executor.map(local_answer, prompt_list))
+            results = local_answer(prompt_list)
 
     return results
 
@@ -158,8 +190,7 @@ def batch_list(lst, n):
         yield lst[i:i + n]
 
 
-def generate_answers(persona_datasets, generation_function,
-                     question_list, likert_scale, n_times=1,
+def generate_answers(question_list=question_list, likert_scale=likert_scale, persona_datasets = None, n_times=1,
                      batch_size=5, batching=False):
 
     if batching:
@@ -167,12 +198,9 @@ def generate_answers(persona_datasets, generation_function,
     else:
         print("Passing One question per prompt")
     answers = {}
-    hexaco_template = persona_hexaco_template
-    # base_text = personas[job_title]['base_text']
-    # persona_list = personas[job_title]['personas']
-    base_text = "You are a law enforcement officer."
-    for persona_dataset in tqdm(persona_datasets, desc="Personas", position=0):
-        persona_str = persona_dataset['persona_text']
+    if args.persona_source == "base_model":
+        print("Running Hexaco on Base Model without Personas")
+        hexaco_template = base_hexaco_template
         repeated_answers = []
         for i in tqdm(range(n_times), desc="Iterations", position=1):
             persona_answer = []
@@ -180,30 +208,63 @@ def generate_answers(persona_datasets, generation_function,
                 batch_answers = generation_function(hexaco_template=hexaco_template, 
                                                     question_batch=question_batch,
                                                     likert_scale=likert_scale,
-                                                    persona_str=persona_str,
-                                                    persona_base_text=base_text,
                                                     batching=batching)
                 persona_answer.extend(batch_answers)
             repeated_answers.append(persona_answer)
         persona_dict = {}
         persona_dict['config'] = {}
-        persona_dict['config']['persona'] = persona_dataset['uuid']
+        persona_dict['config']['persona'] = "base_model"
         persona_dict['config']['likert_scale'] = "normal"
         persona_dict['config']['paraphrase'] = "normal"
         persona_dict['config']['refusal'] = "refusal"
-        persona_dict['config']['model_name'] = "gpt_41_mini"
-        persona_dict['answers'] = repeated_answers
-        answers[persona_dataset['uuid']] = persona_dict
+        persona_dict['config']['model_name'] = args.model_name
+        persona_dict['answers'] = repeated_answers  
+        answers['base_model'] = persona_dict
+    else:
+        print("Running Hexaco with Personas")
+        hexaco_template = persona_hexaco_template
+        base_text = "You are a law enforcement officer."
+        for persona_dataset in tqdm(persona_datasets, desc="Personas", position=0):
+            persona_str = persona_dataset['persona_text']
+            repeated_answers = []
+            for i in tqdm(range(n_times), desc="Iterations", position=1):
+                persona_answer = []
+                for question_batch in tqdm(batch_list(question_list, batch_size), desc="Batches", position=2):
+                    batch_answers = generation_function(hexaco_template=hexaco_template, 
+                                                        question_batch=question_batch,
+                                                        likert_scale=likert_scale,
+                                                        persona_str=persona_str,
+                                                        persona_base_text=base_text,
+                                                        batching=batching)
+                    persona_answer.extend(batch_answers)
+                repeated_answers.append(persona_answer)
+            persona_dict = {}
+            persona_dict['config'] = {}
+            persona_dict['config']['persona'] = persona_dataset['uuid']
+            persona_dict['config']['likert_scale'] = "normal"
+            persona_dict['config']['paraphrase'] = "normal"
+            persona_dict['config']['refusal'] = "refusal"
+            persona_dict['config']['model_name'] = args.model_name
+            persona_dict['answers'] = repeated_answers
+            answers[persona_dataset['uuid']] = persona_dict
     return answers
 
+if __name__ == "__main__":
+    
+    # Code for running Prompt Packing
+    # batch_size = 10
+    # persona_dataset_df = persona_datasets.to_pandas()
+    # for start in range(0, 30, batch_size):
+    #     print(f"Batch {start}")
+    #     batch = persona_dataset_df.iloc[start:start+batch_size]
+    #     batch = batch.to_dict("records")
+    #     hf_persona_answers = generate_answers(batch, generation_function,
+    #                                         question_list, likert_scale, batching=True)
 
-batch_size = 10
-persona_dataset_df = persona_datasets.to_pandas()
-for start in range(0, 30, batch_size):
-    print(f"Batch {start}")
-    batch = persona_dataset_df.iloc[start:start+batch_size]
-    batch = batch.to_dict("records")
-    hf_persona_answers = generate_answers(batch, generation_function,
-                                          question_list, likert_scale, batching=True)
+    #     write_to_json(hf_persona_answers, os.path.join("hf_persona_batching_vs_individual_questions_results_v0",f"hf_persona_answers_with_batching_v{start}.json"))
 
-    write_to_json(hf_persona_answers, os.path.join("hf_persona_batching_vs_individual_questions_results_v0",f"hf_persona_answers_with_batching_v{start}.json"))
+
+    # Code for Running Base Model
+    # python3 hf_personas_hexaco_v0.py --persona-source="base_model"
+    results = generate_answers()
+    write_to_json(results, os.path.join("base_model_hexaco_runs_v3",f"base_model_hexaco_answers_{args.model_name}.json"))
