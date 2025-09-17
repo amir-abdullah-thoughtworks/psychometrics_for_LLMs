@@ -46,9 +46,3 @@ def load_state_age_distribution_with_gender(csv_path: str, year: int = 2024, min
         result[state] = out
 
     return result
-
-
-state_dict = load_state_age_distribution_with_gender("/mnt/data/age_sex_state.csv")
-# show 3 samples
-sample = dict(list({s: v["gender"] for s, v in state_dict.items()}.items())[:3])
-sample
