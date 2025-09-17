@@ -1,44 +1,54 @@
 import pandas as pd
 
 
-def load_state_age_distribution(csv_path: str, year: int = 2024, min_age: int = 21, max_age: int = 65):
+def load_state_age_distribution_with_gender(csv_path: str, year: int = 2024, min_age: int = 21, max_age: int = 65):
     """
-    Parse a census-like CSV into a dictionary of the form:
-    {
-        state: {
-            "male": {age: probability, ...},
-            "female": {age: probability, ...}
-        }
-    }
-
-    Args:
-        csv_path (str): Path to the CSV file.
-        year (int): Which year column to use (default 2024).
-        min_age (int): Minimum age to include (default 21).
-        max_age (int): Maximum age to include (default 65).
-
     Returns:
-        dict: Nested dictionary of state -> sex -> {age: probability}
+        dict: {
+            state: {
+                "gender": {"male": x, "female": 1-x},  # x weighted by total male/female pop in [min_age, max_age]
+                "male":   {age: p_age_given_male, ...}, # normalized over ages min_age..max_age
+                "female": {age: p_age_given_female, ...}
+            },
+            ...
+        }
     """
     df = pd.read_csv(csv_path)
     col = f"POPEST{year}_CIV"
-
-    # keep relevant columns
     df = df[["NAME", "SEX", "AGE", col]]
 
-    # filter ages
+    # Restrict ages
     df = df[(df["AGE"] >= min_age) & (df["AGE"] <= max_age)]
 
-    # map sex codes
+    # Keep male(1) and female(2)
     sex_map = {1: "male", 2: "female"}
-    df = df[df["SEX"].isin(sex_map.keys())]
+    df = df[df["SEX"].isin(sex_map.keys())].copy()
     df["SEX"] = df["SEX"].map(sex_map)
 
     result = {}
-    for state, group in df.groupby("NAME"):
-        result[state] = {}
-        for sex, g in group.groupby("SEX"):
-            probs = (g.set_index("AGE")[col] / g[col].sum())
-            result[state][sex] = probs.to_dict()
+    for state, g_state in df.groupby("NAME"):
+        out = {}
+
+        # totals by sex for gender weighting
+        totals_by_sex = g_state.groupby("SEX")[col].sum()
+        male_total = float(totals_by_sex.get("male", 0.0))
+        female_total = float(totals_by_sex.get("female", 0.0))
+        denom = male_total + female_total if (male_total + female_total) > 0 else 1.0
+        male_prop = male_total / denom
+        out["gender"] = {"male": male_prop, "female": 1.0 - male_prop}
+
+        # conditional age distributions by sex
+        for sex, g_sex in g_state.groupby("SEX"):
+            # Normalize across ages to make a probability distribution p(age | sex, state)
+            age_probs = (g_sex.set_index("AGE")[col] / g_sex[col].sum()).to_dict()
+            out[sex] = age_probs
+
+        result[state] = out
 
     return result
+
+
+state_dict = load_state_age_distribution_with_gender("/mnt/data/age_sex_state.csv")
+# show 3 samples
+sample = dict(list({s: v["gender"] for s, v in state_dict.items()}.items())[:3])
+sample
