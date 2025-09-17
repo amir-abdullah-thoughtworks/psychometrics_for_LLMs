@@ -169,16 +169,22 @@ for index, row in tqdm(handmade_sjt_sample.iterrows(), desc="base_scenario",
 
     base_scenario = sjt_example_template.render(question=question,
                                                 answer_options=answer_options)
-    for seed_dict in tqdm(random.sample(sampled_seed_combos, 8), desc="seeds",
+
+    sampled_seeds = random.sample(sampled_seed_combos, 8)
+
+    for seed_dict in tqdm(sampled_seeds, desc="seeds",
                           position=1):
         generated_sjt_dict = {}
         # generated_sjt_dict['base_scenario'] = base_scenario
-        seed_dict['base_scenario'] = base_scenario
-        sjt_generation_prompt = SJT_GENERATION_TEMPLATE.render(seed_dict)
-        generated_sjt_dict['config'] = seed_dict
+
+        seed_copy = seed_dict.copy()
+        seed_copy['base_scenario'] = base_scenario
+        sjt_generation_prompt = SJT_GENERATION_TEMPLATE.render(seed_copy)
+        generated_sjt_dict['config'] = seed_copy
         openai_sjt_response = openai_api_call(prompt=sjt_generation_prompt,
                                               response_format=SyntheticSJT,
-                                              model="gpt-4.1")
+                                              model="gpt-4.1", temperature=2,
+                                              top_p=0.98)
         openai_response_dict = openai_sjt_response.model_dump()
         generated_sjt_dict['hash_id'] = generate_hash(json.dumps(openai_response_dict))
         generated_sjt_dict['sjt_generation_prompt'] = sjt_generation_prompt
@@ -186,4 +192,4 @@ for index, row in tqdm(handmade_sjt_sample.iterrows(), desc="base_scenario",
         synthetic_generated_sjt_list.append(generated_sjt_dict)
 
 write_to_json(synthetic_generated_sjt_list,
-              "sjt_data/synthetic_generated_sjt_list_v5.json")
+              "sjt_data/synthetic_generated_sjt_list_v7.json")
