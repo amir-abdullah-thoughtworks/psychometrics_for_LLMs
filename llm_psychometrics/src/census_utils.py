@@ -61,3 +61,37 @@ def load_state_age_distribution_full(csv_path: str, year: int = 2024, min_age: i
     result["state_distribution"] = state_distribution
 
     return result
+
+def location_distribution_for_state(
+    csv_path: str,
+    state,  # state name (e.g., "Utah") or numeric FIPS code (e.g., 49)
+    year: int = 2024,
+    location_sumlev: int = 162,  # 162 = Places (cities/towns). Use 050 for counties, etc.
+):
+    """
+    Return a probability distribution over *locations within a given state*,
+    proportional to POPESTIMATE{year} for the chosen geography level.
+    """
+    df = pd.read_csv(csv_path, encoding="latin-1", engine="python")
+    if "STNAME" in df.columns:
+        df = df[df["STNAME"].ne("United States")]
+    if "NAME" in df.columns:
+        df = df[df["NAME"].ne("United States")]
+    if "SUMLEV" in df.columns:
+        df = df[df["SUMLEV"] == location_sumlev]
+    if isinstance(state, int):
+        df_state = df[df["STATE"] == state]
+    else:
+        df_state = df[df["STNAME"].str.casefold() == str(state).casefold()]
+    if df_state.empty:
+        raise ValueError("No rows found for the requested state and SUMLEV.")
+    pop_col = f"POPESTIMATE{year}"
+    if pop_col not in df_state.columns:
+        pop_cols = sorted([c for c in df_state.columns if c.startswith("POPESTIMATE")])
+        if not pop_cols:
+            raise ValueError("No POPESTIMATE* columns found in the file.")
+        pop_col = pop_cols[-1]
+    grouped = df_state.groupby("NAME", as_index=False)[pop_col].sum().rename(columns={pop_col: "weight"})
+    total = grouped["weight"].sum()
+    dist = {row["NAME"]: (row["weight"] / total if total > 0 else 0.0) for _, row in grouped.iterrows()}
+    return dist
