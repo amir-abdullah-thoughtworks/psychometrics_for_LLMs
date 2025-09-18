@@ -1,10 +1,18 @@
 
-import re
-import os
 import csv
+import os
+import re
+import pandas as pd
+
 from collections import defaultdict, Counter
 from typing import Dict, Tuple, Iterable
 from joblib import Memory
+from dataclasses import dataclass
+
+@dataclass
+class PoliceDemographics:
+    male_ratio: float = 0.86
+    female_ratio: float = 0.14
 
 def _folder_signature(folder: str) -> Tuple[Tuple[str, int, int], ...]:
     """
@@ -163,7 +171,6 @@ def locations_distribution_by_state(
 # Show top 10 for Utah and California as a quick sanity check
 def top_k(d, k=10):
     return dict(sorted(d.items(), key=lambda x: x[1], reverse=True)[:k])
-
 
 def load_state_age_distribution_full(csv_path: str, year: int = 2024, min_age: int = 21, max_age: int = 65):
     """
