@@ -1,5 +1,89 @@
-import pandas as pd
+
 import re
+import os
+import csv
+from collections import defaultdict, Counter
+from typing import Dict, Tuple, Iterable
+from joblib import Memory
+
+def _folder_signature(folder: str) -> Tuple[Tuple[str, int, int], ...]:
+    """
+    Simple signature: tuple of (filename, mtime, size) for all *.txt files in folder.
+    If any file changes, the signature changes and the cache recomputes.
+    """
+    sig = []
+    for fn in sorted(f for f in os.listdir(folder) if f.lower().endswith(".txt")):
+        p = os.path.join(folder, fn)
+        try:
+            st = os.stat(p)
+        except FileNotFoundError:
+            continue
+        sig.append((fn, int(st.st_mtime), int(st.st_size)))
+    return tuple(sig)
+
+def build_first_name_distributions(
+    folder: str = "first_names_by_states",
+    current_year: int = 2025,
+    cache_dir = None,
+) -> Dict[Tuple[str, str, int], Dict[str, float]]:
+    """
+    Persistent-cached build:
+      (state, gender, age) -> {first_name: probability, ...}
+
+    Lines look like:
+        STATE,GENDER,BIRTH_YEAR,FIRST_NAME,COUNT
+        AZ,F,1910,Mary,74
+    """
+    if cache_dir is None:
+        cache_dir = os.path.join(folder, ".cache_joblib")
+    memory = Memory(cache_dir, verbose=0)
+
+    @memory.cache
+    def _compute(folder: str, current_year: int, signature: Iterable[Tuple[str, int, int]]):
+        counts = defaultdict(Counter)  # (state, gender, age) -> Counter(name -> count)
+        for fname in os.listdir(folder):
+            if not fname.lower().endswith(".txt"):
+                continue
+            path = os.path.join(folder, fname)
+
+            # Try UTF-8 then latin-1
+            for enc in ("utf-8", "latin-1"):
+                try:
+                    with open(path, "r", encoding=enc, newline="") as f:
+                        reader = csv.reader(f)
+                        for row in reader:
+                            if len(row) < 5:
+                                continue
+                            state = row[0].strip().upper()
+                            gender = row[1].strip().upper()
+                            y = row[2].strip()
+                            name = row[3].strip()
+                            c = row[4].strip()
+                            try:
+                                birth_year = int(y)
+                                count = int(c)
+                            except ValueError:
+                                continue
+                            if gender not in ("M", "F"):
+                                continue
+                            age = current_year - birth_year
+                            if age < 0:
+                                continue
+                            counts[(state, gender, age)][name] += count
+                    break
+                except UnicodeDecodeError:
+                    continue
+
+        # Normalize to probabilities
+        dists: Dict[Tuple[str, str, int], Dict[str, float]] = {}
+        for key, name_counts in counts.items():
+            total = sum(name_counts.values())
+            if total > 0:
+                dists[key] = {n: c / total for n, c in name_counts.items()}
+        return dists
+
+    signature = _folder_signature(folder)
+    return _compute(folder, current_year, signature)
 
 
 def locations_distribution_by_state(
