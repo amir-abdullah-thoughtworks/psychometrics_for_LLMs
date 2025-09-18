@@ -8,6 +8,8 @@ from typing import Dict, Tuple, Iterable
 from joblib import Memory
 from dataclasses import dataclass
 
+from tqdm import tqdm
+
 @dataclass
 class PoliceDemographics:
     male_ratio: float = 0.86
@@ -48,7 +50,7 @@ def build_first_name_distributions(
     @memory.cache
     def _compute(folder: str, current_year: int, signature: Iterable[Tuple[str, int, int]]):
         counts = defaultdict(Counter)  # (state, gender, age) -> Counter(name -> count)
-        for fname in os.listdir(folder):
+        for fname in tqdm(os.listdir(folder)):
             if not fname.lower().endswith(".txt"):
                 continue
             path = os.path.join(folder, fname)
