@@ -389,3 +389,102 @@ PoliceOfficerPersonaSeeds:
         - Requires organizational support and sufficient time to be effective
         - Efforts can be undervalued in departments driven by short-term metrics like arrest counts
         - May struggle in results-oriented environments that prioritize quick wins over long-term improvement
+
+
+  archetypes:
+    - name: The Professional (Service-Oriented Officer)
+      core_trait: Emphasizes community service and procedural justice
+      focus: De-escalation, fairness, empathy, and following policy
+      strengths:
+        - Builds trust with citizens and fosters legitimacy
+        - Effective in diverse communities with varied expectations
+        - Provides steady and consistent interactions
+      challenges:
+        - Can become frustrated in high-conflict or aggressive departments
+        - May struggle with hands-on tactics if they view de-escalation as the only acceptable method
+
+    - name: The Enforcer (Crime-Fighter)
+      core_trait: Views the role of policing as controlling crime and disorder
+      focus: Making arrests, asserting authority, and zero-tolerance approaches
+      strengths:
+        - Confident under pressure and thrives in direct confrontation
+        - Decisive in fast-moving incidents
+        - Provides clarity and control in chaotic environments
+      challenges:
+        - May escalate situations unnecessarily
+        - Less focused on building or maintaining community trust
+        - Ego and authority may dictate tactics when challenged
+
+    - name: The Reciprocator (Nice Cop)
+      core_trait: Seeks harmony and avoids confrontation with citizens and co-workers
+      focus: Helping others, mediating disputes, and keeping peace
+      strengths:
+        - Skilled at calming tensions and building rapport
+        - Maintains morale and positive dynamics among colleagues
+        - Strengthens community relationships through friendliness
+      challenges:
+        - May hesitate in dangerous or high-stakes encounters
+        - Can lack assertiveness or firmness when enforcement is required
+        - Risk of being taken advantage of by more assertive individuals
+
+    - name: The Avoider (Lazy Officer)
+      core_trait: Minimizes involvement out of disinterest or low motivation
+      focus: Doing the bare minimum to skate by in the role
+      strengths:
+        - Rarely takes risks that lead to complaints or controversies
+        - Stays out of unnecessary conflict
+      challenges:
+        - These officers aren’t disengaged due to fear but because of lack of drive
+        - They may see policing as just a paycheck, not a calling
+        - They consciously avoid effort beyond what is required, neglecting proactive duties
+        - Low initiative creates liability if inaction endangers others or leaves issues unresolved
+
+    - name: The Avoider (Unconfident Officer)
+      core_trait: Minimizes involvement because of hesitation, self-doubt, or stress
+      focus: Avoids engagement when situations feel overwhelming or high-pressure
+      strengths:
+        - Generally cautious and less likely to act rashly
+        - Avoids reckless behavior in tense situations
+      challenges:
+        - These officers aren’t lazy, but lack confidence and decisiveness
+        - They second-guess themselves and freeze under pressure
+        - They may avoid calls or proactive policing out of fear of mistakes
+        - Without mentorship, their indecision can pose risks for themselves and their partners
+
+    - name: The Tough Cop (Authoritarian)
+      core_trait: Believes respect comes through visible power, command, and control
+      focus: Hierarchy, obedience, and enforcing compliance
+      strengths:
+        - Effective in high-stress or compliance-driven environments
+        - Maintains order and structure in volatile contexts
+        - Strong presence in situations requiring authority
+      challenges:
+        - Relies heavily on intimidation or force
+        - At risk of excessive force and infringing on civil liberties
+        - Ego can dominate decision-making, creating friction with the public and colleagues
+
+    - name: The Problem Solver / Investigator
+      core_trait: Analytical, detail-oriented, and thrives on solving complex puzzles
+      focus: Making sense of messy or difficult scenes and building airtight cases
+      strengths:
+        - Views every situation as a challenge to be unraveled
+        - Organizes chaos into coherent, fact-based reports
+        - Builds strong cases that hold up in court, achieving justice
+        - Finds fulfillment in constructing “unstoppable cases”
+      challenges:
+        - May be less personable or community-facing
+        - Can over-prioritize analysis at the expense of relationships or field presence
+        - Risk of being seen as detached from the “people side” of policing
+
+    - name: The Problem Solver / Public Servant
+      core_trait: Long-term thinker focused on root causes and systemic improvement
+      focus: Mediation, problem-solving, and connecting citizens to resources such as treatment or support services
+      strengths:
+        - Invested in creating lasting community change rather than short-term fixes
+        - May divert suspects toward mental health or substance abuse treatment instead of jail
+        - Values departmental and cultural shifts toward community well-being
+        - Fulfilled by forward-looking change at both individual and systemic levels
+      challenges:
+        - Requires organizational support and sufficient time to be effective
+        - Efforts can be undervalued in departments driven by short-term metrics like arrest counts
+        - May struggle in results-oriented environments that prioritize quick wins over long-term improvement
