@@ -146,6 +146,76 @@ Provide the complete SJT scenario followed by the six response options as a JSON
 Do not include any extra text, explanation, or formatting outside of the JSON object.
 """
 
+SJT_TRAIT_BLEED_EVALUATION_TEMPLATE_STR = """ You are an expert SJT evaluator and corrector specializing in HEXACO-aligned scenarios.  You are given a situational judgment test (SJT) scenario with six answer options, each intended  to correspond to one HEXACO trait: Honesty-Humility, Emotionality, Extraversion, Agreeableness,  Conscientiousness, and Openness.
+
+Your tasks:
+1. **Trait Fit Evaluation**  
+   - For each option, evaluate how strongly it aligns with its intended trait definition.  
+   - Use a 1–5 scale:  
+     5 = Very strong, clean representation, no leakage  
+     4 = Strong but with minor overlap  
+     3 = Moderate, noticeable blending  
+     2 = Weak, trait unclear or diluted  
+     1 = Poor, option does not represent the trait well  
+
+2. **Separation Analysis**  
+   - Highlight where options overlap or bleed into each other (e.g., Extraversion vs. Agreeableness).  
+   - Explain why the overlap occurs.  
+
+3. **Correction Suggestions**  
+   - For any option rated below 5, propose a corrected rewrite that emphasizes the target trait more cleanly.  
+   - Ensure each rewrite minimizes overlap with other traits.  
+
+4. **Final Corrected SJT Object**  
+   - Output an object with the exact same structure as the input SJT dictionary.  
+   - Each option should contain the corrected version if a rewrite was needed, or the unchanged original if not.  
+
+5. **Output Format**  
+   Return results in structured JSON with this format:
+
+{
+  "scenario_summary": "<1-2 sentence summary of scenario>",
+  "trait_evaluations": {
+    "honesty_humility": {
+      "score": <1-5>,
+      "analysis": "<why it fits/doesn't fit>",
+      "suggested_correction": "<if needed, otherwise null>"
+    },
+    "emotionality": { ... },
+    "extraversion": { ... },
+    "agreeableness": { ... },
+    "conscientiousness": { ... },
+    "openness": { ... }
+  },
+  "corrected_sjt": {
+    "question": "<original or unchanged question>",
+    "honesty_humility_option": "<corrected or unchanged option>",
+    "emotionality_option": "<corrected or unchanged option>",
+    "extraversion_option": "<corrected or unchanged option>",
+    "agreeableness_option": "<corrected or unchanged option>",
+    "conscientiousness_option": "<corrected or unchanged option>",
+    "openness_option": "<corrected or unchanged option>"
+  },
+  "overall_notes": "<high-level summary of trait separation quality>"
+}
+
+---
+
+### SJT Input
+Here is the SJT you must evaluate:
+
+{
+  "question": {{ question }},
+  "honesty_humility_option": {{ honesty_humility_option }},
+  "emotionality_option": {{ emotionality_option }},
+  "extraversion_option": {{ extraversion_option }},
+  "agreeableness_option": {{ agreeableness_option }},
+  "conscientiousness_option": {{ conscientiousness_option }},
+  "openness_option": {{ openness_option }}
+}
+
+"""
+
 sjt_example_template_str = """
 
 Question: {{ question }}
@@ -183,8 +253,8 @@ for index, row in tqdm(handmade_sjt_sample.iterrows(), desc="base_scenario",
         generated_sjt_dict['config'] = seed_copy
         openai_sjt_response = openai_api_call(prompt=sjt_generation_prompt,
                                               response_format=SyntheticSJT,
-                                              model="gpt-4.1", temperature=2,
-                                              top_p=0.98)
+                                              model="gpt-4.1", temperature=1.5,
+                                              top_p=0.95)
         openai_response_dict = openai_sjt_response.model_dump()
         generated_sjt_dict['hash_id'] = generate_hash(json.dumps(openai_response_dict))
         generated_sjt_dict['sjt_generation_prompt'] = sjt_generation_prompt
@@ -192,4 +262,4 @@ for index, row in tqdm(handmade_sjt_sample.iterrows(), desc="base_scenario",
         synthetic_generated_sjt_list.append(generated_sjt_dict)
 
 write_to_json(synthetic_generated_sjt_list,
-              "sjt_data/synthetic_generated_sjt_list_v7.json")
+              "sjt_data/synthetic_generated_sjt_list_v8_temp_1point5.json")
