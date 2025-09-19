@@ -31,6 +31,8 @@ parser.add_argument("--model-name", type=str, help="Model Name",
                     default="gpt-4.1-mini")
 parser.add_argument("--persona-source", type=str, help="Source of Persona Being Used",
                     default="huggingface")
+parser.add_argument("--hf-token", type=str, help="Huggingface token",
+                    default=None)
 
 args = parser.parse_args()
 
@@ -56,6 +58,8 @@ def read_json(file_path):
     return file
 
 
+if args.hf_token:
+    login(args.hf_token)
 
 
 with open('../configs/generation_config.yaml', 'r') as file:
@@ -95,7 +99,6 @@ likert_scale = generation_config['likert_scale'].copy()
 likert_scale.append(NO_ANSWER)
 
 if args.persona_source == "huggingface":
-    login("")
     hf_persona_dataset = load_dataset("thoughtworks/psychometric_personas")
     persona_datasets = hf_persona_dataset['train']
 
@@ -130,14 +133,7 @@ Task: Answer the below questions:
 
 {{ text }}
 
-Answer the question as either {{ likert_scale }}. Do not return the question, just return the answer directly.
-
-**Output Format**
-Provide the response as a JSON object with the following schema:
-
-{
-  'response': '<string>'
-}
+Answer the question as either {{ likert_scale }}. Do not return the question, just return the answer directly. 
 
 <|im_end>
 <|im_start>assistant
@@ -150,9 +146,8 @@ def openai_answer(prompt):
 
 
 def local_answer(prompt_list: List):
-    responses = model.batch(prompt_list, LocalResponse)
-    import ipdb;ipdb.set_trace()
-    return [json.loads(response)['response'] for response in responses]
+
+    return [model(prompt, Literal[*likert_scale]) for prompt in prompt_list]
 
 
 def generation_function(hexaco_template, question_batch, likert_scale,
@@ -267,4 +262,6 @@ if __name__ == "__main__":
     # Code for Running Base Model
     # python3 hf_personas_hexaco_v0.py --persona-source="base_model"
     results = generate_answers()
-    write_to_json(results, os.path.join("base_model_hexaco_runs_v3",f"base_model_hexaco_answers_{args.model_name}.json"))
+
+    model_name = args.model_name.replace(".", "_").split("/")[1]
+    write_to_json(results, os.path.join("base_model_hexaco_runs_v3", f"base_model_hexaco_answers_{model_name}.json"))
