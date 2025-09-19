@@ -3,10 +3,10 @@ import yaml
 from pathlib import Path
 from typing import Dict, Any, List
 from openai import OpenAI
+
 from pydantic import BaseModel
 
-# --- Define structured schema ---
-class SeedList(BaseModel):
+class SeededExamples(BaseModel):
     seeds: List[str]
 
 class OpenAISeedBuilder:
