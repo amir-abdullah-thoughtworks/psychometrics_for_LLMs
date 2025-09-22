@@ -109,7 +109,7 @@ class OpenAISeedBuilder:
             input=[{"role": "user", "content": prompt}],
             temperature=self.temperature,
             top_p=self.top_p,
-            text_format=MemoirSummaryList,
+            text_format=MemoirSummaries,
         )
 
         parsed = getattr(resp, "output_parsed", None)
