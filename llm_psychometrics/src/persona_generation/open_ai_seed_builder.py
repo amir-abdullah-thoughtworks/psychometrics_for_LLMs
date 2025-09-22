@@ -3,7 +3,7 @@ import yaml
 from pathlib import Path
 from typing import Dict, Any, List
 from openai import OpenAI
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 class SeededExamples(BaseModel):
     seeds: List[str]
