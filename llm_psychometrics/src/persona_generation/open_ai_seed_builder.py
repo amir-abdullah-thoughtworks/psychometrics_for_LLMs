@@ -8,9 +8,8 @@ from pydantic import BaseModel, Field
 class SeededExamples(BaseModel):
     seeds: List[str]
 
-class MemoirSummaries(BaseModel):
-    # flat, order-preserving list of ~20-word blurbs
-    summaries: List[str] = Field(...)
+class MemoirSummaryOne(BaseModel):
+    summary: str
 
 class OpenAISeedBuilder:
     """
@@ -82,60 +81,51 @@ class OpenAISeedBuilder:
     # NEW: summarize any missing memoir titles with ~20-word neutral blurbs
     def _summarize_memoirs(self, memoir_titles: List[str]) -> Dict[str, str]:
         """
-        Returns dict: EXACT title -> ~20-word neutral summary.
-        Implementation: request a list of summaries, then zip with input titles.
-        If the model returns a different count, raise an error (no padding).
+        Returns dict: EXACT title -> neutral ~20-word summary.
+        Implementation: one structured-outputs call per title. Strict 1:1, no padding.
         """
-        n = len(memoir_titles)
-
         if self.dry_run:
-            summaries = [
-                f"Neutral ~20-word blurb on policing craft, judgment under stress, and steady public-trust work."
-                for _ in range(n)
-            ]
-            return dict(zip(memoir_titles, summaries))
+            return {t: "Neutral ~20-word summary of the book, concise and spoiler-free." for t in memoir_titles}
 
-        prompt = (
-                "For each memoir title below, write a neutral ~20-word summary for persona grounding.\n"
-                "- Emphasize policing craft, judgment under stress, and public trust (no spoilers/sensationalism).\n"
-                f"- Return STRICT JSON with key `summaries` as a LIST of exactly {n} STRINGS.\n"
-                "- Each string should be the summary only (DO NOT include the title text).\n"
-                "- The list order MUST MATCH the order of the input titles.\n\n"
-                "TITLES:\n" + "\n".join(f"- {t}" for t in memoir_titles)
-        )
-
-        resp = self.client.responses.parse(
-            model=self.model,
-            input=[{"role": "user", "content": prompt}],
-            temperature=self.temperature,
-            top_p=self.top_p,
-            text_format=MemoirSummaries,
-        )
-
-        parsed = getattr(resp, "output_parsed", None)
-        # Accept typed schema or plain dict with the same shape; otherwise error.
-        if parsed is None:
-            raise ValueError("Structured output missing; no parsed payload returned.")
-
-        if hasattr(parsed, "summaries"):
-            summaries_list = list(parsed.summaries)
-        elif isinstance(parsed, dict) and "summaries" in parsed:
-            summaries_list = list(parsed["summaries"])
-        else:
-            raise ValueError(f"Structured output does not contain 'summaries' list: {type(parsed)}")
-
-        if not isinstance(summaries_list, list) or any(not isinstance(s, str) for s in summaries_list):
-            raise ValueError("`summaries` must be a list of strings.")
-
-        if len(summaries_list) != n:
-            raise ValueError(
-                f"Expected {n} summaries, got {len(summaries_list)}.\n"
-                f"Titles: {memoir_titles}\n"
-                f"Summaries: {summaries_list}"
+        out: Dict[str, str] = {}
+        for title in memoir_titles:
+            prompt = (
+                "Write a neutral, concise summary (about 20 words) of the following book.\n"
+                "- Avoid spoilers and sensationalism.\n"
+                "- Return STRICT JSON with a single key `summary`.\n\n"
+                f"TITLE: {title}"
             )
 
-        summaries_list = [s.strip() for s in summaries_list]
-        return dict(zip(memoir_titles, summaries_list))
+            last_err = None
+            for attempt in range(3):
+                try:
+                    resp = self.client.responses.parse(
+                        model=self.model,
+                        input=[{"role": "user", "content": prompt}],
+                        temperature=self.temperature,
+                        top_p=self.top_p,
+                        text_format=MemoirSummaryOne,
+                    )
+                    parsed = getattr(resp, "output_parsed", None)
+                    s = parsed.summary if (parsed and hasattr(parsed, "summary")) else (
+                        parsed.get("summary") if isinstance(parsed, dict) else None
+                    )
+                    if not isinstance(s, str) or not s.strip():
+                        raise ValueError(f"No `summary` returned for '{title}'")
+                    out[title] = s.strip()
+                    break
+                except Exception as e:
+                    last_err = e
+                    time.sleep(0.5)
+
+            if title not in out:
+                raise ValueError(f"Failed to summarize '{title}' after retries: {last_err}")
+
+        # Strict count check (no padding)
+        if len(out) != len(memoir_titles):
+            raise ValueError(f"Expected {len(memoir_titles)} summaries, got {len(out)}.")
+
+        return out
 
     def populate(self, data: Dict[str, Any]) -> Dict[str, Any]:
         root = data.get("PoliceOfficerPersonaSeeds", {})
