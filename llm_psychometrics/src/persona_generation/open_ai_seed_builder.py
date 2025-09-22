@@ -8,9 +8,9 @@ from pydantic import BaseModel
 class SeededExamples(BaseModel):
     seeds: List[str]
 
-# NEW: schema for structured outputs (title -> 20-word blurb)
 class MemoirSummaries(BaseModel):
-    summaries: Dict[str, str]
+    # flat, order-preserving list of ~20-word blurbs
+    summaries: List[str] = Field(...)
 
 class OpenAISeedBuilder:
     """
@@ -92,8 +92,7 @@ class OpenAISeedBuilder:
             }
 
         prompt = (
-                "For each memoir title below, write a neutral ~20-word summary suitable as a seed for persona grounding.\n"
-                "- Focus on policing craft, judgment under stress, and public trust (no spoilers, no sensationalism).\n"
+                "For each memoir title below, write a neutral ~20-word summary of the memoir.\n"
                 "- Return STRICT JSON under key `summaries` as a LIST of objects, each with:\n"
                 "  - title: EXACT title string as given\n"
                 "  - summary: ~20-word neutral blurb\n\n"
