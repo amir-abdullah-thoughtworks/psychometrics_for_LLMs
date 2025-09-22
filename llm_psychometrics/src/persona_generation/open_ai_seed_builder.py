@@ -82,20 +82,25 @@ class OpenAISeedBuilder:
     # NEW: summarize any missing memoir titles with ~20-word neutral blurbs
     def _summarize_memoirs(self, memoir_titles: List[str]) -> Dict[str, str]:
         """
-        Returns a dict: exact_title -> ~20-word neutral summary.
-        Uses Structured Outputs as a list of {title, summary} items to avoid Dict schema issues.
+        Returns dict: EXACT title -> ~20-word neutral summary.
+        Implementation: request a list of summaries, then zip with input titles.
+        If the model returns a different count, raise an error (no padding).
         """
+        n = len(memoir_titles)
+
         if self.dry_run:
-            return {
-                t: f"{t}: concise, neutral account of police craft, judgment under stress, routine decisions, and the slow work of public trust."
-                for t in memoir_titles
-            }
+            summaries = [
+                f"Neutral ~20-word blurb on policing craft, judgment under stress, and steady public-trust work."
+                for _ in range(n)
+            ]
+            return dict(zip(memoir_titles, summaries))
 
         prompt = (
-                "For each memoir title below, write a neutral ~20-word summary of the memoir.\n"
-                "- Return STRICT JSON under key `summaries` as a LIST of objects, each with:\n"
-                "  - title: EXACT title string as given\n"
-                "  - summary: ~20-word neutral blurb\n\n"
+                "For each memoir title below, write a neutral ~20-word summary for persona grounding.\n"
+                "- Emphasize policing craft, judgment under stress, and public trust (no spoilers/sensationalism).\n"
+                f"- Return STRICT JSON with key `summaries` as a LIST of exactly {n} STRINGS.\n"
+                "- Each string should be the summary only (DO NOT include the title text).\n"
+                "- The list order MUST MATCH the order of the input titles.\n\n"
                 "TITLES:\n" + "\n".join(f"- {t}" for t in memoir_titles)
         )
 
@@ -104,12 +109,33 @@ class OpenAISeedBuilder:
             input=[{"role": "user", "content": prompt}],
             temperature=self.temperature,
             top_p=self.top_p,
-            text_format=MemoirSummaries,  # <-- list-of-objects schema
+            text_format=MemoirSummaryList,
         )
 
-        # Convert list back to a mapping for YAML
-        items = resp.output_parsed.summaries
-        return {item.title: item.summary for item in items}
+        parsed = getattr(resp, "output_parsed", None)
+        # Accept typed schema or plain dict with the same shape; otherwise error.
+        if parsed is None:
+            raise ValueError("Structured output missing; no parsed payload returned.")
+
+        if hasattr(parsed, "summaries"):
+            summaries_list = list(parsed.summaries)
+        elif isinstance(parsed, dict) and "summaries" in parsed:
+            summaries_list = list(parsed["summaries"])
+        else:
+            raise ValueError(f"Structured output does not contain 'summaries' list: {type(parsed)}")
+
+        if not isinstance(summaries_list, list) or any(not isinstance(s, str) for s in summaries_list):
+            raise ValueError("`summaries` must be a list of strings.")
+
+        if len(summaries_list) != n:
+            raise ValueError(
+                f"Expected {n} summaries, got {len(summaries_list)}.\n"
+                f"Titles: {memoir_titles}\n"
+                f"Summaries: {summaries_list}"
+            )
+
+        summaries_list = [s.strip() for s in summaries_list]
+        return dict(zip(memoir_titles, summaries_list))
 
     def populate(self, data: Dict[str, Any]) -> Dict[str, Any]:
         root = data.get("PoliceOfficerPersonaSeeds", {})
