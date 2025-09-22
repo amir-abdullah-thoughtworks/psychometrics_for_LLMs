@@ -3,16 +3,21 @@ import yaml
 from pathlib import Path
 from typing import Dict, Any, List
 from openai import OpenAI
-
 from pydantic import BaseModel
 
 class SeededExamples(BaseModel):
     seeds: List[str]
 
+# NEW: schema for structured outputs (title -> 20-word blurb)
+class MemoirSummaries(BaseModel):
+    summaries: Dict[str, str]
+
 class OpenAISeedBuilder:
     """
     Populates unfilled AppearanceCategories and BehaviorCategories with 20 examples each,
     using OpenAI structured outputs (no string parsing).
+    Also adds PoliceOfficerPersonaSeeds.MemoirSummaries for any titles in MemoirSeeds
+    that are missing a short, neutral ~20-word summary.
     """
 
     def __init__(
@@ -49,10 +54,10 @@ class OpenAISeedBuilder:
         return "\n\n".join(blocks) if blocks else f"(No prior examples for {category_type}.)"
 
     def _generate_examples(
-            self,
-            category_name: str,
-            category_type: str,
-            few_shot_block: str
+        self,
+        category_name: str,
+        category_type: str,
+        few_shot_block: str
     ) -> List[str]:
         if self.dry_run:
             return [f"{category_name} example {i}" for i in range(1, 21)]
@@ -72,11 +77,35 @@ class OpenAISeedBuilder:
             top_p=self.top_p,
             text_format=SeededExamples,  # schema validation here
         )
-
         return resp.output_parsed.seeds
+
+    # NEW: summarize any missing memoir titles with ~20-word neutral blurbs
+    def _summarize_memoirs(self, memoir_titles: List[str]) -> Dict[str, str]:
+        if self.dry_run:
+            return {
+                t: f"{t}: concise, neutral account of police craft, judgment under stress, community trust, and daily procedural work."
+                for t in memoir_titles
+            }
+
+        prompt = (
+            "For each memoir title below, write a neutral ~20-word summary suitable as a seed for persona grounding.\n"
+            "- Focus on policing craft, judgment under stress, and public trust (no spoilers, no sensationalism).\n"
+            "- Return JSON with key `summaries` mapping EXACT title → summary.\n\n"
+            "TITLES:\n" + "\n".join(f"- {t}" for t in memoir_titles)
+        )
+        resp = self.client.responses.parse(
+            model=self.model,
+            input=[{"role": "user", "content": prompt}],
+            temperature=self.temperature,
+            top_p=self.top_p,
+            text_format=MemoirSummaries,
+        )
+        return resp.output_parsed.summaries
 
     def populate(self, data: Dict[str, Any]) -> Dict[str, Any]:
         root = data.get("PoliceOfficerPersonaSeeds", {})
+
+        # Fill Appearance/Behavior categories (unchanged)
         for block in ["AppearanceCategories", "BehaviorCategories"]:
             if block in root and isinstance(root[block], dict):
                 categories = root[block]
@@ -85,6 +114,17 @@ class OpenAISeedBuilder:
                     if vals == []:
                         print(f"Populating {block} → {cat}")
                         categories[cat] = self._generate_examples(cat, block, few_shot)
+
+        # NEW: add concise summaries for memoirs
+        if "MemoirSeeds" in root and isinstance(root["MemoirSeeds"], list):
+            existing = root.get("MemoirSummaries", {}) or {}
+            missing = [m for m in root["MemoirSeeds"] if m not in existing]
+            if missing:
+                print(f"Summarizing memoirs: {len(missing)} new")
+                new_summaries = self._summarize_memoirs(missing)
+                existing.update(new_summaries)
+                root["MemoirSummaries"] = existing
+
         return data
 
     def build(self, yaml_path: str | Path) -> Path:
