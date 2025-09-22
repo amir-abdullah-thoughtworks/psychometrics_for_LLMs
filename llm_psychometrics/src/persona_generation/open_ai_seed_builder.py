@@ -81,26 +81,36 @@ class OpenAISeedBuilder:
 
     # NEW: summarize any missing memoir titles with ~20-word neutral blurbs
     def _summarize_memoirs(self, memoir_titles: List[str]) -> Dict[str, str]:
+        """
+        Returns a dict: exact_title -> ~20-word neutral summary.
+        Uses Structured Outputs as a list of {title, summary} items to avoid Dict schema issues.
+        """
         if self.dry_run:
             return {
-                t: f"{t}: concise, neutral account of police craft, judgment under stress, community trust, and daily procedural work."
+                t: f"{t}: concise, neutral account of police craft, judgment under stress, routine decisions, and the slow work of public trust."
                 for t in memoir_titles
             }
 
         prompt = (
-            "For each memoir title below, write a neutral ~20-word summary suitable as a seed for persona grounding.\n"
-            "- Focus on policing craft, judgment under stress, and public trust (no spoilers, no sensationalism).\n"
-            "- Return JSON with key `summaries` mapping EXACT title → summary.\n\n"
-            "TITLES:\n" + "\n".join(f"- {t}" for t in memoir_titles)
+                "For each memoir title below, write a neutral ~20-word summary suitable as a seed for persona grounding.\n"
+                "- Focus on policing craft, judgment under stress, and public trust (no spoilers, no sensationalism).\n"
+                "- Return STRICT JSON under key `summaries` as a LIST of objects, each with:\n"
+                "  - title: EXACT title string as given\n"
+                "  - summary: ~20-word neutral blurb\n\n"
+                "TITLES:\n" + "\n".join(f"- {t}" for t in memoir_titles)
         )
+
         resp = self.client.responses.parse(
             model=self.model,
             input=[{"role": "user", "content": prompt}],
             temperature=self.temperature,
             top_p=self.top_p,
-            text_format=MemoirSummaries,
+            text_format=MemoirSummaries,  # <-- list-of-objects schema
         )
-        return resp.output_parsed.summaries
+
+        # Convert list back to a mapping for YAML
+        items = resp.output_parsed.summaries
+        return {item.title: item.summary for item in items}
 
     def populate(self, data: Dict[str, Any]) -> Dict[str, Any]:
         root = data.get("PoliceOfficerPersonaSeeds", {})
