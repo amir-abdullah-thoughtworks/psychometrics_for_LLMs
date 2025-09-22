@@ -82,7 +82,7 @@ class OpenAISeedBuilder:
     # NEW: summarize any missing memoir titles with ~20-word neutral blurbs
     def _summarize_memoirs(self, memoir_titles: List[str]) -> Dict[str, str]:
         """
-        Returns dict: EXACT title -> neutral ~20-word summary.
+        Returns dict: EXACT title -> neutral ~50-word summary.
         Implementation: one structured-outputs call per title. Strict 1:1, no padding.
         """
         if self.dry_run:
@@ -91,8 +91,8 @@ class OpenAISeedBuilder:
         out: Dict[str, str] = {}
         for title in tqdm(memoir_titles):
             prompt = (
-                "Write a neutral, concise summary (about 20 words) of the following book.\n"
-                "- Avoid spoilers and sensationalism.\n"
+                "Write a neutral, concise summary (about 50 words) of the following book.\n"
+                "- Spoilers are fine.\n"
                 "- Return STRICT JSON with a single key `summary`.\n\n"
                 f"TITLE: {title}"
             )
