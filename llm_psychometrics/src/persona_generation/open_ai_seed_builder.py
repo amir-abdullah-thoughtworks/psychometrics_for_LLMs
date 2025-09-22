@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Dict, Any, List
 from openai import OpenAI
 from pydantic import BaseModel, Field
+from tqdm import tqdm
 
 class SeededExamples(BaseModel):
     seeds: List[str]
@@ -88,7 +89,7 @@ class OpenAISeedBuilder:
             return {t: "Neutral ~20-word summary of the book, concise and spoiler-free." for t in memoir_titles}
 
         out: Dict[str, str] = {}
-        for title in memoir_titles:
+        for title in tqdm(memoir_titles):
             prompt = (
                 "Write a neutral, concise summary (about 20 words) of the following book.\n"
                 "- Avoid spoilers and sensationalism.\n"
