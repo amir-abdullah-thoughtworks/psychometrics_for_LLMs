@@ -13,6 +13,7 @@ import yaml
 from openai import OpenAI
 from pydantic import BaseModel, Field, create_model
 from datasets import Dataset, load_dataset
+from tqdm import tqdm
 from utils.hf_utils import dedupe_persona_records, push_personas_to_hub
 from sentence_transformers import SentenceTransformer
 
@@ -347,7 +348,7 @@ def run_batch(
             args = (i, paths, model, temperature, top_p, api_key, base_seed)
             tasks.append(ex.submit(_worker, args))
 
-        for fut in as_completed(tasks):
+        for fut in tqdm(as_completed(tasks)):
             rec = fut.result()
             rec.setdefault("version", "v0")
             records.append(rec)
