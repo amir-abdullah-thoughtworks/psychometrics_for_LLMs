@@ -1,0 +1,3 @@
+[submodule "llm_psychometrics/src/gradio_demos/personas_viewer"]
+	path = llm_psychometrics/src/gradio_demos/personas_viewer
+	url = git@hf.co:spaces/TailsResearch/personas_viewer
