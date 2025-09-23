@@ -3,6 +3,7 @@ law_enforcement:
   personas:
     - Name: John (Jack) Singleton (Preferred Name - Jack)
       Age: 46 years
+      Location: Los Angeles, California
       Presenting Problems: Veteran homicide detective who faces chronic stress, moral injury, and mild social withdrawal but stays highly functional in his demanding work.
       Medical History: No major medical issues apart from stress-related hypertension, occasional migraines, and short-term sleep aid use.
       Family History: Raised in a working-class Watts family marked by alcohol use and street violence, lost a brother to gang violence, fueling his commitment to policing.
@@ -20,6 +21,8 @@ law_enforcement:
       uuid: d6b15b6d-79f5-4f26-88c1-6df277a72460
     - Name: Norman J. Spencer (Preferred Name - Norm)
       Age: 75 years
+      Location: Seattle, Washington
+      Memoir Title:
       Presenting Problems: Retired police chief burdened by moral conflict and guilt about institutional failures but remains driven to advocate for reform.
       Medical History: In good health for his age with mild hypertension and arthritis but no psychiatric history or medication.
       Family History: Raised in a distant, conservative household and acknowledges work strained intimacy with his spouse and grown children.
@@ -37,6 +40,7 @@ law_enforcement:
       uuid: 49f2a07d-dade-4622-a9f4-511a82b2a89f
     - Name: Frank R. Ladd (Preferred Name - Frank)
       Age: 53 years
+      Location: Baltimore, Maryland
       Presenting Problems: A driven homicide detective who lives for solving murders but carries chronic stress, moral fatigue, and strained family ties without significant functional impairment.
       Medical History: Reports high blood pressure, back pain, and insomnia but has no major health conditions or psychiatric history.
       Family History: Grew up in a strict Irish-American household with a family history of alcohol use and now struggles with estrangement from his wife and a guarded bond with his children.
@@ -54,6 +58,7 @@ law_enforcement:
       uuid: b38d43e4-8072-4014-826d-4689fb237e18
     - Name: Peter L. Marks (Preferred Name - Pete)
       Age: 51 years
+      Location: Baltimore, Maryland
       Presenting Problems: Mid-career urban patrol officer who struggles with stress, moral injury, and frustration about the drug war but stays loyal to the police brotherhood.
       Medical History: Generally good health with mild sleep, back, and stomach issues managed without psychiatric medication.
       Family History: Working-class family, has no major family mental illness, but struggles with work-life balance in his marriage and has one child.
