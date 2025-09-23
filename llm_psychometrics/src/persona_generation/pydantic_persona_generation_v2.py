@@ -5,7 +5,7 @@ from typing import List, Optional, Literal
 import pandas as pd
 import yaml
 from openai import OpenAI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, create_model
 
 
 class PersonaGenerator:
@@ -110,41 +110,51 @@ class PersonaGenerator:
         memoir_title, memoir_summary = self._pick_memoir()
         name, age, location = self._pick_demographics()
 
-        # ---- define the constrained schema *after* selection ----
-        class SeededPersonaSchema(BaseModel):
-            # Constrained fields (Literals of sampled values)
-            archetype: Literal[archetype_name]
-            memoir: Literal[memoir_title]
-            name: Literal[name]
-            age: Literal[age]
-            location: Literal[location]
+        # ---- build the constrained schema dynamically ----
+        SeededPersonaSchema = create_model(  # type: ignore[assignment]
+            "SeededPersonaSchema",
+            # Constrained (exact) fields
+            archetype=(Literal[archetype_name], ...),
+            memoir=(Literal[memoir_title], ...),
+            name=(Literal[name], ...),
+            age=(Literal[age], ...),
+            location=(Literal[location], ...),
 
             # Added fields
-            memoir_summary: str
-            presenting_problems: List[str]
+            memoir_summary=(str, Field(..., description="~20-word summary of the selected memoir.")),
+            presenting_problems=(List[str], Field(..., description="3–6 concise items.")),
 
             # Behavioral & Psychological Descriptors
-            appearance: str = Field(..., description="Observational, sensory description of appearance (30–60 words).")
-            behavior: str = Field(..., description="Behavioral cues, posture, interaction style, responsiveness (30–60 words).")
-            mood_affect: str = Field(..., description="Mood/affect, tone modulation, emotional nuance (30–60 words).")
-            speech: str = Field(..., description="Speech register, rhythm, formality, coherence (30–60 words).")
-            thought_content: str = Field(..., description="Internal reflection, logic, obsessions, themes (30–60 words).")
-            insight_judgment: str = Field(..., description="Clinical phrasing of insight and judgment (30–60 words).")
-            cognition: str = Field(..., description="Memory, abstraction, coherence, cognitive style (30–60 words).")
+            appearance=(str, Field(..., description="Observational, sensory description of appearance (30–60 words).")),
+            behavior=(str, Field(...,
+                                 description="Behavioral cues, posture, interaction style, responsiveness (30–60 words).")),
+            mood_affect=(str, Field(..., description="Mood/affect, tone modulation, emotional nuance (30–60 words).")),
+            speech=(str, Field(..., description="Speech register, rhythm, formality, coherence (30–60 words).")),
+            thought_content=(str,
+                             Field(..., description="Internal reflection, logic, obsessions, themes (30–60 words).")),
+            insight_judgment=(str, Field(..., description="Clinical phrasing of insight and judgment (30–60 words).")),
+            cognition=(str, Field(..., description="Memory, abstraction, coherence, cognitive style (30–60 words).")),
 
             # Life History Segments
-            medical_developmental_history: str = Field(..., description="Medical/developmental history, chronic/stress-related issues (100–150 words).")
-            family_history: str = Field(..., description="Family history, generational details, substance patterns, relational dynamics (100–150 words).")
-            educational_vocational_history: str = Field(..., description="Education, job trajectory, training, affiliations (100–150 words).")
+            medical_developmental_history=(str, Field(...,
+                                                      description="Medical/developmental history, chronic/stress-related issues (100–150 words).")),
+            family_history=(str, Field(...,
+                                       description="Family history, generational details, substance patterns, relational dynamics (100–150 words).")),
+            educational_vocational_history=(str, Field(...,
+                                                       description="Education, job trajectory, training, affiliations (100–150 words).")),
 
             # Functional Assessments
-            emotional_behavioral_functioning: str = Field(..., description="How persona processes stress, trauma, anger, coping mechanisms (100–150 words).")
-            social_functioning: str = Field(..., description="Relationship style, trust, group affiliation, isolation/connection (100–150 words).")
+            emotional_behavioral_functioning=(str, Field(...,
+                                                         description="How persona processes stress, trauma, anger, coping mechanisms (100–150 words).")),
+            social_functioning=(str, Field(...,
+                                           description="Relationship style, trust, group affiliation, isolation/connection (100–150 words).")),
 
             # Summary
-            summary_of_psychological_profile: str = Field(..., description="Integrative clinical summary: diagnostic impressions, resilience, risks, prognosis (150–250 words).")
+            summary_of_psychological_profile=(str, Field(...,
+                                                         description="Integrative clinical summary: diagnostic impressions, resilience, risks, prognosis (150–250 words).")),
+        )
 
-        # ---- prompt (no extra seeded_content; use memoir summary) ----
+        # ---- prompt (use memoir summary; no extra seeded_content) ----
         system_msg = (
             "You are an expert clinical interviewer and psychological profiler. "
             "Generate a detailed, realistic persona strictly adhering to the schema and its length guidance. "
