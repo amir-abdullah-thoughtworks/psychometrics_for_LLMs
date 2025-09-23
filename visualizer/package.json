@@ -1,0 +1,28 @@
+{
+  "name": "visualizer",
+  "version": "0.1.0",
+  "private": true,
+  "homepage": "https://amir-abdullah-thoughtworks.github.io/psychometrics_for_LLMs",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "export": "next build && next export",
+    "deploy": "npm run build && touch out/.nojekyll && gh-pages -d out --repo https://github.com/amir-abdullah-thoughtworks/psychometrics_for_LLMs.git"
+  },
+  "dependencies": {
+    "d3": "^7.9.0",
+    "next": "15.5.3",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "eslint": "^9",
+    "eslint-config-next": "15.5.3",
+    "gh-pages": "^6.3.0",
+    "tailwindcss": "^4"
+  }
+}
