@@ -174,8 +174,8 @@ class PersonaGenerator:
 
 # Convenience function
 def generate_persona(
-    populated_seeds_yaml: str | Path = "populated_police_seeds.yaml",
-    balanced_officers_csv: str | Path = "balanced_us_police_officers.csv",
+    populated_seeds_yaml: str = "populated_police_seeds.yaml",
+    balanced_officers_csv: str = "balanced_us_police_officers.csv",
     model: str = "gpt-4.1-mini",
     temperature: float = 2.0,
     top_p: float = 0.98,
