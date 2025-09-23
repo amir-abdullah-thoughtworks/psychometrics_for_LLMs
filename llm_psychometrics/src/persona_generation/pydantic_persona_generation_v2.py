@@ -176,36 +176,36 @@ class PersonaGenerator:
         examples = rng.sample(seeds, k) if k else []
         return cat, examples
 
-    # -------- embeddings for generated text (class method) --------
-    def embed_generated_fields(self, rec: dict) -> dict:
+    def embed_generated_fields(self, rec: dict) -> List[float]:
         """
-        Build embeddings for generated text fields only.
-        - One embedding per field in _GENERATED_TEXT_FIELDS
-        - One embedding per item in presenting_problems (list[str])
+        Return ONE embedding vector for the concatenated generated text only.
+        Includes:
+          - all fields in _GENERATED_TEXT_FIELDS
+          - all items in presenting_problems
+        Excludes seeds/demographics/categories entirely.
         """
-        model = self._get_embedder()
-        out = {}
+        parts: List[str] = []
 
-        # single text fields
-        texts, keys = [], []
+        # Generated prose fields
         for k in self._GENERATED_TEXT_FIELDS:
             v = rec.get(k)
             if isinstance(v, str) and v.strip():
-                texts.append(v)
-                keys.append(k)
-        if texts:
-            vecs = model.encode(texts, convert_to_numpy=False)
-            for k, v in zip(keys, vecs):
-                out[f"{k}_embedding"] = list(map(float, v))
+                parts.append(v.strip())
 
-        # presenting_problems (list[str])
+        # Presenting problems (list[str])
         probs = rec.get("presenting_problems") or []
-        probs = [p for p in probs if isinstance(p, str) and p.strip()]
-        if probs:
-            p_vecs = model.encode(probs, convert_to_numpy=False)
-            out["presenting_problems_embeddings"] = [list(map(float, v)) for v in p_vecs]
+        if isinstance(probs, list):
+            probs = [p for p in probs if isinstance(p, str) and p.strip()]
+            if probs:
+                parts.append("; ".join(probs))
 
-        return out
+        combined = "\n\n".join(parts).strip()
+        if not combined:
+            return []  # nothing to embed
+
+        emb_model = self._get_embedder()
+        vec = emb_model.encode([combined], convert_to_numpy=False)[0]
+        return list(map(float, vec))
 
     # -------- main generation (with retries) --------
     def generate_one(self, idx: int) -> BaseModel:
@@ -310,10 +310,10 @@ def _worker(args) -> dict:
         rng_seed=seed,
     )
     persona = gen.generate_one(idx)
-    rec = persona.model_dump()  # dict for pickling
+    rec = persona.model_dump()
     rec.setdefault("version", "v0")
-    # add embeddings (generated text only)
-    rec["embeddings"] = gen.embed_generated_fields(rec)
+    # Single embedding over concatenated generated fields:
+    rec["generated_text_embedding"] = gen.embed_generated_fields(rec)
     return rec
 
 
