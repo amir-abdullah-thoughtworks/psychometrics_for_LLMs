@@ -27,8 +27,8 @@ class PersonaGenerator:
 
     def __init__(
         self,
-        populated_seeds_yaml: str | Path,
-        balanced_officers_csv: str | Path,
+        populated_seeds_yaml: str,
+        balanced_officers_csv: str,
         model: str = "gpt-4.1-mini",
         temperature: float = 2.0,
         top_p: float = 0.98,
