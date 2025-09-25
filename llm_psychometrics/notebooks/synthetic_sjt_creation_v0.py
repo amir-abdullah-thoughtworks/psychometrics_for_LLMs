@@ -22,97 +22,100 @@ DEFAULT_TOP_P = 0.95
 
 
 def write_to_json(file, file_path):
-   with open(file_path, 'w') as f:
-      json.dump(file, f)
-      
+    with open(file_path, 'w') as f:
+        json.dump(file, f)
+
+
 def batch_list(lst, n):
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
 
 
 def read_json(file_path):
-   with open(file_path, "r") as f:
-      file = json.load(f)
-   return file
+    with open(file_path, "r") as f:
+        file = json.load(f)
+    return file
 
 
 def expand_dict_combinations(data):
-   keys = list(data.keys())
-   values = [data[k] for k in keys]
+    keys = list(data.keys())
+    values = [data[k] for k in keys]
 
-   combos = []
-   for prod in product(*values):
-      combos.append(dict(zip(keys, prod)))
-   return combos
+    combos = []
+    for prod in product(*values):
+        combos.append(dict(zip(keys, prod)))
+    return combos
 
 
 def generate_hash(prompt):
-   hash_object = hashlib.sha256()
-   hash_object.update(prompt.encode("utf-8"))
-   return hash_object.hexdigest()
+    hash_object = hashlib.sha256()
+    hash_object.update(prompt.encode("utf-8"))
+    return hash_object.hexdigest()
 
 
 class SyntheticSJT(BaseModel):
-   question: str
-   honesty_humility_option: str
-   emotionality_option: str
-   extraversion_option: str
-   agreeableness_option: str
-   conscientiousness_option: str
-   openness_option: str
+    question: str
+    honesty_humility_option: str
+    emotionality_option: str
+    extraversion_option: str
+    agreeableness_option: str
+    conscientiousness_option: str
+    openness_option: str
 
 
 class TraitBleedEval(BaseModel):
-   score: int
-   analysis: str
-   suggested_correction: Union[str, None]
+    score: int
+    analysis: str
+    suggested_correction: Union[str, None]
 
 
 class HexacoTrait(BaseModel):
-   honesty_humility: TraitBleedEval
-   emotionality: TraitBleedEval
-   extraversion: TraitBleedEval
-   agreeableness: TraitBleedEval
-   conscientiousness: TraitBleedEval
-   openness: TraitBleedEval
+    honesty_humility: TraitBleedEval
+    emotionality: TraitBleedEval
+    extraversion: TraitBleedEval
+    agreeableness: TraitBleedEval
+    conscientiousness: TraitBleedEval
+    openness: TraitBleedEval
 
 
 class SjtTraitBleedEval(BaseModel):
-   scenario_summary: str
-   trait_evaluations: HexacoTrait
-   corrected_sjt: SyntheticSJT
-   overall_notes: str
+    scenario_summary: str
+    trait_evaluations: HexacoTrait
+    corrected_sjt: SyntheticSJT
+    overall_notes: str
 
 
 def sjt_generation_with_validation(seed_dict):
-   
-   generated_sjt_dict = {}
-   sjt_generation_prompt = SJT_GENERATION_TEMPLATE.render(seed_dict)
-   generated_sjt_dict['config'] = seed_dict
-   openai_sjt_response_v1 = openai_api_call(prompt=sjt_generation_prompt,
-                                          response_format=SyntheticSJT,
-                                          model=DEFAULT_SJT_GENERATION_MODEL, temperature=DEFAULT_TEMPERATURE,
-                                          top_p=DEFAULT_TOP_P)
-   original_sjt_response_dict = openai_sjt_response_v1.model_dump()
 
-   # Evaluating the created SJT for trait bleed and correcting it if there is any correction needed
-   sjt_trait_bleed_evaluation_prompt = SJT_TRAIT_BLEED_EVALUATION_TEMPLATE.render(original_sjt_response_dict)
-   openai_sjt_response_v2 = openai_api_call(prompt=sjt_trait_bleed_evaluation_prompt,
-                                             response_format=SjtTraitBleedEval,
-                                             model=DEFAULT_SJT_TRAIT_BLEED_EVALUATION_MODEL,
-                                             temperature=DEFAULT_TEMPERATURE,
-                                             top_p=DEFAULT_TOP_P)
+    generated_sjt_dict = {}
+    sjt_generation_prompt = SJT_GENERATION_TEMPLATE.render(seed_dict)
+    generated_sjt_dict['config'] = seed_dict
+    openai_sjt_response_v1 = openai_api_call(
+        prompt=sjt_generation_prompt,
+        response_format=SyntheticSJT,
+        model=DEFAULT_SJT_GENERATION_MODEL,
+        temperature=DEFAULT_TEMPERATURE,
+        top_p=DEFAULT_TOP_P)
+    original_sjt_response_dict = openai_sjt_response_v1.model_dump()
 
-   corrected_sjt_response_dict = openai_sjt_response_v2.model_dump()
+    # Evaluating the created SJT for trait bleed and correcting it if there is any correction needed
+    sjt_trait_bleed_evaluation_prompt = SJT_TRAIT_BLEED_EVALUATION_TEMPLATE.render(original_sjt_response_dict)
+    openai_sjt_response_v2 = openai_api_call(prompt=sjt_trait_bleed_evaluation_prompt,
+                                                response_format=SjtTraitBleedEval,
+                                                model=DEFAULT_SJT_TRAIT_BLEED_EVALUATION_MODEL,
+                                                temperature=DEFAULT_TEMPERATURE,
+                                                top_p=DEFAULT_TOP_P)
+
+    corrected_sjt_response_dict = openai_sjt_response_v2.model_dump()
 
 
-   generated_sjt_dict['hash_id'] = generate_hash(json.dumps(corrected_sjt_response_dict))
-   generated_sjt_dict['original_sjt'] = original_sjt_response_dict
-   generated_sjt_dict['trait_bleed_evaluation'] = corrected_sjt_response_dict
-   generated_sjt_dict['corrected_sjt'] = corrected_sjt_response_dict['corrected_sjt']
-   
-   return generated_sjt_dict
-   
+    generated_sjt_dict['hash_id'] = generate_hash(json.dumps(corrected_sjt_response_dict))
+    generated_sjt_dict['original_sjt'] = original_sjt_response_dict
+    generated_sjt_dict['trait_bleed_evaluation'] = corrected_sjt_response_dict
+    generated_sjt_dict['corrected_sjt'] = corrected_sjt_response_dict['corrected_sjt']
+
+    return generated_sjt_dict
+
 
 
 with open('../configs/synthetic_sjt_seeds.yaml', 'r') as file:
@@ -126,8 +129,8 @@ all_seed_combos = expand_dict_combinations(synthetic_sjt_seeds)
 print(f"No of  Combos: {len(all_seed_combos)}")
 
 # random.seed(42)
-n = 60
-sampled_seed_combos = random.sample(all_seed_combos, n)
+# n = 1000
+# sampled_seed_combos = random.sample(all_seed_combos, n)
 
 SJT_GENERATION_TEMPLATE_STR = """You are creating a new law enforcement Situational Judgment Test (SJT) scenario by modifying an existing scenario with new attribute values. Follow the template below to generate a realistic, professionally appropriate scenario that maintains the core decision-making structure while incorporating the specified attributes.
 
@@ -388,35 +391,40 @@ SJT_TRAIT_BLEED_EVALUATION_TEMPLATE = Template(SJT_TRAIT_BLEED_EVALUATION_TEMPLA
 option_cols = ['Option 1', 'Option 2', 'Option 3', 'Option 4', 'Option 5','Option 6']
 
 
-handmade_sjt_sample = handmade_sjt_template_df.sample(2)
-for index, row in tqdm(handmade_sjt_sample.iterrows(), desc="base_scenario",
+# handmade_sjt_sample = handmade_sjt_template_df.sample(2)
+handmade_sjt_sample = handmade_sjt_template_df
+start_index = 8
+
+for index, row in tqdm(handmade_sjt_sample.iloc[start_index:].iterrows(), desc="base_scenario",
                        position=0):
-   question = row['Question']
-   answer_options = list_to_str(row[option_cols])
+    print(f"Index for base SJT dataframe: {index} ")
+    question = row['Question']
+    answer_options = list_to_str(row[option_cols])
 
-   base_scenario = sjt_example_template.render(question=question,
-                                             answer_options=answer_options)
+    base_scenario = sjt_example_template.render(question=question,
+                                                answer_options=answer_options)
 
-   sampled_seeds = random.sample(sampled_seed_combos, 1)
-   synthetic_generated_sjt_list = []
-   for seed_batch in tqdm(batch_list(sampled_seeds, 5), desc="seeds", position=1):
-   # for seed_dict in tqdm(sampled_seeds, desc="seeds",
-   #                      position=1):
-      # generated_sjt_dict['base_scenario'] = base_scenario
-      input_seed_batch = []
-      for seed_dict in seed_batch:
-         seed_copy = seed_dict.copy()
-         seed_copy['base_scenario'] = base_scenario
-         input_seed_batch.append(seed_copy)
+    sampled_seeds = random.sample(all_seed_combos, 50)
+    synthetic_generated_sjt_list = []
+    for seed_batch in tqdm(batch_list(sampled_seeds, 5), desc="seeds",
+                           position=1):
+        # for seed_dict in tqdm(sampled_seeds, desc="seeds",
+        #                      position=1):
+        # generated_sjt_dict['base_scenario'] = base_scenario
+        input_seed_batch = []
+        for seed_dict in seed_batch:
+            seed_copy = seed_dict.copy()
+            seed_copy['base_scenario'] = base_scenario
+            input_seed_batch.append(seed_copy)
 
-      with ThreadPoolExecutor(max_workers=4) as executor:
-         generated_sjt_dict_list = list(executor.map(sjt_generation_with_validation, input_seed_batch))
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            generated_sjt_dict_list = list(executor.map(
+                sjt_generation_with_validation, input_seed_batch))
 
-
-      synthetic_generated_sjt_list.extend(generated_sjt_dict_list)
-
-      write_to_json(synthetic_generated_sjt_list,
-                  f"sjt_data/synthetic_generate_sjt_1k_temp1point5/synthetic_generated_sjt_list_basescenario_{index}.json")
+        synthetic_generated_sjt_list.extend(generated_sjt_dict_list)
+    
+    write_to_json(synthetic_generated_sjt_list,
+                f"sjt_data/synthetic_generate_sjt_1k_temp1point5/synthetic_generated_sjt_list_basescenario_{index}.json")
 
 
 
