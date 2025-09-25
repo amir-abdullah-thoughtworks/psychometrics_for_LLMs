@@ -161,8 +161,9 @@ const ScatterPlot = ({
           tooltipDiv.style("opacity", 1).html(`
               <strong>${persona.name}</strong><br/>
               ${persona.archetype}<br/>
-              Age: ${persona.age}<br/>
+              Age: ${persona.age} | Sex: ${persona.sex}<br/>
               Location: ${persona.location}<br/>
+              Education: ${persona.education_level}<br/>
               ${colorBy
                 .replace("_", " ")
                 .replace(/\b\w/g, (l) => l.toUpperCase())}: ${displayValue}

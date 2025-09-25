@@ -28,8 +28,21 @@ const DetailPanel = ({ selectedPersona, onClose }) => {
       fields: [
         { label: "Name", value: selectedPersona.name },
         { label: "Age", value: selectedPersona.age },
+        { label: "Sex", value: selectedPersona.sex },
         { label: "Location", value: selectedPersona.location },
         { label: "Archetype", value: selectedPersona.archetype },
+      ],
+    },
+    {
+      title: "Demographics & Background",
+      fields: [
+        { label: "Education Level", value: selectedPersona.education_level },
+        { label: "Bachelor's Field", value: selectedPersona.bachelors_field },
+        {
+          label: "Ethnic Background",
+          value: selectedPersona.ethnic_background,
+        },
+        { label: "Marital Status", value: selectedPersona.marital_status },
       ],
     },
     {
@@ -124,10 +137,6 @@ const DetailPanel = ({ selectedPersona, onClose }) => {
         {
           label: "Psychological Profile Summary",
           value: formatText(selectedPersona.summary_of_psychological_profile),
-        },
-        {
-          label: "Persona Narrative",
-          value: formatText(selectedPersona.persona_narrative),
         },
       ],
     },

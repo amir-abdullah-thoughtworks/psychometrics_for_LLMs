@@ -290,6 +290,11 @@ const PersonaVisualizer = ({ personasData }) => {
               colorByOptions={[
                 { value: "archetype", label: "Archetype" },
                 { value: "age", label: "Age" },
+                { value: "sex", label: "Sex" },
+                { value: "education_level", label: "Education Level" },
+                { value: "bachelors_field", label: "Bachelor's Field" },
+                { value: "ethnic_background", label: "Ethnic Background" },
+                { value: "marital_status", label: "Marital Status" },
                 { value: "appearance_category", label: "Appearance Category" },
                 { value: "behavior_category", label: "Behavior Category" },
               ]}
