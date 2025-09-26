@@ -4,10 +4,14 @@ import hashlib
 import json
 import time
 import random
+import traceback
+
+from pathlib import Path
 
 from dataclasses import dataclass
 from typing import List, Optional, Literal, Tuple, Dict
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from huggingface_hub import HfFolder
 
 import pandas as pd
 import yaml
@@ -17,6 +21,34 @@ from pydantic import BaseModel, Field, create_model
 from datasets import Dataset, load_dataset
 
 from sentence_transformers import SentenceTransformer
+
+# --- add imports at top ---
+from typing import Set
+
+# --- add helpers (place near other utils) ---
+def _norm(s: Any) -> str:
+    return " ".join(str(s or "").strip().lower().split())
+
+
+def _load_existing_version_keys(version: str) -> Set[str]:
+    """
+    Load ./{version}.jsonl if present and return a set of row keys:
+      norm(name)|age|norm(sex)|norm(location)
+    """
+    p = Path(f"{version}.jsonl")
+    if not p.exists():
+        return set()
+
+    keys: Set[str] = set()
+    with p.open("r", encoding="utf-8") as f:
+        for line in f:
+            try:
+                obj = json.loads(line)
+                if isinstance(obj, dict):
+                    keys.add(obj['uuid'])
+            except Exception:
+                continue
+    return keys
 
 @dataclass(frozen=True)
 class Demographics:
@@ -126,8 +158,7 @@ class PersonaGenerator:
 
         # ---- officers (strict) ----
         self.df = pd.read_csv(balanced_officers_csv)
-        # random start offsets for cycling
-        self._df_offset = self._rng.randrange(len(self.df))
+
         self._arch_offset = self._rng.randrange(len(self.archetypes))
         self._mem_offset = self._rng.randrange(len(self.memoir_titles))
     
@@ -206,9 +237,12 @@ class PersonaGenerator:
             parts.append("Challenges: " + ("; ".join(c) if isinstance(c, list) else str(c)) + ".")
         return " ".join(parts).strip() or f"Archetype: {a.get('name','(unspecified)')}."
 
+    def get_row(self, idx: int):
+        return self.df.iloc[idx]
+
     # -------- index-based pickers (no shared state) --------
     def _pick_demographics_by_index(self, idx: int) -> Demographics:
-        row = self.df.iloc[(self._df_offset + idx) % len(self.df)]
+        row = self.get_row(idx)
         name = f"{str(row['first_name']).strip()} {str(row['last_name']).strip()}"
         age = int(row["age"])
         location = f"{str(row['city']).strip()}, {str(row['state']).strip()}"
@@ -287,6 +321,9 @@ class PersonaGenerator:
     def generate_one(self, idx: int) -> Optional[BaseModel]:
         archetype_name, archetype_desc = self._pick_archetype_by_index(idx)
         memoir_title, memoir_summary = self._pick_memoir_by_index(idx)
+
+        row = self.get_row(idx)
+        uuid = row["uuid"]
 
         # CHANGED: dataclass-based demographics
         dem = self._pick_demographics_by_index(idx)
@@ -433,18 +470,18 @@ class PersonaGenerator:
                 # Overwrite to ensure exact ground truth values regardless of model output
                 out.archetype_description = archetype_desc
                 out.memoir_summary = memoir_summary
-                return out
+                d = out.model_dump()
+                d["uuid"] = row["uuid"]
+                return d
             except Exception as e:
                 last_err = e
                 time.sleep((0.5 * (2 ** attempt)) + random.random() * 0.25)
 
         # give up quietly: skip this row
         print(f"[warn] generation skipped for idx={idx}: {last_err}")
+        with open("logs.txt", "a") as f:
+            f.write(f"[warn] generation skipped for idx={idx}: {last_err}")
         return None
-
-def _stable_uid(rec: dict) -> str:
-    s = json.dumps(rec, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
-    return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
 def _worker_one(
     i: int,
@@ -467,11 +504,7 @@ def _worker_one(
             rng_seed=base_seed,
         )
         m = gen.generate_one(i)
-        if m is None:
-            return None
-        d = m.model_dump()
-        d["uid"] = _stable_uid(d)
-        return d
+        return m
     except Exception as e:
         print(f"[warn] worker skipped idx={i}: {e}")
         return None
@@ -490,14 +523,14 @@ def push_personas_to_hub(
     new_records = []
     for r in records:
         r = dict(r)
-        r["uid"] = r.get("uid") or _stable_uid(r)
         new_records.append(r)
 
     try:
         ds_existing = load_dataset(repo_id, split="train", token=hf_token)
         df_existing = ds_existing.to_pandas()
     except Exception:
-        df_existing = pd.DataFrame(columns=list(new_records[0].keys()) if new_records else ["uid"])
+        print("Existing dataset not found, pushing new instead.")
+        df_existing = pd.DataFrame(columns=list(new_records[0].keys()) if new_records else ["uuid"])
 
     df_new = pd.DataFrame(new_records)
     if "temp" in repo_id.lower():
@@ -505,7 +538,7 @@ def push_personas_to_hub(
     else:
         df_merged = pd.concat([df_existing, df_new], ignore_index=True)
 
-    df_merged = df_merged.drop_duplicates(subset=["uid"]).reset_index(drop=True)
+    df_merged = df_merged.drop_duplicates(subset=["uuid"]).reset_index(drop=True)
 
     ds_merged = Dataset.from_pandas(df_merged, preserve_index=False)
     ds_merged.push_to_hub(
@@ -521,25 +554,23 @@ def run_batch(
     count: int,
     out_jsonl: str,
     version: str,
-    workers: int = 11,  # ~10 concurrent calls by default
+    workers: int = 10,
     model: str = "gpt-4.1-mini",
     temperature: float = 2.0,
     top_p: float = 0.98,
     api_key: Optional[str] = None,
     base_seed: int = 1337,
     # HF settings
-    hf_repo_id: str = "thoughtworks/psychometric_personas_temp",
+    hf_repo_id: str = "thoughtworks/psychometric_personas",
     hf_token: Optional[str] = None,
     hf_private: bool = True,
     push_to_hub_flag: bool = True,
 ):
     """
-    Concurrent generation (~6 threads). Each worker builds its own PersonaGenerator and
-    produces one record for index i. Rows that fail validation/grounding are skipped.
-    concat_field + concat_embedding are computed in the main thread to avoid loading
-    multiple embedding models concurrently.
+    Concurrent generation (~threads). Before scheduling, checks ./{version}.jsonl
+    for already-generated rows (by CSV demographics key) and skips them.
     """
-    # single helper instance in the main thread for concat+embedding only
+    # helper used for: offsets/df, building concat/embedding later
     embed_helper = PersonaGenerator(
         populated_seeds_yaml=populated_seeds_yaml,
         balanced_officers_csv=balanced_officers_csv,
@@ -551,12 +582,40 @@ def run_batch(
         version=version,
     )
 
+    # 1) Load existing keys from ./{version}.jsonl
+    existing_keys = _load_existing_version_keys(version)
+    print(f"Found {len(existing_keys)} existing keys")
+
+    # 2) Plan which indices to schedule (skip if CSV row already present)
+    planned_indices: List[int] = []
+    pre_skipped = 0
+
+    for i in tqdm(range(count)):
+        try:
+            row = embed_helper.get_row(i)
+            key = row["uuid"]
+        except Exception as e:
+            print(f"Error {e} on {i}")
+        if key in existing_keys:
+            pre_skipped += 1
+            continue
+        planned_indices.append(i)
+        # guard against scheduling same row twice within the same run
+        existing_keys.add(key)
+
+    if not planned_indices:
+        print(f"No new rows to generate; all {count} planned items were already present in ./{version}.jsonl")
+        return
+
+    print(f"Pre-skip (already in ./{version}.jsonl): {pre_skipped}")
+    print(f"Scheduling {len(planned_indices)} new generations out of requested {count}.")
+
     records: List[dict] = []
     skipped = 0
 
-    with ThreadPoolExecutor(max_workers=workers) as ex, open(out_jsonl, "w", encoding="utf-8") as f:
+    with ThreadPoolExecutor(max_workers=workers) as ex, open(out_jsonl, "a", encoding="utf-8") as f:
         futures = []
-        for i in range(count):
+        for i in planned_indices:
             fut = ex.submit(
                 _thread_worker,
                 i,
@@ -574,10 +633,10 @@ def run_batch(
         for fut in as_completed(futures):
             rec = fut.result()
             if not rec:
+                print(f"Received error")
                 skipped += 1
                 continue
 
-            # ensure version
             rec["version"] = version
 
             # concat text + embedding from generated fields only
@@ -585,13 +644,10 @@ def run_batch(
             rec["concat_field"] = concat_text
             rec["concat_embedding"] = concat_vec
 
-            # uid after concat so dedupe includes semantic text
-            rec["uid"] = _stable_uid(rec)
-
             records.append(rec)
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
-    print(f"Wrote {len(records)} personas to {out_jsonl} (skipped {skipped}).")
+    print(f"Wrote {len(records)} personas to {out_jsonl} (skipped {skipped}, pre-skipped {pre_skipped}).")
 
     if push_to_hub_flag and records:
         print(f"Pushing to HF dataset: {hf_repo_id} (append + dedupe + overwrite)")
@@ -631,6 +687,8 @@ def _thread_worker(
             version=version,
         )
         m = gen.generate_one(i)  # may return None (skip)
-        return None if m is None else m.model_dump()
+        return m
     except Exception:
+        with open("logs.txt", "a") as f_out:
+            f_out.write(traceback.format_exc())
         return None
