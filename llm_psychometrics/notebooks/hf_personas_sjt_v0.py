@@ -1,44 +1,81 @@
-import torch as t
-import outlines
-from outlines import Generator
-import transformers
-from transformers import AutoTokenizer, AutoModelForCausalLM
-from pydantic import BaseModel
-from typing import Literal, List
 import argparse
-import yaml
-import sys
+import json
 import os
 import re
-import json
+import sys
+from typing import List, Literal
+import random
+import torch as t
+import transformers
+import outlines
+from outlines import Generator
+from transformers import AutoTokenizer, AutoModelForCausalLM
+from pydantic import BaseModel
 from huggingface_hub import login
 from tqdm import tqdm
 from datasets import load_dataset
 from openai import OpenAI
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+import yaml
+from concurrent.futures import ThreadPoolExecutor
+
+# Custom imports
 sys.path.append("../")
 from src.utils import list_to_str
 
+# ----------------------------
+# Setup
+# ----------------------------
 transformers.logging.set_verbosity_error()
-
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
 print(f"Device: {device}")
 
-
-parser = argparse.ArgumentParser()
-
-parser.add_argument("--model-name", type=str, help="Model Name",
-                    default="gpt-4.1-mini")
-parser.add_argument("--persona-source", type=str, help="Source of Persona Being Used",
-                    default="huggingface")
-parser.add_argument("--hf-token", type=str, help="Huggingface token",
-                    default=None)
-
-args = parser.parse_args()
-
-print(f"Model Used: {args.model_name}")
+sjt_answer_options = ["1", "2", "3", "4", "5", "6"]
 
 
+# ----------------------------
+# Argument Parsing
+# ----------------------------
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model-name", type=str, default="gpt-4.1-mini",
+                        help="Model Name")
+    parser.add_argument("--persona-source", type=str, default="huggingface",
+                        help="Source of Persona Being Used (base_model | huggingface)")
+    parser.add_argument("--sjt-dir", type=str, default=None,
+                        help="Source directory for Synthetic SJTs")
+    parser.add_argument("--hf-token", type=str, default=None,
+                        help="Huggingface token")
+    parser.add_argument("--batching", action="store_true",
+                        help="Enable batching mode (default: False)")
+    parser.add_argument("--batch-size", type=int, default=5,
+                        help="Number of questions per batch when batching is enabled")
+    parser.add_argument("--n-times", type=int, default=1,
+                        help="Number of repetitions per persona")
+    return parser.parse_args()
+
+
+# ----------------------------
+# Utility Functions
+# ----------------------------
+def write_to_json(file, file_path):
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    with open(file_path, 'w') as f:
+        json.dump(file, f, indent=2)
+
+
+def read_json(file_path):
+    with open(file_path, "r") as f:
+        return json.load(f)
+
+
+def batch_list(lst, n):
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
+
+
+# ----------------------------
+# Model Setup
+# ----------------------------
 class OpenaiResponse(BaseModel):
     response: str
 
@@ -47,188 +84,255 @@ class LocalResponse(BaseModel):
     response: str
 
 
-def write_to_json(file, file_path):
-    with open(file_path, 'w') as f:
-        json.dump(file, f)
+def load_model(model_name: str, hf_token: str = None):
+    """Load either OpenAI or HF model wrapped with Outlines."""
+    if hf_token:
+        login(hf_token)
 
+    if "gpt" in model_name:
+        return outlines.from_openai(OpenAI(), model_name)
 
-def read_json(file_path):
-    with open(file_path, "r") as f:
-        file = json.load(f)
-    return file
-
-
-if args.hf_token:
-    login(args.hf_token)
-    
-    
-with open('../configs/generation_config.yaml', 'r') as file:
-    generation_config = yaml.safe_load(file)
-
-with open('../psychometric_tests/hexaco_100_questions.yaml', 'r') as file:
-    question_list = yaml.safe_load(file)
-
-with open('../psychometric_tests/paraphrased_hexaco_100_questions.yaml', 'r') as file:
-    paraphrased_question_list = yaml.safe_load(file)
-
-with open('../psychometric_tests/hexaco_100_eval.yaml', 'r') as file:
-    hexaco_eval = yaml.safe_load(file)
-
-with open('../configs/personas_v2.yaml', 'r') as file:
-    personas = yaml.safe_load(file)
-
-if "gpt" in args.model_name:
-    # print(f"Using GPT Generation. Model Used: {args.model_name}")
-    model = outlines.from_openai(OpenAI(), args.model_name)
-else:
-    # print(f"Using Local Generation. Model Used: {args.model_name}")
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
     hf_model = AutoModelForCausalLM.from_pretrained(
-        args.model_name,
+        model_name,
         torch_dtype=t.float16
     ).to(device)
 
-    # tokenizer.pad_token = tokenizer.eos_token
-    # hf_model.config.pad_token_id = tokenizer.eos_token_id
+    return outlines.from_transformers(hf_model, tokenizer)
 
-    # Create outlines-wrapped model
-    model = outlines.from_transformers(hf_model, tokenizer)
-    
-if args.persona_source == "huggingface":
-    hf_persona_dataset = load_dataset("thoughtworks/psychometric_personas")
-    persona_datasets = hf_persona_dataset['train']
-    
-    
-base_sjt_template = outlines.Template.from_string("""
-""")
+# ----------------------------
+# Data Setup
+# ----------------------------
 
 
-persona_sjt_template = outlines.Template.from_string("""
+def load_sjt(sjt_dir):
+    sjt_list = []
+    for file in os.listdir(sjt_dir):
+        synthetic_sjt = read_json(file)
+        sjt_list += synthetic_sjt
+    return sjt_list
 
-""")
 
-def openai_answer(prompt):
+def load_personas(persona_source,
+                  hf_persona_name="thoughtworks/psychometric_personas"):
+    if persona_source == "huggingface":
+        print("Using Huggingface Personas")
+        hf_persona_dataset = load_dataset(hf_persona_name)
+        persona_datasets = hf_persona_dataset['train']
+        print(f"No of Personas: {len(persona_datasets)}")
+    elif persona_source == "base_synthetic_personas":
+        raise NotImplementedError("Base Synthetic Personas is not implemented yet")
+    elif persona_source == "base_model":
+        return None
+    else:
+        print("Using Local Personas")
+        with open('../configs/personas_v2.yaml', 'r') as file:
+            local_personas = yaml.safe_load(file)
+
+        job_title = 'law_enforcement'
+        persona_datasets = local_personas[job_title]['personas']
+        print(f"No of Personas: {len(persona_datasets)}")
+
+    return persona_datasets
+
+
+# ----------------------------
+# Answer Generation
+# ----------------------------
+def openai_answer(model, prompt: str):
     response = model(prompt, OpenaiResponse, temperature=0)
     return json.loads(response)['response']
 
-sjt_answer_options = ["1","2","3","4","5","6"]
 
-def local_answer(prompt_list: List):
+def local_answer(model, prompt_list: List):
+    return [model(prompt, Literal[*sjt_answer_options])
+            for prompt in prompt_list]
 
-    return [model(prompt, Literal[*sjt_answer_options]) for prompt in prompt_list]
 
-def generation_function(hexaco_template, question_batch, sjt_answer_options,
-                      batching=False, persona_str=None, persona_base_text=None):
+def generation_function(model, sjt_template, question_batch,answer_index ,batching=False,
+                        persona_str=None):
+    """Generate answers for a batch of questions."""
     if batching:
-        generator = Generator(model)
-        prompt = hexaco_template(text=list_to_str(question_batch),
-                                 sjt_answer_options=", ".join(sjt_answer_options),
-                                 base_text=persona_base_text,
-                                 attributes=persona_str)
-        answers = generator(prompt).strip().replace(">","").splitlines()
-        results = [re.sub(r"[^a-zA-Z]", "", answer).strip()
-                   for answer in answers]
+        raise NotImplementedError()
+        # generator = Generator(model)
+        # prompt = sjt_template(
+        #     text=list_to_str(question_batch),
+        #     sjt_answer_options=", ".join(sjt_answer_options),
+        #     base_text=persona_base_text,
+        #     attributes=persona_str
+        # )
+        # answers = generator(prompt).strip().replace(">", "").splitlines()
+        # return [re.sub(r"[^a-zA-Z]", "", ans).strip() for ans in answers]
+
+    # Non-batched
+    prompt_list = []
+    hash_list = []
+    for sjt in question_batch:
+
+        answer_options = [sjt[key] for key in sjt.keys() if "_option" in key]
+        answer_options = [answer_options[idx] for idx in answer_index]
+        question = sjt['question']
+
+        prompt = sjt_template(question=question,
+                              attributes=persona_str,
+                              answer_options=list_to_str(answer_options))
+        prompt_list.append(prompt)
+        hash_list.append(sjt['hash_id'])
+
+
+    if "gpt" in args.model_name:
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            return list(executor.map(lambda p: openai_answer(model, p), prompt_list)), hash_list
     else:
-        prompt_list = []
-        for question in question_batch:
-            prompt = hexaco_template(text=question,
-                                     sjt_answer_options=", ".join(sjt_answer_options),
-                                     base_text=persona_base_text,
-                                     attributes=persona_str)
-            prompt = f"{prompt}, use the json format."
-            prompt_list.append(prompt)
-
-        if "gpt" in args.model_name:
-            with ThreadPoolExecutor(max_workers=4) as executor:
-                results = list(executor.map(openai_answer, prompt_list))
-        else:
-            results = local_answer(prompt_list)
-
-    return results
+        return local_answer(model, prompt_list), hash_list
 
 
-def batch_list(lst, n):
-    for i in range(0, len(lst), n):
-        yield lst[i:i + n]
+# ----------------------------
+# Experiment Runner
+# ----------------------------
+def generate_answers(model, args, synthetic_sjts, persona_datasets=None, answer_shuffle=False):
+    
+    answer_index = [0, 1, 2, 3, 4, 5]
+    sjt_answer_options = "normal"
 
-
-def generate_answers(question_list=question_list, sjt_answer_options=sjt_answer_options, persona_datasets = None, n_times=1,
-                     batch_size=5, batching=False):
-
-    if batching:
-        print(f"Batching {batch_size} Questions together in one prompt")
+    if answer_shuffle:
+        random.shuffle(answer_index)
+        sjt_answer_options = "shuffle"
+    sjt_answers = []
+    
+    if persona_datasets:
+        print(f"No of personas: {len(persona_datasets)}")
     else:
-        print("Passing One question per prompt")
+        print("Answering the SJTs using the base model, without any personas")
+    print(f"No of SJTs: {len(synthetic_sjts)}")
+    
+    """Run experiments for base model or persona-conditioned runs."""
+    if args.batching:
+        print(f"Batching {args.batch_size} questions together")
+    else:
+        print("Passing one question per prompt")
+
     answers = {}
+
     if args.persona_source == "base_model":
-        print("Running Hexaco on Base Model without Personas")
-        hexaco_template = base_hexaco_template
+        print("Running SJTs on Base Model without Personas")
+        sjt_template = base_sjt_template
         repeated_answers = []
-        for i in tqdm(range(n_times), desc="Iterations", position=1):
+
+        for _ in tqdm(range(args.n_times), desc="Iterations"):
             persona_answer = []
-            for question_batch in tqdm(batch_list(question_list, batch_size), desc="Batches", position=2):
-                batch_answers = generation_function(hexaco_template=hexaco_template, 
-                                                    question_batch=question_batch,
-                                                    sjt_answer_options=sjt_answer_options,
-                                                    batching=batching)
+            question_hashes = []
+            for q_batch in tqdm(batch_list(synthetic_sjts, args.batch_size), desc="SJT Batches"):
+                batch_answers, batch_hash_list = generation_function(model, sjt_template, q_batch,
+                                        answer_index=answer_index,
+                                        batching=args.batching)
                 persona_answer.extend(batch_answers)
+                question_hashes.extend(batch_hash_list)
             repeated_answers.append(persona_answer)
-        persona_dict = {}
-        persona_dict['config'] = {}
-        persona_dict['config']['persona'] = "base_model"
-        persona_dict['config']['sjt_answer_options'] = "normal"
-        persona_dict['config']['paraphrase'] = "normal"
-        persona_dict['config']['refusal'] = "refusal"
-        persona_dict['config']['model_name'] = args.model_name
-        persona_dict['answers'] = repeated_answers  
-        answers['base_model'] = persona_dict
+
+        answers['base_model'] = {
+            'config': {
+                'persona': "base_model",
+                'question_hashes': question_hashes,
+                'sjt_answer_options': sjt_answer_options,
+                'answer_index': answer_index,
+                'model_name': args.model_name
+            },
+            'answers': repeated_answers
+        }
+
     else:
-        print("Running Hexaco with Personas")
-        hexaco_template = persona_hexaco_template
-        base_text = "You are a law enforcement officer."
-        for persona_dataset in tqdm(persona_datasets, desc="Personas", position=0):
+        print("Running SJTs with Personas")
+        sjt_template = persona_sjt_template
+
+        for persona_dataset in tqdm(persona_datasets, desc="Personas"):
             persona_str = persona_dataset['persona_text']
             repeated_answers = []
-            for i in tqdm(range(n_times), desc="Iterations", position=1):
+
+            for _ in tqdm(range(args.n_times), desc="Iterations"):
                 persona_answer = []
-                for question_batch in tqdm(batch_list(question_list, batch_size), desc="Batches", position=2):
-                    batch_answers = generation_function(hexaco_template=hexaco_template, 
-                                                        question_batch=question_batch,
-                                                        sjt_answer_options=sjt_answer_options,
-                                                        persona_str=persona_str,
-                                                        persona_base_text=base_text,
-                                                        batching=batching)
+                question_hashes = []
+                for q_batch in tqdm(batch_list(synthetic_sjts, args.batch_size), desc="Batches"):
+                    batch_answers, batch_hash_list = generation_function(model, sjt_template, q_batch,
+                                            answer_index=answer_index,
+                                            persona_str=persona_str,
+                                            batching=args.batching)
                     persona_answer.extend(batch_answers)
+                    question_hashes.extend(batch_hash_list)
                 repeated_answers.append(persona_answer)
-            persona_dict = {}
-            persona_dict['config'] = {}
-            persona_dict['config']['persona'] = persona_dataset['uuid']
-            persona_dict['config']['sjt_answer_options'] = "normal"
-            persona_dict['config']['paraphrase'] = "normal"
-            persona_dict['config']['refusal'] = "refusal"
-            persona_dict['config']['model_name'] = args.model_name
-            persona_dict['answers'] = repeated_answers
-            answers[persona_dataset['uuid']] = persona_dict
+
+            answers[persona_dataset['uuid']] = {
+                'config': {
+                    'persona': persona_dataset['uuid'],
+                    'question_hashes': question_hashes,
+                    'sjt_answer_options': sjt_answer_options,
+                    'answer_index': answer_index,
+                    'model_name': args.model_name
+                },
+                'answers': repeated_answers
+            }
+
     return answers
 
+
+# ----------------------------
+# Main Entrypoint
+# ----------------------------
 if __name__ == "__main__":
+    args = parse_args()
+    print(f"Model Used: {args.model_name}")
+
+    # Load model
+    model = load_model(args.model_name, args.hf_token)
     
-    # Code for running Prompt Packing
-    # batch_size = 10
-    # persona_dataset_df = persona_datasets.to_pandas()
-    # for start in range(0, 30, batch_size):
-    #     print(f"Batch {start}")
-    #     batch = persona_dataset_df.iloc[start:start+batch_size]
-    #     batch = batch.to_dict("records")
-    #     hf_persona_answers = generate_answers(batch, generation_function,
-    #                                         question_list, sjt_answer_options, batching=True)
+    # Load SJTs
+    synthetic_sjts = load_sjt(args.sjt_dir)
+    
+    # Load Personas
+    persona_datasets = load_personas(args.persona_source)
 
-    #     write_to_json(hf_persona_answers, os.path.join("hf_persona_batching_vs_individual_questions_results_v0",f"hf_persona_answers_with_batching_v{start}.json"))
+    # Define templates (TODO: replace placeholders)
+    base_sjt_template = outlines.Template.from_string("""
+    <|im_start>user
+    Task: Answer the below multiple choice questions:
 
+    Question: {{ question }}
 
-    # Code for Running Base Model
-    # python3 hf_personas_hexaco_v0.py --persona-source="base_model"
-    results = generate_answers()
+    Choices for these questions are:
 
-    model_name = args.model_name.replace(".", "_").split("/")[1]
-    write_to_json(results, os.path.join("base_model_hexaco_runs_v3", f"base_model_hexaco_answers_{model_name}.json"))
+    {{ answer_options }}
+
+    Answer the question using one of the values from [1,2,3,4,5,6].
+    <|im_end>
+    <|im_start>assistant
+    """)
+
+    persona_sjt_template = outlines.Template.from_string("""
+    <|im_start>user
+    You are a law enforcement officer with following attributes :
+
+    {{attributes}}
+
+    Task: Answer the below multiple choice questions:
+
+    Question: {{ question }}
+
+    Choices for these questions are:
+
+    {{ answer_options }}
+
+    Answer the question using one of the values from [1,2,3,4,5,6].
+    <|im_end>
+    <|im_start>assistant
+    """)
+
+    # Run
+    results = generate_answers(model, args, synthetic_sjts, persona_datasets)
+
+    # Save results
+    model_name = args.model_name.replace(".", "_").split("/")[-1]
+    out_dir = "base_model_sjt_runs_v0"
+    out_file = os.path.join(out_dir,
+                            f"{args.question_set}_sjt_answers_{model_name}.json")
+    write_to_json(results, out_file)
+    print(f"Results saved to {out_file}")
