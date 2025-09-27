@@ -109,7 +109,7 @@ def sjt_generation_with_validation(seed_dict):
     corrected_sjt_response_dict = openai_sjt_response_v2.model_dump()
 
 
-    generated_sjt_dict['hash_id'] = generate_hash(json.dumps(corrected_sjt_response_dict))
+    generated_sjt_dict['hash_id'] = generate_hash(json.dumps(corrected_sjt_response_dict['corrected_sjt']))
     generated_sjt_dict['original_sjt'] = original_sjt_response_dict
     generated_sjt_dict['trait_bleed_evaluation'] = corrected_sjt_response_dict
     generated_sjt_dict['corrected_sjt'] = corrected_sjt_response_dict['corrected_sjt']
@@ -393,7 +393,7 @@ option_cols = ['Option 1', 'Option 2', 'Option 3', 'Option 4', 'Option 5','Optio
 
 # handmade_sjt_sample = handmade_sjt_template_df.sample(2)
 handmade_sjt_sample = handmade_sjt_template_df
-start_index = 8
+start_index = 3
 
 for index, row in tqdm(handmade_sjt_sample.iloc[start_index:].iterrows(), desc="base_scenario",
                        position=0):
@@ -422,9 +422,7 @@ for index, row in tqdm(handmade_sjt_sample.iloc[start_index:].iterrows(), desc="
                 sjt_generation_with_validation, input_seed_batch))
 
         synthetic_generated_sjt_list.extend(generated_sjt_dict_list)
-    
+
     write_to_json(synthetic_generated_sjt_list,
-                f"sjt_data/synthetic_generate_sjt_1k_temp1point5/synthetic_generated_sjt_list_basescenario_{index}.json")
-
-
+                f"sjt_data/synthetic_generate_sjt_1k_temp1point5_v2/synthetic_generated_sjt_list_basescenario_{index}.json")
 

@@ -13,7 +13,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from pydantic import BaseModel
 from huggingface_hub import login
 from tqdm import tqdm
-from datasets import load_dataset
+from datasets import load_dataset, Dataset
 from openai import OpenAI
 import yaml
 from concurrent.futures import ThreadPoolExecutor
@@ -51,6 +51,8 @@ def parse_args():
                         help="Number of questions per batch when batching is enabled")
     parser.add_argument("--n-times", type=int, default=1,
                         help="Number of repetitions per persona")
+    parser.add_argument("--n-sjtsample", type=int, default=1,
+                        help="Number of SJTs to be sampled")
     return parser.parse_args()
 
 
@@ -105,20 +107,26 @@ def load_model(model_name: str, hf_token: str = None):
 # ----------------------------
 
 
-def load_sjt(sjt_dir):
+def load_sjt(args):
     sjt_list = []
-    for file in os.listdir(sjt_dir):
-        synthetic_sjt = read_json(file)
-        sjt_list += synthetic_sjt
+    for file in os.listdir(args.sjt_dir):
+        synthetic_sjt = read_json(os.path.join(args.sjt_dir, file))
+        sampled_sjts = random.sample(synthetic_sjt, args.n_sjtsample)
+        sjt_list += sampled_sjts
+
+    print(f"{len(sjt_list)} SJTs Loaded")
     return sjt_list
 
 
 def load_personas(persona_source,
-                  hf_persona_name="thoughtworks/psychometric_personas"):
+                  hf_persona_name="thoughtworks/psychometric_personas_temp"):
     if persona_source == "huggingface":
         print("Using Huggingface Personas")
         hf_persona_dataset = load_dataset(hf_persona_name)
-        persona_datasets = hf_persona_dataset['train']
+        persona_datasets_total = hf_persona_dataset['train']
+        total_persona_df = persona_datasets_total.to_pandas()
+        sampled_personas = total_persona_df.groupby("archetype").sample(n=1, random_state=42)
+        persona_datasets = Dataset.from_pandas(sampled_personas)
         print(f"No of Personas: {len(persona_datasets)}")
     elif persona_source == "base_synthetic_personas":
         raise NotImplementedError("Base Synthetic Personas is not implemented yet")
@@ -167,7 +175,9 @@ def generation_function(model, sjt_template, question_batch,answer_index ,batchi
     # Non-batched
     prompt_list = []
     hash_list = []
-    for sjt in question_batch:
+    for sjt_dict in question_batch:
+
+        sjt = sjt_dict['corrected_sjt']
 
         answer_options = [sjt[key] for key in sjt.keys() if "_option" in key]
         answer_options = [answer_options[idx] for idx in answer_index]
@@ -177,7 +187,7 @@ def generation_function(model, sjt_template, question_batch,answer_index ,batchi
                               attributes=persona_str,
                               answer_options=list_to_str(answer_options))
         prompt_list.append(prompt)
-        hash_list.append(sjt['hash_id'])
+        hash_list.append(sjt_dict['hash_id'])
 
 
     if "gpt" in args.model_name:
@@ -246,7 +256,8 @@ def generate_answers(model, args, synthetic_sjts, persona_datasets=None, answer_
         sjt_template = persona_sjt_template
 
         for persona_dataset in tqdm(persona_datasets, desc="Personas"):
-            persona_str = persona_dataset['persona_text']
+            persona_str = persona_dataset['persona_string']
+            
             repeated_answers = []
 
             for _ in tqdm(range(args.n_times), desc="Iterations"):
@@ -284,10 +295,10 @@ if __name__ == "__main__":
 
     # Load model
     model = load_model(args.model_name, args.hf_token)
-    
+
     # Load SJTs
-    synthetic_sjts = load_sjt(args.sjt_dir)
-    
+    synthetic_sjts = load_sjt(args)
+
     # Load Personas
     persona_datasets = load_personas(args.persona_source)
 
@@ -331,8 +342,9 @@ if __name__ == "__main__":
 
     # Save results
     model_name = args.model_name.replace(".", "_").split("/")[-1]
-    out_dir = "base_model_sjt_runs_v0"
+    out_dir = "case_study_data"
     out_file = os.path.join(out_dir,
-                            f"{args.question_set}_sjt_answers_{model_name}.json")
+                            f"{args.persona_source}_sjt_answers_{model_name}.json")
     write_to_json(results, out_file)
     print(f"Results saved to {out_file}")
+    
