@@ -41,6 +41,8 @@ def parse_args():
                         help="Model Name")
     parser.add_argument("--persona-source", type=str, default="huggingface",
                         help="Source of Persona Being Used (base_model | huggingface)")
+    parser.add_argument("--hf-persona-path", type=str, default="thoughtworks/psychometric_personas_temp",
+                        help="HF Path for Personas")
     parser.add_argument("--sjt-dir", type=str, default=None,
                         help="Source directory for Synthetic SJTs")
     parser.add_argument("--hf-token", type=str, default=None,
@@ -53,6 +55,8 @@ def parse_args():
                         help="Number of repetitions per persona")
     parser.add_argument("--n-sjtsample", type=int, default=1,
                         help="Number of SJTs to be sampled")
+    parser.add_argument("--n-personasample", type=int, default=1,
+                        help="Number of Personas to be sampled for each archetype")
     return parser.parse_args()
 
 
@@ -118,19 +122,19 @@ def load_sjt(args):
     return sjt_list
 
 
-def load_personas(persona_source,
-                  hf_persona_name="thoughtworks/psychometric_personas_temp"):
-    if persona_source == "huggingface":
+def load_personas(args):
+    if args.persona_source == "huggingface":
         print("Using Huggingface Personas")
-        hf_persona_dataset = load_dataset(hf_persona_name)
+        print(f"Loading Personas from {args.hf_persona_path}")
+        hf_persona_dataset = load_dataset(args.hf_persona_path)
         persona_datasets_total = hf_persona_dataset['train']
         total_persona_df = persona_datasets_total.to_pandas()
-        sampled_personas = total_persona_df.groupby("archetype").sample(n=1, random_state=42)
+        sampled_personas = total_persona_df.groupby("archetype").sample(n=args.n_personasample, random_state=42)
         persona_datasets = Dataset.from_pandas(sampled_personas)
         print(f"No of Personas: {len(persona_datasets)}")
-    elif persona_source == "base_synthetic_personas":
+    elif args.persona_source == "base_synthetic_personas":
         raise NotImplementedError("Base Synthetic Personas is not implemented yet")
-    elif persona_source == "base_model":
+    elif args.persona_source == "base_model":
         return None
     else:
         print("Using Local Personas")
@@ -300,7 +304,7 @@ if __name__ == "__main__":
     synthetic_sjts = load_sjt(args)
 
     # Load Personas
-    persona_datasets = load_personas(args.persona_source)
+    persona_datasets = load_personas(args)
 
     # Define templates (TODO: replace placeholders)
     base_sjt_template = outlines.Template.from_string("""
@@ -347,4 +351,3 @@ if __name__ == "__main__":
                             f"{args.persona_source}_sjt_answers_{model_name}.json")
     write_to_json(results, out_file)
     print(f"Results saved to {out_file}")
-    
