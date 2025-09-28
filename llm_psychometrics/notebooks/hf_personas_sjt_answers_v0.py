@@ -57,6 +57,8 @@ def parse_args():
                         help="Number of SJTs to be sampled")
     parser.add_argument("--n-personasample", type=int, default=1,
                         help="Number of Personas to be sampled for each archetype")
+    parser.add_argument("--answer-shuffle", action="store_true",
+                        help="Enabling Shuffling of answer index for SJTs (default: False)")
     return parser.parse_args()
 
 
@@ -162,7 +164,7 @@ def local_answer(model, prompt_list: List):
 
 
 def generation_function(model, sjt_template, question_batch,answer_index ,batching=False,
-                        persona_str=None):
+                        persona_str=None, answer_shuffle=False):
     """Generate answers for a batch of questions."""
     if batching:
         raise NotImplementedError()
@@ -179,7 +181,12 @@ def generation_function(model, sjt_template, question_batch,answer_index ,batchi
     # Non-batched
     prompt_list = []
     hash_list = []
+    answer_index_list = []
     for sjt_dict in question_batch:
+        
+        if answer_shuffle:
+            random.shuffle(answer_index)
+        answer_index_list.append(list(answer_index))
 
         sjt = sjt_dict['corrected_sjt']
 
@@ -196,24 +203,25 @@ def generation_function(model, sjt_template, question_batch,answer_index ,batchi
 
     if "gpt" in args.model_name:
         with ThreadPoolExecutor(max_workers=4) as executor:
-            return list(executor.map(lambda p: openai_answer(model, p), prompt_list)), hash_list
+            return list(executor.map(lambda p: openai_answer(model, p), prompt_list)), hash_list, answer_index_list
     else:
-        return local_answer(model, prompt_list), hash_list
+        return local_answer(model, prompt_list), hash_list, answer_index_list
 
 
 # ----------------------------
 # Experiment Runner
 # ----------------------------
 def generate_answers(model, args, synthetic_sjts, persona_datasets=None, answer_shuffle=False):
-    
-    answer_index = [0, 1, 2, 3, 4, 5]
-    sjt_answer_options = "normal"
 
-    if answer_shuffle:
-        random.shuffle(answer_index)
-        sjt_answer_options = "shuffle"
-    sjt_answers = []
+    answer_index = [0, 1, 2, 3, 4, 5]
     
+    if answer_shuffle:
+        sjt_answer_options = "shuffle"
+        print("Shuffling answer options for SJTs")
+    else:
+        sjt_answer_options = "normal"
+        print("Default Ordering of answer options for SJTs")
+
     if persona_datasets:
         print(f"No of personas: {len(persona_datasets)}")
     else:
@@ -236,12 +244,14 @@ def generate_answers(model, args, synthetic_sjts, persona_datasets=None, answer_
         for _ in tqdm(range(args.n_times), desc="Iterations"):
             persona_answer = []
             question_hashes = []
+            answer_indexes = []
             for q_batch in tqdm(batch_list(synthetic_sjts, args.batch_size), desc="SJT Batches"):
-                batch_answers, batch_hash_list = generation_function(model, sjt_template, q_batch,
-                                        answer_index=answer_index,
-                                        batching=args.batching)
+                batch_answers, batch_hash_list, batch_answer_index_list = generation_function(model, sjt_template, q_batch,answer_index=answer_index,
+                                        batching=args.batching,
+                                        answer_shuffle=answer_shuffle)
                 persona_answer.extend(batch_answers)
                 question_hashes.extend(batch_hash_list)
+                answer_indexes.extend(batch_answer_index_list)
             repeated_answers.append(persona_answer)
 
         answers['base_model'] = {
@@ -249,7 +259,7 @@ def generate_answers(model, args, synthetic_sjts, persona_datasets=None, answer_
                 'persona': "base_model",
                 'question_hashes': question_hashes,
                 'sjt_answer_options': sjt_answer_options,
-                'answer_index': answer_index,
+                'answer_index': answer_indexes,
                 'model_name': args.model_name
             },
             'answers': repeated_answers
@@ -267,13 +277,16 @@ def generate_answers(model, args, synthetic_sjts, persona_datasets=None, answer_
             for _ in tqdm(range(args.n_times), desc="Iterations"):
                 persona_answer = []
                 question_hashes = []
+                answer_indexes = []
                 for q_batch in tqdm(batch_list(synthetic_sjts, args.batch_size), desc="Batches"):
-                    batch_answers, batch_hash_list = generation_function(model, sjt_template, q_batch,
+                    batch_answers, batch_hash_list, batch_answer_index_list = generation_function(model, sjt_template, q_batch,
                                             answer_index=answer_index,
                                             persona_str=persona_str,
-                                            batching=args.batching)
+                                            batching=args.batching,
+                                            answer_shuffle=answer_shuffle)
                     persona_answer.extend(batch_answers)
                     question_hashes.extend(batch_hash_list)
+                    answer_indexes.extend(batch_answer_index_list)
                 repeated_answers.append(persona_answer)
 
             answers[persona_dataset['uuid']] = {
@@ -281,7 +294,7 @@ def generate_answers(model, args, synthetic_sjts, persona_datasets=None, answer_
                     'persona': persona_dataset['uuid'],
                     'question_hashes': question_hashes,
                     'sjt_answer_options': sjt_answer_options,
-                    'answer_index': answer_index,
+                    'answer_index': answer_indexes,
                     'model_name': args.model_name
                 },
                 'answers': repeated_answers
@@ -342,7 +355,7 @@ if __name__ == "__main__":
     """)
 
     # Run
-    results = generate_answers(model, args, synthetic_sjts, persona_datasets)
+    results = generate_answers(model, args, synthetic_sjts, persona_datasets, args.answer_shuffle)
 
     # Save results
     model_name = args.model_name.replace(".", "_").split("/")[-1]

@@ -393,7 +393,7 @@ option_cols = ['Option 1', 'Option 2', 'Option 3', 'Option 4', 'Option 5','Optio
 
 # handmade_sjt_sample = handmade_sjt_template_df.sample(2)
 handmade_sjt_sample = handmade_sjt_template_df
-start_index = 3
+start_index = 1
 
 for index, row in tqdm(handmade_sjt_sample.iloc[start_index:].iterrows(), desc="base_scenario",
                        position=0):
@@ -424,5 +424,5 @@ for index, row in tqdm(handmade_sjt_sample.iloc[start_index:].iterrows(), desc="
         synthetic_generated_sjt_list.extend(generated_sjt_dict_list)
 
     write_to_json(synthetic_generated_sjt_list,
-                f"sjt_data/synthetic_generate_sjt_1k_temp1point5_v2/synthetic_generated_sjt_list_basescenario_{index}.json")
+                f"sjt_data/synthetic_generate_sjt_1k_temp1point5_v3/synthetic_generated_sjt_list_basescenario_{index}.json")
 
