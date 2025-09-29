@@ -40,7 +40,7 @@ def parse_args():
     parser.add_argument("--model-name", type=str, default="gpt-4.1-mini",
                         help="Model Name")
     parser.add_argument("--persona-source", type=str, default="huggingface",
-                        help="Source of Persona (huggingface | base_model | local)")
+                        help="Source of Persona (huggingface | base_model | personallm_paper)")
     parser.add_argument("--hf-persona-path", type=str, default="thoughtworks/psychometric_personas_temp",
                         help="HF Path for Personas")
     parser.add_argument("--hf-token", type=str, default=None,
@@ -156,8 +156,9 @@ def load_personas(args):
         sampled_personas = total_persona_df.groupby("archetype").sample(n=args.n_personasample, random_state=42)
         persona_datasets = Dataset.from_pandas(sampled_personas)
         print(f"No of Personas: {len(persona_datasets)}")
-    elif args.persona_source == "base_synthetic_personas":
-        raise NotImplementedError("Base Synthetic Personas is not implemented yet")
+    elif args.persona_source == "personallm_paper":
+        print("Using Persona LLM Paper Personas")
+        persona_datasets = read_json("../data/persona_llm_paper_seed_combinations.json")
     elif args.persona_source == "base_model":
         return None
     else:
