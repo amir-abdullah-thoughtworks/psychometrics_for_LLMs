@@ -21,6 +21,8 @@ import random
 # Custom imports
 sys.path.append("../")
 from src.utils_v0 import list_to_str, inverse_likert
+from hexaco_base_prompt_templates import hexaco_base_prompt_templates
+from hexaco_persona_prompt_templates import hexaco_persona_prompt_templates
 
 # ----------------------------
 # Setup
@@ -148,6 +150,30 @@ def load_data(args):
 
     return question_list, likert_scale
 
+def load_prompt_templates(model_name):
+    
+    if "gpt" in model_name.lower():
+        print("Loading Prompt Templates for GPT models")
+        base_hexaco_template_str = hexaco_base_prompt_templates['gpt']
+        persona_hexaco_template_str = hexaco_persona_prompt_templates['gpt']
+    
+    elif "llama" in model_name.lower():
+        print("Loading Prompt Templates for Llama models")
+        base_hexaco_template_str = hexaco_base_prompt_templates['llama']
+        persona_hexaco_template_str = hexaco_persona_prompt_templates['llama']
+        
+    elif "qwen" in model_name.lower():
+        print("Loading Prompt Templates for Qwen models")
+        base_hexaco_template_str = hexaco_base_prompt_templates['qwen']
+        persona_hexaco_template_str = hexaco_persona_prompt_templates['qwen']
+    else:
+        raise NotImplementedError("Use Models from GPT, Llama or Qwen Families")
+
+    base_hexaco_template = outlines.Template.from_string(base_hexaco_template_str)
+    persona_hexaco_template = outlines.Template.from_string(persona_hexaco_template_str)
+    
+    return base_hexaco_template, persona_hexaco_template
+
 
 def load_personas(args):
     if args.persona_source == "huggingface":
@@ -180,33 +206,33 @@ def load_personas(args):
 # Answer Generation
 # ----------------------------
 
-base_hexaco_template = outlines.Template.from_string("""
-<|im_start>user
-Task: Answer the below questions:
+# base_hexaco_template = outlines.Template.from_string("""
+# <|im_start>user
+# Task: Answer the below questions:
 
-{{ text }}
+# {{ text }}
 
-Answer the question as either {{ likert_scale }}.
-Do not return the question, just return the answer directly.
-<|im_end>
-<|im_start>assistant
-""")
+# Answer the question as either {{ likert_scale }}.
+# Do not return the question, just return the answer directly.
+# <|im_end>
+# <|im_start>assistant
+# """)
 
-persona_hexaco_template = outlines.Template.from_string("""
-<|im_start>user
-You are a law enforcement officer with following attributes :
+# persona_hexaco_template = outlines.Template.from_string("""
+# <|im_start>user
+# You are a law enforcement officer with following attributes :
 
-{{attributes}}
+# {{attributes}}
 
-Task: Answer the below questions:
+# Task: Answer the below questions:
 
-{{ text }}
+# {{ text }}
 
-Answer the question as either {{ likert_scale }}.
-Do not return the question, just return the answer directly.
-<|im_end>
-<|im_start>assistant
-""")
+# Answer the question as either {{ likert_scale }}.
+# Do not return the question, just return the answer directly.
+# <|im_end>
+# <|im_start>assistant
+# """)
 
 
 def openai_answer(model, prompt: str):
@@ -317,6 +343,8 @@ def generate_answers(model, args, persona_datasets, question_list,
 if __name__ == "__main__":
     args = parse_args()
     print(f"Model Used: {args.model_name}")
+    
+    base_hexaco_template, persona_hexaco_template = load_prompt_templates(args.model_name)
 
     # Load model
     model = load_model(args.model_name, args.hf_token)
