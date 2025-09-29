@@ -11,7 +11,7 @@ from typing import Union
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor
 sys.path.append("../")
-from src.utils import list_to_str, openai_api_call
+from src.utils_v0 import list_to_str, openai_api_call
 device = "cpu"
 
 
@@ -393,7 +393,7 @@ option_cols = ['Option 1', 'Option 2', 'Option 3', 'Option 4', 'Option 5','Optio
 
 # handmade_sjt_sample = handmade_sjt_template_df.sample(2)
 handmade_sjt_sample = handmade_sjt_template_df
-start_index = 1
+start_index = 16
 
 for index, row in tqdm(handmade_sjt_sample.iloc[start_index:].iterrows(), desc="base_scenario",
                        position=0):

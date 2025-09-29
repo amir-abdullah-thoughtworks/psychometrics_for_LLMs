@@ -20,7 +20,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 # Custom imports
 sys.path.append("../")
-from src.utils import list_to_str
+from src.utils_v0 import list_to_str
 
 # ----------------------------
 # Setup

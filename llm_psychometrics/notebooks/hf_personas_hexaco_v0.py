@@ -20,7 +20,7 @@ import random
 
 # Custom imports
 sys.path.append("../")
-from src.utils import list_to_str, inverse_likert
+from src.utils_v0 import list_to_str, inverse_likert
 
 # ----------------------------
 # Setup
@@ -59,6 +59,8 @@ def parse_args():
                         help="Whether Likert Scale needs to be inverted or not")
     parser.add_argument("--no-refusal", action="store_true",
                         help="Whether Refusal is allowed or not")
+    parser.add_argument("--likert-shuffle", action="store_true",
+                        help="Enabling Shuffling of likert scale for hexaco (default: False)")
     return parser.parse_args()
 
 
@@ -213,7 +215,7 @@ def local_answer(model, prompt, answer_options: List):
 
 
 def generation_function(model, hexaco_template, question_batch, likert_scale,
-                        batching=False, persona_str=None, persona_base_text=None):
+                        batching=False, persona_str=None, persona_base_text=None, likert_shuffle=False):
 
     if batching:
         generator = Generator(model)
@@ -227,6 +229,9 @@ def generation_function(model, hexaco_template, question_batch, likert_scale,
     # Non-batched
     prompt_list = []
     for question in question_batch:
+        if likert_shuffle:
+            random.shuffle(likert_scale)
+        
         prompt = hexaco_template(text=question,
                                  likert_scale=", ".join(likert_scale),
                                  base_text=persona_base_text,
@@ -259,8 +264,13 @@ def generate_answers(model, args, persona_datasets, question_list,
     else:
         print("Passing one question per prompt")
 
+    if args.likert_shuffle:
+        print("Shuffling likert scale for every persona and question combination")
+    else:
+        print("Using the default likert scale order without shuffling")
+
     for persona_dataset in tqdm(persona_datasets, desc="Personas"):
-        persona_str = persona_dataset.get('persona_text', "")
+        persona_str = persona_dataset.get('persona_string', "")
         persona_id = persona_dataset.get('uuid', "base_model")
 
         repeated_answers = []
@@ -271,15 +281,23 @@ def generate_answers(model, args, persona_datasets, question_list,
                                                     question_batch, likert_scale,
                                                     persona_str=persona_str,
                                                     persona_base_text=base_text,
-                                                    batching=args.batching)
+                                                    batching=args.batching,
+                                                    likert_shuffle=args.likert_shuffle)
                 persona_answer.extend(batch_answers)
             repeated_answers.append(persona_answer)
 
+        if args.inverted_likert:
+            likert = "inverted"
+        elif args.likert_shuffle:
+            likert = "shuffle"
+        else:
+            likert = "normal"
+        
         answers[persona_id] = {
             'config': {
                 'persona': persona_id,
                 'paraphrase': "paraphrased" if args.paraphrase else "normal",
-                "likert_scale": "inverted" if args.inverted_likert else "normal",
+                "likert_scale": likert,
                 "refusal_allowed": "no refusal" if args.no_refusal else "refusal",
                 'model_name': args.model_name
             },
