@@ -1,156 +1,81 @@
-import torch as t
-import outlines
-from outlines import Generator
-import transformers
-from transformers import AutoTokenizer, AutoModelForCausalLM
-from pydantic import BaseModel
-from typing import Literal
 import argparse
-import yaml
-import sys
+import json
 import os
 import re
-import json
+import sys
+from typing import List, Literal
+import torch as t
+import transformers
+import outlines
+from outlines import Generator
+from transformers import AutoTokenizer, AutoModelForCausalLM
+from pydantic import BaseModel
 from huggingface_hub import login
 from tqdm import tqdm
-from datasets import load_dataset
+from datasets import load_dataset, Dataset
 from openai import OpenAI
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+import yaml
+from concurrent.futures import ThreadPoolExecutor
+import random
+
+# Custom imports
 sys.path.append("../")
-from src.utils import list_to_str
+from src.utils_v0 import list_to_str, inverse_likert
 
+# ----------------------------
+# Setup
+# ----------------------------
 transformers.logging.set_verbosity_error()
-
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
 print(f"Device: {device}")
 
-
-parser = argparse.ArgumentParser()
-
-parser.add_argument("--model-name", type=str, help="Model Name",
-                    default="gpt-4.1-mini")
-
-args = parser.parse_args()
-
-print(f"Model Used: {args.model_name}")
+NO_ANSWER = "Do not wish to answer"
 
 
-class OpenaiResponse(BaseModel):
-    response: str
+# ----------------------------
+# Argument Parsing
+# ----------------------------
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model-name", type=str, default="gpt-4.1-mini",
+                        help="Model Name")
+    parser.add_argument("--persona-source", type=str, default="huggingface",
+                        help="Source of Persona (huggingface | base_model | local)")
+    parser.add_argument("--hf-persona-path", type=str, default="thoughtworks/psychometric_personas_temp",
+                        help="HF Path for Personas")
+    parser.add_argument("--hf-token", type=str, default=None,
+                        help="Huggingface token")
+    parser.add_argument("--batching", action="store_true",
+                        help="Enable batching mode (default: False)")
+    parser.add_argument("--batch-size", type=int, default=5,
+                        help="Number of questions per batch")
+    parser.add_argument("--n-times", type=int, default=1,
+                        help="Number of repetitions per persona")
+    parser.add_argument("--paraphrase", action="store_true",
+                        help="Use paraphrased versions of HEXACO (default: False)")
+    parser.add_argument("--n-personasample", type=int, default=1,
+                        help="Number of Personas to be sampled for each archetype")
+    parser.add_argument("--inverted-likert", action="store_true",
+                        help="Whether Likert Scale needs to be inverted or not")
+    parser.add_argument("--no-refusal", action="store_true",
+                        help="Whether Refusal is allowed or not")
+    parser.add_argument("--likert-shuffle", action="store_true",
+                        help="Enabling Shuffling of likert scale for hexaco (default: False)")
+    return parser.parse_args()
 
 
+# ----------------------------
+# Utility Functions
+# ----------------------------
 def write_to_json(file, file_path):
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
     with open(file_path, 'w') as f:
-        json.dump(file, f)
+        json.dump(file, f, indent=2)
 
 
 def read_json(file_path):
     with open(file_path, "r") as f:
-        file = json.load(f)
-    return file
-
-
-login("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")
-
-with open('../configs/generation_config.yaml', 'r') as file:
-    generation_config = yaml.safe_load(file)
-
-with open('../psychometric_tests/hexaco_100_questions.yaml', 'r') as file:
-    question_list = yaml.safe_load(file)
-
-with open('../psychometric_tests/paraphrased_hexaco_100_questions.yaml', 'r') as file:
-    paraphrased_question_list = yaml.safe_load(file)
-
-with open('../psychometric_tests/hexaco_100_eval.yaml', 'r') as file:
-    hexaco_eval = yaml.safe_load(file)
-
-with open('../configs/personas_v2.yaml', 'r') as file:
-    personas = yaml.safe_load(file)
-
-if "gpt" in args.model_name:
-    # print(f"Using GPT Generation. Model Used: {args.model_name}")
-    model = outlines.from_openai(OpenAI(), args.model_name)
-else:
-    # print(f"Using Local Generation. Model Used: {args.model_name}")
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
-    hf_model = AutoModelForCausalLM.from_pretrained(
-        args.model_name,
-        torch_dtype=t.float16
-    ).to(device)
-    
-    # tokenizer.pad_token = tokenizer.eos_token
-    # hf_model.config.pad_token_id = tokenizer.eos_token_id
-
-    # Create outlines-wrapped model
-    model = outlines.from_transformers(hf_model, tokenizer)
-
-NO_ANSWER = "Do not wish to answer"
-likert_scale = generation_config['likert_scale'].copy()
-likert_scale.append(NO_ANSWER)
-
-
-hf_persona_dataset = load_dataset("thoughtworks/psychometric_personas")
-persona_datasets = hf_persona_dataset['train']
-
-
-persona_hexaco_template = outlines.Template.from_string("""
-<|im_start>user
-{{base_text}} with following attributes :
-
-{{attributes}}
-
-Task: Answer the below questions:
-
-{{ text }}
-
-Answer the question as either {{ likert_scale }}. Do not return the question, just return the answer directly.
-<|im_end>
-<|im_start>assistant
-""")
-
-
-def openai_answer(prompt):
-    response = model(prompt, OpenaiResponse, temperature=0)
-    return json.loads(response)['response']
-
-
-def local_answer(prompt, answer_options=likert_scale):
-    response = model(prompt, Literal[*answer_options])
-    return response
-
-
-def generation_function(hexaco_template, question_batch, likert_scale,
-                      batching=False, persona_str=None, persona_base_text=None):
-    if batching:
-        generator = Generator(model)
-        prompt = hexaco_template(text=list_to_str(question_batch),
-                                 likert_scale=", ".join(likert_scale),
-                                 base_text=persona_base_text,
-                                 attributes=persona_str)
-        answers = generator(prompt).strip().replace(">","").splitlines()
-        results = [re.sub(r"[^a-zA-Z]", "", answer).strip()
-                   for answer in answers]
-    else:
-        prompt_list = []
-        for question in question_batch:
-            prompt = hexaco_template(text=question,
-                                     likert_scale=", ".join(likert_scale),
-                                     base_text=persona_base_text,
-                                     attributes=persona_str)
-            prompt = f"{prompt}, use the json format."
-            prompt_list.append(prompt)
-
-        if "gpt" in args.model_name:
-            with ThreadPoolExecutor(max_workers=4) as executor:
-                results = list(executor.map(openai_answer, prompt_list))
-        else:
-            results = []
-            for prompt in prompt_list:
-                results.append(local_answer(prompt))
-            # with ThreadPoolExecutor(max_workers=4) as executor:
-            #     results = list(executor.map(local_answer, prompt_list))
-
-    return results
+        return json.load(f)
 
 
 def batch_list(lst, n):
@@ -158,52 +83,254 @@ def batch_list(lst, n):
         yield lst[i:i + n]
 
 
-def generate_answers(persona_datasets, generation_function,
-                     question_list, likert_scale, n_times=1,
-                     batch_size=5, batching=False):
+# ----------------------------
+# Model Setup
+# ----------------------------
+class OpenaiResponse(BaseModel):
+    response: str
+
+
+def load_model(model_name: str, hf_token: str = None):
+    """Load either OpenAI or HF model wrapped with Outlines."""
+    if hf_token:
+        login(hf_token)
+
+    if "gpt" in model_name:
+        return outlines.from_openai(OpenAI(), model_name)
+
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    hf_model = AutoModelForCausalLM.from_pretrained(
+        model_name,
+        torch_dtype=t.float16
+    ).to(device)
+
+    return outlines.from_transformers(hf_model, tokenizer)
+
+
+# ----------------------------
+# Data Setup
+# ----------------------------
+def load_data(args):
+    with open('../configs/generation_config.yaml', 'r') as file:
+        generation_config = yaml.safe_load(file)
+
+    with open('../psychometric_tests/hexaco_100_questions.yaml', 'r') as file:
+        question_list = yaml.safe_load(file)
+
+    with open('../psychometric_tests/paraphrased_hexaco_100_questions.yaml', 'r') as file:
+        paraphrased_question_list = yaml.safe_load(file)
+
+    # with open('../psychometric_tests/hexaco_100_eval.yaml', 'r') as file:
+    #     hexaco_eval = yaml.safe_load(file)
+
+    # with open('../configs/personas_v2.yaml', 'r') as file:
+    #     personas = yaml.safe_load(file)
+
+    # Scale
+    if args.inverted_likert:
+        print("Inverting Likert")
+        likert_scale = inverse_likert(generation_config['likert_scale'].copy())
+    else:
+        print("Normal Likert")
+        likert_scale = generation_config['likert_scale'].copy()
+
+    if args.no_refusal:
+        print("Refusal Not Allowed")
+    else:
+        print("Refusal Allowed")
+        likert_scale.append(NO_ANSWER)
+
+    if args.paraphrase:
+        question_list = paraphrased_question_list
+
+    return question_list, likert_scale
+
+
+def load_personas(args):
+    if args.persona_source == "huggingface":
+        print("Using Huggingface Personas")
+        print(f"Loading Personas from {args.hf_persona_path}")
+        hf_persona_dataset = load_dataset(args.hf_persona_path)
+        persona_datasets_total = hf_persona_dataset['train']
+        total_persona_df = persona_datasets_total.to_pandas()
+        sampled_personas = total_persona_df.groupby("archetype").sample(n=args.n_personasample, random_state=42)
+        persona_datasets = Dataset.from_pandas(sampled_personas)
+        print(f"No of Personas: {len(persona_datasets)}")
+    elif args.persona_source == "base_synthetic_personas":
+        raise NotImplementedError("Base Synthetic Personas is not implemented yet")
+    elif args.persona_source == "base_model":
+        return None
+    else:
+        print("Using Local Personas")
+        with open('../configs/personas_v2.yaml', 'r') as file:
+            local_personas = yaml.safe_load(file)
+
+        job_title = 'law_enforcement'
+        persona_datasets = local_personas[job_title]['personas']
+        print(f"No of Personas: {len(persona_datasets)}")
+
+    return persona_datasets
+
+
+# ----------------------------
+# Answer Generation
+# ----------------------------
+
+base_hexaco_template = outlines.Template.from_string("""
+<|im_start>user
+Task: Answer the below questions:
+
+{{ text }}
+
+Answer the question as either {{ likert_scale }}.
+Do not return the question, just return the answer directly.
+<|im_end>
+<|im_start>assistant
+""")
+
+persona_hexaco_template = outlines.Template.from_string("""
+<|im_start>user
+You are a law enforcement officer with following attributes :
+
+{{attributes}}
+
+Task: Answer the below questions:
+
+{{ text }}
+
+Answer the question as either {{ likert_scale }}.
+Do not return the question, just return the answer directly.
+<|im_end>
+<|im_start>assistant
+""")
+
+
+def openai_answer(model, prompt: str):
+    response = model(prompt, OpenaiResponse, temperature=0)
+    return json.loads(response)['response']
+
+
+def local_answer(model, prompt, answer_options: List):
+    return model(prompt, Literal[*answer_options])
+
+
+def generation_function(model, hexaco_template, question_batch, likert_scale,
+                        batching=False, persona_str=None, persona_base_text=None, likert_shuffle=False):
 
     if batching:
-        print(f"Batching {batch_size} Questions together in one prompt")
+        generator = Generator(model)
+        prompt = hexaco_template(text=list_to_str(question_batch),
+                                 likert_scale=", ".join(likert_scale),
+                                 base_text=persona_base_text,
+                                 attributes=persona_str)
+        answers = generator(prompt).strip().replace(">", "").splitlines()
+        return [re.sub(r"[^a-zA-Z]", "", ans).strip() for ans in answers]
+
+    # Non-batched
+    prompt_list = []
+    for question in question_batch:
+        if likert_shuffle:
+            random.shuffle(likert_scale)
+        
+        prompt = hexaco_template(text=question,
+                                 likert_scale=", ".join(likert_scale),
+                                 base_text=persona_base_text,
+                                 attributes=persona_str)
+        prompt_list.append(prompt)
+
+    if "gpt" in args.model_name:
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            return list(executor.map(lambda p: openai_answer(model, p), prompt_list))
     else:
-        print("Passing One question per prompt")
+        return [local_answer(model, p, likert_scale) for p in prompt_list]
+
+
+# ----------------------------
+# Experiment Runner
+# ----------------------------
+def generate_answers(model, args, persona_datasets, question_list,
+                     likert_scale):
     answers = {}
     hexaco_template = persona_hexaco_template
-    # base_text = personas[job_title]['base_text']
-    # persona_list = personas[job_title]['personas']
     base_text = "You are a law enforcement officer."
-    for persona_dataset in tqdm(persona_datasets, desc="Personas", position=0):
-        persona_str = persona_dataset['persona_text']
+
+    if persona_datasets is None:
+        print("Running HEXACO on Base Model without Personas")
+        persona_datasets = [{"uuid": "base_model", "persona_text": ""}]
+        hexaco_template = base_hexaco_template
+
+    if args.batching:
+        print(f"Batching {args.batch_size} questions together")
+    else:
+        print("Passing one question per prompt")
+
+    if args.likert_shuffle:
+        print("Shuffling likert scale for every persona and question combination")
+    else:
+        print("Using the default likert scale order without shuffling")
+
+    for persona_dataset in tqdm(persona_datasets, desc="Personas"):
+        persona_str = persona_dataset.get('persona_string', "")
+        persona_id = persona_dataset.get('uuid', "base_model")
+
         repeated_answers = []
-        for i in tqdm(range(n_times), desc="Iterations", position=1):
+        for _ in tqdm(range(args.n_times), desc="Iterations"):
             persona_answer = []
-            for question_batch in tqdm(batch_list(question_list, batch_size), desc="Batches", position=2):
-                batch_answers = generation_function(hexaco_template=hexaco_template, 
-                                                    question_batch=question_batch,
-                                                    likert_scale=likert_scale,
+            for question_batch in tqdm(batch_list(question_list, args.batch_size), desc="Batches"):
+                batch_answers = generation_function(model, hexaco_template,
+                                                    question_batch, likert_scale,
                                                     persona_str=persona_str,
                                                     persona_base_text=base_text,
-                                                    batching=batching)
+                                                    batching=args.batching,
+                                                    likert_shuffle=args.likert_shuffle)
                 persona_answer.extend(batch_answers)
             repeated_answers.append(persona_answer)
-        persona_dict = {}
-        persona_dict['config'] = {}
-        persona_dict['config']['persona'] = persona_dataset['uuid']
-        persona_dict['config']['likert_scale'] = "normal"
-        persona_dict['config']['paraphrase'] = "normal"
-        persona_dict['config']['refusal'] = "refusal"
-        persona_dict['config']['model_name'] = "gpt_41_mini"
-        persona_dict['answers'] = repeated_answers
-        answers[persona_dataset['uuid']] = persona_dict
+
+        if args.inverted_likert:
+            likert = "inverted"
+        elif args.likert_shuffle:
+            likert = "shuffle"
+        else:
+            likert = "normal"
+        
+        answers[persona_id] = {
+            'config': {
+                'persona': persona_id,
+                'paraphrase': "paraphrased" if args.paraphrase else "normal",
+                "likert_scale": likert,
+                "refusal_allowed": "no refusal" if args.no_refusal else "refusal",
+                'model_name': args.model_name
+            },
+            'answers': repeated_answers
+        }
+
     return answers
 
 
-batch_size = 10
-persona_dataset_df = persona_datasets.to_pandas()
-for start in range(0, 30, batch_size):
-    print(f"Batch {start}")
-    batch = persona_dataset_df.iloc[start:start+batch_size]
-    batch = batch.to_dict("records")
-    hf_persona_answers = generate_answers(batch, generation_function,
-                                          question_list, likert_scale, batching=True)
+# ----------------------------
+# Main Entrypoint
+# ----------------------------
+if __name__ == "__main__":
+    args = parse_args()
+    print(f"Model Used: {args.model_name}")
 
-    write_to_json(hf_persona_answers, os.path.join("hf_persona_batching_vs_individual_questions_results_v0",f"hf_persona_answers_with_batching_v{start}.json"))
+    # Load model
+    model = load_model(args.model_name, args.hf_token)
+
+    # Load data
+    question_list, likert_scale = load_data(args)
+
+    # Load personas
+    persona_datasets = load_personas(args)
+
+    # Run
+    results = generate_answers(model, args, persona_datasets, question_list, likert_scale)
+
+    # Save results
+    model_name = args.model_name.replace(".", "_").split("/")[-1]
+    out_dir = "case_study_data"
+    os.makedirs(out_dir, exist_ok=True)
+    out_file = os.path.join(out_dir, f"{args.persona_source}_hexaco_answers_{model_name}.json")
+    write_to_json(results, out_file)
+    print(f"Results saved to {out_file}")
+
