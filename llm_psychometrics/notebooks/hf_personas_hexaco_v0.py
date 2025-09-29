@@ -141,7 +141,10 @@ def load_data(args):
         likert_scale.append(NO_ANSWER)
 
     if args.paraphrase:
+        print("Using Paraphrased Questions")
         question_list = paraphrased_question_list
+    else:
+        print("Using Normal Questions")
 
     return question_list, likert_scale
 
