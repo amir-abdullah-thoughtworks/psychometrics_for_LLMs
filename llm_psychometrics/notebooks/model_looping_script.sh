@@ -1,7 +1,5 @@
-models=( "Qwen/Qwen3-4B"
-"Qwen/Qwen3-8B" "gpt-4.1-mini" "meta-llama/Llama-3.2-1B-Instruct" "Qwen/Qwen3-0.6B" "meta-llama/Llama-3.2-3B-Instruct" "gpt-4.1" )
-
-# Access pending: "meta-llama/Llama-3.1-8B-Instruct"
+models=("Qwen/Qwen3-4B"
+"Qwen/Qwen3-8B" "gpt-4.1-mini" "meta-llama/Llama-3.2-1B-Instruct" "Qwen/Qwen3-0.6B" "meta-llama/Llama-3.2-3B-Instruct" "gpt-4.1" "meta-llama/Llama-3.1-8B-Instruct")
 
 # "Qwen/Qwen3-1.7B"
 
