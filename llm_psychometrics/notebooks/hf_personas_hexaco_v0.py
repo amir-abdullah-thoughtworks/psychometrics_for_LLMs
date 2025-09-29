@@ -328,9 +328,8 @@ if __name__ == "__main__":
 
     # Save results
     model_name = args.model_name.replace(".", "_").split("/")[-1]
-    out_dir = "case_study_data"
+    out_dir = "../experiment_results/reliability_experiments/experiment_1"
     os.makedirs(out_dir, exist_ok=True)
     out_file = os.path.join(out_dir, f"{args.persona_source}_hexaco_answers_{model_name}.json")
     write_to_json(results, out_file)
     print(f"Results saved to {out_file}")
-
