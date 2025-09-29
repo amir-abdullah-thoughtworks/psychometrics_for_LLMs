@@ -21,8 +21,8 @@ import random
 # Custom imports
 sys.path.append("../")
 from src.utils_v0 import list_to_str, inverse_likert
-from hexaco_base_prompt_templates import hexaco_base_prompt_templates
-from hexaco_persona_prompt_templates import hexaco_persona_prompt_templates
+from src.prompt_templates.hexaco_base_prompt_templates import hexaco_base_prompt_templates
+from src.prompt_templates.hexaco_persona_prompt_templates import hexaco_persona_prompt_templates
 
 # ----------------------------
 # Setup
@@ -205,34 +205,6 @@ def load_personas(args):
 # ----------------------------
 # Answer Generation
 # ----------------------------
-
-# base_hexaco_template = outlines.Template.from_string("""
-# <|im_start>user
-# Task: Answer the below questions:
-
-# {{ text }}
-
-# Answer the question as either {{ likert_scale }}.
-# Do not return the question, just return the answer directly.
-# <|im_end>
-# <|im_start>assistant
-# """)
-
-# persona_hexaco_template = outlines.Template.from_string("""
-# <|im_start>user
-# You are a law enforcement officer with following attributes :
-
-# {{attributes}}
-
-# Task: Answer the below questions:
-
-# {{ text }}
-
-# Answer the question as either {{ likert_scale }}.
-# Do not return the question, just return the answer directly.
-# <|im_end>
-# <|im_start>assistant
-# """)
 
 
 def openai_answer(model, prompt: str):
