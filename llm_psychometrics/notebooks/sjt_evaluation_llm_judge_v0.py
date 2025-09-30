@@ -95,6 +95,8 @@ def parse_args():
                         help="Huggingface token")
     parser.add_argument("--n-sjtsample", type=int, default=1,
                         help="Number of SJTs to be sampled for each template")
+    parser.add_argument("--batch-size", type=int, default=40,
+                        help="Batch Size to divide SJT processing")
     return parser.parse_args()
 
 def load_sjts(args):
@@ -186,11 +188,13 @@ if __name__ == "__main__":
 
     start_index = 0
 
-    for batch_idx, sjt_batch in tqdm(batch_list(synthetic_sjt_dataset, 50, start_index=start_index),
+    for batch_idx, sjt_batch in tqdm(batch_list(synthetic_sjt_dataset, args.batch_size, start_index=start_index),
                                         desc="Total SJTs",
                                         position=0,
                                         initial=start_index,
-                                        total=(len(synthetic_sjt_dataset) + 50 - 1) // 50):
+                                        total=(len(synthetic_sjt_dataset) + args.batch_size - 1) // args.batch_size):
+        
+        print(f"Starting SJT evaluation from batch index: {start_index}")
 
         sjt_evaluation_result = sjt_llm_judge_evaluation(sjt_batch)
 
