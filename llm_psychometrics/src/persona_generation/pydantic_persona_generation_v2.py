@@ -1,22 +1,65 @@
 from __future__ import annotations
 
-import os
+import hashlib
 import json
 import time
 import random
+import traceback
+
 from pathlib import Path
+
+from dataclasses import dataclass
 from typing import List, Optional, Literal, Tuple, Dict
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from huggingface_hub import HfFolder
 
 import pandas as pd
 import yaml
+from tqdm import tqdm
 from openai import OpenAI
 from pydantic import BaseModel, Field, create_model
 from datasets import Dataset, load_dataset
-from tqdm import tqdm
-from utils.hf_utils import dedupe_persona_records, push_personas_to_hub
+
 from sentence_transformers import SentenceTransformer
 
+# --- add imports at top ---
+from typing import Set
+
+# --- add helpers (place near other utils) ---
+def _norm(s: Any) -> str:
+    return " ".join(str(s or "").strip().lower().split())
+
+
+def _load_existing_version_keys(version: str) -> Set[str]:
+    """
+    Load ./{version}.jsonl if present and return a set of row keys:
+      norm(name)|age|norm(sex)|norm(location)
+    """
+    p = Path(f"{version}.jsonl")
+    if not p.exists():
+        return set()
+
+    keys: Set[str] = set()
+    with p.open("r", encoding="utf-8") as f:
+        for line in f:
+            try:
+                obj = json.loads(line)
+                if isinstance(obj, dict):
+                    keys.add(obj['uuid'])
+            except Exception:
+                continue
+    return keys
+
+@dataclass(frozen=True)
+class Demographics:
+    name: str
+    age: int
+    sex: str
+    location: str
+    education_level: str
+    bachelors_field: str
+    ethnic_background: str
+    marital_status: str
 
 # =========================
 # Persona Generator (Class)
@@ -49,7 +92,7 @@ class PersonaGenerator:
 
     # Generated text fields eligible for embeddings (seeds/demographics excluded)
     _GENERATED_TEXT_FIELDS = [
-        "memoir_narrative",
+        "educational_vocational_history",
         "appearance",
         "behavior",
         "mood_affect",
@@ -59,7 +102,6 @@ class PersonaGenerator:
         "cognition",
         "medical_developmental_history",
         "family_history",
-        "educational_vocational_history",
         "emotional_behavioral_functioning",
         "social_functioning",
         "summary_of_psychological_profile",
@@ -69,17 +111,21 @@ class PersonaGenerator:
         self,
         populated_seeds_yaml: str,
         balanced_officers_csv: str,
+        version: str,
         model: str = "gpt-4.1-mini",
         temperature: float = 2.0,
         top_p: float = 0.98,
         api_key: Optional[str] = None,
         rng_seed: Optional[int] = None,
     ):
+        self.version = version
         self.client = OpenAI(api_key=api_key)
         self.model = model
         self.temperature = temperature
         self.top_p = top_p
         self.base_seed = rng_seed if rng_seed is not None else 1337
+        self._rng = random.Random(self.base_seed)
+
         self._embedder: Optional[SentenceTransformer] = None  # lazy-loaded per process
 
         # ---- load seeds ----
@@ -112,7 +158,11 @@ class PersonaGenerator:
 
         # ---- officers (strict) ----
         self.df = pd.read_csv(balanced_officers_csv)
-        required = {"sex", "age", "city", "state", "first_name", "last_name"}
+
+        self._arch_offset = self._rng.randrange(len(self.archetypes))
+        self._mem_offset = self._rng.randrange(len(self.memoir_titles))
+    
+        required = {"sex", "age", "city", "state", "first_name", "last_name", "education_level", "marital_status"}
         miss = required - set(self.df.columns)
         if miss:
             raise ValueError(f"Missing required columns in CSV: {sorted(miss)}")
@@ -130,6 +180,48 @@ class PersonaGenerator:
             self._embedder = SentenceTransformer("Qwen/Qwen3-Embedding-0.6B")
         return self._embedder
 
+    def build_concat_and_embedding(self, rec: dict) -> tuple[str, list[float]]:
+        """
+        Build a single concatenated text from generated fields only (not literals),
+        in the form 'key: value\\n' per line; then return its embedding.
+        Never raises; returns ('', []) if empty or on embedding issues.
+        """
+        lines: list[str] = []
+        for key in self._GENERATED_TEXT_FIELDS:
+            if key not in rec:
+                continue
+            val = rec[key]
+            if val is None:
+                continue
+
+            # Presenting problems may be a list -> join
+            if key == "presenting_problems":
+                if isinstance(val, list):
+                    # keep concise, inline semicolons
+                    val_str = "; ".join([str(x).strip() for x in val if str(x).strip()])
+                else:
+                    val_str = str(val).strip()
+            else:
+                val_str = str(val).strip()
+
+            if val_str:
+                lines.append(f"{key}: {val_str}")
+
+        concat_text = "\n".join(lines) + ("\n" if lines else "")
+        if not concat_text.strip():
+            return "", []
+
+        # Embedding
+        emb_model = self._get_embedder()
+        if emb_model is None:
+            return concat_text, []
+        try:
+            vec = emb_model.encode([concat_text], convert_to_numpy=False)[0]
+            vec = list(map(float, vec))
+        except Exception:
+            vec = []
+        return concat_text, vec
+
     # -------- archetype helpers --------
     def _compose_archetype_description(self, a: dict) -> str:
         parts = []
@@ -145,20 +237,37 @@ class PersonaGenerator:
             parts.append("Challenges: " + ("; ".join(c) if isinstance(c, list) else str(c)) + ".")
         return " ".join(parts).strip() or f"Archetype: {a.get('name','(unspecified)')}."
 
+    def get_row(self, idx: int):
+        return self.df.iloc[idx]
+
     # -------- index-based pickers (no shared state) --------
-    def _pick_demographics_by_index(self, idx: int) -> Tuple[str, int, str]:
-        row = self.df.iloc[idx % len(self.df)]
+    def _pick_demographics_by_index(self, idx: int) -> Demographics:
+        row = self.get_row(idx)
         name = f"{str(row['first_name']).strip()} {str(row['last_name']).strip()}"
         age = int(row["age"])
         location = f"{str(row['city']).strip()}, {str(row['state']).strip()}"
-        return name, age, location
+        education_level = str(row["education_level"]).strip()
+        sex = str(row["sex"]).strip()
+        bachelors_field = str(row["bachelors_field"]).strip()
+        ethnic_background = str(row["ethnic_background"]).strip()
+        marital_status = str(row["marital_status"]).strip()
+        return Demographics(
+            name=name,
+            age=age,
+            sex=sex,
+            location=location,
+            education_level=education_level,
+            bachelors_field=bachelors_field,
+            ethnic_background=ethnic_background,
+            marital_status=marital_status,
+        )
 
     def _pick_archetype_by_index(self, idx: int) -> Tuple[str, str]:
-        a = self.archetypes[idx % len(self.archetypes)]
+        a = self.archetypes[(self._arch_offset + idx) % len(self.archetypes)]
         return a["name"], self._compose_archetype_description(a)
 
     def _pick_memoir_by_index(self, idx: int) -> Tuple[str, str]:
-        title = self.memoir_titles[idx % len(self.memoir_titles)]
+        title = self.memoir_titles[(self._mem_offset + idx) % len(self.memoir_titles)]
         return title, self.memoir_summaries[title]
 
     def _pick_appearance_random(self, idx: int) -> Tuple[str, List[str]]:
@@ -209,71 +318,138 @@ class PersonaGenerator:
         return list(map(float, vec))
 
     # -------- main generation (with retries) --------
-    def generate_one(self, idx: int) -> BaseModel:
+    def generate_one(self, idx: int) -> Optional[BaseModel]:
         archetype_name, archetype_desc = self._pick_archetype_by_index(idx)
         memoir_title, memoir_summary = self._pick_memoir_by_index(idx)
-        name, age, location = self._pick_demographics_by_index(idx)
+
+        row = self.get_row(idx)
+        uuid = row["uuid"]
+
+        # CHANGED: dataclass-based demographics
+        dem = self._pick_demographics_by_index(idx)
+
         appearance_cat, appearance_examples = self._pick_appearance_random(idx)
         behavior_cat, behavior_examples = self._pick_behavior_random(idx)
 
         # dynamic schema with Literals of selected values (model sees exact values)
         SeededPersonaSchema = create_model(  # type: ignore[assignment]
             "SeededPersonaSchema",
-            # constrained (exact) fields
-            version=(Literal["v0"], ...),
-            archetype=(Literal[archetype_name], ...),
-            archetype_description=(Literal[archetype_desc], ...),
-            memoir=(Literal[memoir_title], ...),
-            memoir_summary=(Literal[memoir_summary], ...),
-            name=(Literal[name], ...),
-            age=(Literal[age], ...),
-            location=(Literal[location], ...),
+
+            # 1) Hard constraints (literals; EXCEPT archetype which is moved later)
+            version=(Literal[self.version], ...),
+            name=(Literal[dem.name], ...),
+            age=(Literal[dem.age], ...),
+            sex=(Literal[dem.sex], ...),
+            location=(Literal[dem.location], ...),
+            education_level=(Literal[dem.education_level], ...),
+            bachelors_field=(Literal[dem.bachelors_field], ...),
+            ethnic_background=(Literal[dem.ethnic_background], ...),
+            marital_status=(Literal[dem.marital_status], ...),
             appearance_category=(Literal[appearance_cat], ...),
             behavior_category=(Literal[behavior_cat], ...),
+            memoir=(Literal[memoir_title], ...),
+            # Keep as free text; we overwrite with the exact provided summary post-parse
+            memoir_summary=(str, Field(..., description="Summary of the selected memoir; copy as provided.")),
 
-            # model-generated fields
             memoir_narrative=(str, Field(
                 ...,
-                description="~30-word snippet in the selected memoir’s style; consistent with archetype and demographics."
+                description=(
+                    "Vivid, scene-level narrative (180–250 words) in the selected memoir’s milieu. "
+                    "This is the canonical grounding; all other fields must align with it."
+                )
             )),
-            presenting_problems=(List[str], Field(..., description="3–6 concise items.")),
-
-            appearance=(str, Field(..., description="Observational, sensory description of appearance (10–20 words).")),
-            behavior=(str, Field(..., description="Behavioral cues, posture, interaction style, responsiveness (10–20 words).")),
-            mood_affect=(str, Field(..., description="Mood/affect, tone modulation, emotional nuance (10–20 words).")),
-            speech=(str, Field(..., description="Speech register, rhythm, formality, coherence (10–20 words).")),
-            thought_content=(str, Field(..., description="Internal reflection, logic, obsessions, themes (10–20 words).")),
-            insight_judgment=(str, Field(..., description="Clinical phrasing of insight and judgment (10–20 words).")),
-            cognition=(str, Field(..., description="Memory, abstraction, coherence, cognitive style (10–20 words).")),
-
-            medical_developmental_history=(str, Field(..., description="Medical/developmental history, chronic/stress-related issues (30–50 words).")),
-            family_history=(str, Field(..., description="Family history, generational details, substance patterns, relational dynamics (30–50 words).")),
-            educational_vocational_history=(str, Field(..., description="Education, job trajectory, training, affiliations (30–50 words).")),
-
-            emotional_behavioral_functioning=(str, Field(..., description="Stress, trauma, anger processing, coping mechanisms (30–50 words).")),
-            social_functioning=(str, Field(..., description="Relationship style, trust, group affiliation, isolation/connection (30–50 words).")),
-
-            summary_of_psychological_profile=(str, Field(..., description="Integrative clinical summary: diagnostic impressions, resilience, risks, prognosis (50–80 words).")),
+            archetype=(Literal[archetype_name], ...),
+            archetype_description=(str, Field(
+                ...,
+                description="Concise description of the archetype as provided; use ONLY to inform the summary; do not paraphrase earlier."
+            )),
+            appearance=(str, Field(..., description="Observational, sensory description of appearance (10–30 words).")),
+            behavior=(str, Field(...,
+                                 description="Behavioral cues, posture, interaction style, responsiveness (10–30 words).")),
+            speech=(str, Field(..., description="Speech register, rhythm, formality, coherence (10–30 words).")),
+            mood_affect=(str, Field(..., description="Mood/affect, tone modulation, emotional nuance (10–30 words).")),
+            educational_vocational_history=(str, Field(
+                ...,
+                description="30–50 words. Align with education_level and bachelors_field; show training/trajectory effects."
+            )),
+            medical_developmental_history=(str, Field(
+                ...,
+                description="30–50 words. Health/development context relevant to the scene; only what’s needed."
+            )),
+            family_history=(str, Field(
+                ...,
+                description="30–50 words. Relational dynamics consistent with narrative, ethnic background, and marital status."
+            )),
+            presenting_problems=(List[str], Field(
+                ...,
+                description=(
+                    "3–6 mental-health problem phrases describing THE OFFICER (for example., 'insomnia/fragmented sleep', "
+                    "'anger rumination', 'avoidance of reminders'). "
+                    "Do not copy the examples. Include at least two problems not tied to their police work or to archetype."
+                )
+            )),
+            thought_content=(str, Field(
+                ...,
+                description="25–45 words. What tends to occupy the person’s mind, drawn from the narrative; natural phrasing."
+            )),
+            insight_judgment=(str, Field(
+                ...,
+                description="25–45 words. Practical decision-making and self-understanding suggested by the scene."
+            )),
+            cognition=(str, Field(
+                ...,
+                description="25–45 words. Observable thinking/recall/problem-solving implied by the narrative."
+            )),
+            emotional_behavioral_functioning=(str, Field(
+                ...,
+                description="35–55 words. How the person handles pressure and difficult feelings; show behavior, avoid labels."
+            )),
+            social_functioning=(str, Field(
+                ...,
+                description="35–55 words. Patterns in closeness, trust, and participation with others; concrete cues."
+            )),
+            summary_of_psychological_profile=(str, Field(
+                ...,
+                description="75–105 words. Integrative summary using the narrative + histories + functioning + problems, framed by the archetype description."
+            )),
         )
 
         def fmt_examples(title: str, items: List[str]) -> str:
             return f"{title} examples:\n" + ("\n".join(f"- {ex}" for ex in items) if items else "(none)")
 
+        # --- Replace your existing system_msg and user_msg with these ---
+
         system_msg = (
-            "You are an expert clinical interviewer and psychological profiler. "
-            "Generate a detailed, realistic persona strictly adhering to the schema and its length guidance. "
-            "Avoid caricature or stereotypes; include subtle contradictions for realism. Avoid repetition. "
-            "Return valid structured output matching the provided schema exactly."
+            "You are an expert clinical interviewer and psychological profiler.\n"
+            "Generate a detailed, realistic persona strictly adhering to the schema and length guidance.\n"
+            "Avoid caricature or stereotypes; allow subtle contradictions with archetype for realism; avoid repetition.\n"
+            "Return valid structured output matching the provided schema exactly.\n"
+            "\n"
+            "STYLE & GROUNDING (do NOT output this list):\n"
+            "1) The memoir_narrative is canonical grounding. Write it as a concrete, sensory, scene-level story (180–250 words).\n"
+            "   All fields must align with its facts and tone; if conflicts arise with archetype, prefer narrative. If conflicts arise with demographics, pick the demographics.\n"
+            "2) Treat the archetype as a loose orientation. Do NOT quote or paraphrase it; never list 'Core trait/Focus/Strengths/Challenges'.\n"
+            "3) Do not reuse ≥5 consecutive words from inputs (archetype description or memoir summary). Rephrase and localize details to the scene.\n"
+            "4) Favor specificity (who/what/where/when) over generic traits; vary wording across sections.\n"
+            "5) Persona should be internally consistent between fields."
+            "6) “Use natural phrasing; do not feel compelled to use section labels or taxonomy words (e.g., ‘stress,’ ‘trauma,’ ‘coping,’ ‘abstraction,’ ‘obsession’). Prefer specific, scene-derived wording."
         )
+
         user_msg = (
             f"Selected archetype: {archetype_name}\n"
-            f"Archetype description: {archetype_desc}\n"
+            f"Archetype description (guidance only — DO NOT copy or paraphrase): {archetype_desc}\n"
             f"Selected memoir: {memoir_title}\n"
-            f"Memoir summary: {memoir_summary}\n"
-            f"Demographics (USE EXACT VALUES): name={name}; age={age}; location={location}\n\n"
+            f"Memoir summary (guidance only — DO NOT copy or paraphrase): {memoir_summary}\n"
+            f"Demographics (USE EXACT VALUES): name={dem.name}; age={dem.age}; location={dem.location}\n"
+            f"Education level: education_level={dem.education_level}\n\n"
             f"Appearance category: {appearance_cat}\n{fmt_examples('Appearance', appearance_examples)}\n\n"
             f"Behavior category: {behavior_cat}\n{fmt_examples('Behavior', behavior_examples)}\n\n"
-            "Include `presenting_problems` as 3–6 concise items consistent with the profile."
+            "Instructions:\n"
+            "• First, craft the memoir_narrative (180–250 words) in style and setting of selected memoir as a vivid scene, but alter as needed to be consistent with specified demographics.\n"
+            "• Then write every other field so it is consistent with that narrative and the exact demographics.\n"
+            "• If narrative and demographics conflict when filling a field, prefer the specified demographics"
+            "• Do not mention 'archetype', 'memoir', or 'summary' in the prose; the writing must stand alone.\n"
+            "• Include `presenting_problems` as 3–6 concise items consistent with the psychological profile."
         )
 
         # retry with jitter for transient errors
@@ -290,40 +466,95 @@ class PersonaGenerator:
                     top_p=self.top_p,
                     text_format=SeededPersonaSchema,
                 )
-                return resp.output_parsed
+                out = resp.output_parsed
+                # Overwrite to ensure exact ground truth values regardless of model output
+                out.archetype_description = archetype_desc
+                out.memoir_summary = memoir_summary
+                d = out.model_dump()
+                d["uuid"] = row["uuid"]
+                return d
             except Exception as e:
                 last_err = e
                 time.sleep((0.5 * (2 ** attempt)) + random.random() * 0.25)
-        raise RuntimeError(f"Generation failed after retries: {last_err}")
 
-# =========================
-# Multiprocess Runner
-# =========================
-def _worker(args) -> dict:
-    idx, paths, model, temp, top_p, api_key, seed = args
-    gen = PersonaGenerator(
-        populated_seeds_yaml=paths["yaml"],
-        balanced_officers_csv=paths["csv"],
-        model=model,
-        temperature=temp,
-        top_p=top_p,
-        api_key=api_key,
-        rng_seed=seed,
+        # give up quietly: skip this row
+        print(f"[warn] generation skipped for idx={idx}: {last_err}")
+        with open("logs.txt", "a") as f:
+            f.write(f"[warn] generation skipped for idx={idx}: {last_err}")
+        return None
+
+def _worker_one(
+    i: int,
+    populated_seeds_yaml: str,
+    balanced_officers_csv: str,
+    model: str,
+    temperature: float,
+    top_p: float,
+    api_key: Optional[str],
+    base_seed: int,
+) -> Optional[dict]:
+    try:
+        gen = PersonaGenerator(
+            populated_seeds_yaml=populated_seeds_yaml,
+            balanced_officers_csv=balanced_officers_csv,
+            model=model,
+            temperature=temperature,
+            top_p=top_p,
+            api_key=api_key,
+            rng_seed=base_seed,
+        )
+        m = gen.generate_one(i)
+        return m
+    except Exception as e:
+        print(f"[warn] worker skipped idx={i}: {e}")
+        return None
+
+def push_personas_to_hub(
+    records: List[dict],
+    repo_id: str,
+    hf_token: Optional[str],
+    private: bool,
+    commit_message: str,
+):
+    if hf_token:
+        HfFolder.save_token(hf_token)
+
+    # compute uids and merge with existing
+    new_records = []
+    for r in records:
+        r = dict(r)
+        new_records.append(r)
+
+    try:
+        ds_existing = load_dataset(repo_id, split="train", token=hf_token)
+        df_existing = ds_existing.to_pandas()
+    except Exception:
+        print("Existing dataset not found, pushing new instead.")
+        df_existing = pd.DataFrame(columns=list(new_records[0].keys()) if new_records else ["uuid"])
+
+    df_new = pd.DataFrame(new_records)
+    if "temp" in repo_id.lower():
+        df_merged = df_new
+    else:
+        df_merged = pd.concat([df_existing, df_new], ignore_index=True)
+
+    df_merged = df_merged.drop_duplicates(subset=["uuid"]).reset_index(drop=True)
+
+    ds_merged = Dataset.from_pandas(df_merged, preserve_index=False)
+    ds_merged.push_to_hub(
+        repo_id=repo_id,
+        token=hf_token,
+        private=private,
+        commit_message=commit_message,
     )
-    persona = gen.generate_one(idx)
-    rec = persona.model_dump()
-    rec.setdefault("version", "v0")
-    # Single embedding over concatenated generated fields:
-    rec["generated_text_embedding"] = gen.embed_generated_fields(rec)
-    return rec
-
 
 def run_batch(
     populated_seeds_yaml: str,
     balanced_officers_csv: str,
     count: int,
     out_jsonl: str,
-    workers: int = 4,
+    version: str,
+    workers: int = 10,
     model: str = "gpt-4.1-mini",
     temperature: float = 2.0,
     top_p: float = 0.98,
@@ -332,58 +563,132 @@ def run_batch(
     # HF settings
     hf_repo_id: str = "thoughtworks/psychometric_personas",
     hf_token: Optional[str] = None,
-    hf_private: bool = False,
+    hf_private: bool = True,
     push_to_hub_flag: bool = True,
 ):
     """
-    Generate `count` personas across `workers` processes, write JSONL locally,
-    then append+dedupe+overwrite to HF dataset.
+    Concurrent generation (~threads). Before scheduling, checks ./{version}.jsonl
+    for already-generated rows (by CSV demographics key) and skips them.
     """
-    paths = {"yaml": populated_seeds_yaml, "csv": balanced_officers_csv}
+    # helper used for: offsets/df, building concat/embedding later
+    embed_helper = PersonaGenerator(
+        populated_seeds_yaml=populated_seeds_yaml,
+        balanced_officers_csv=balanced_officers_csv,
+        model=model,
+        temperature=temperature,
+        top_p=top_p,
+        api_key=api_key,
+        rng_seed=base_seed,
+        version=version,
+    )
+
+    # 1) Load existing keys from ./{version}.jsonl
+    existing_keys = _load_existing_version_keys(version)
+    print(f"Found {len(existing_keys)} existing keys")
+
+    # 2) Plan which indices to schedule (skip if CSV row already present)
+    planned_indices: List[int] = []
+    pre_skipped = 0
+
+    for i in tqdm(range(count)):
+        try:
+            row = embed_helper.get_row(i)
+            key = row["uuid"]
+        except Exception as e:
+            print(f"Error {e} on {i}")
+        if key in existing_keys:
+            pre_skipped += 1
+            continue
+        planned_indices.append(i)
+        # guard against scheduling same row twice within the same run
+        existing_keys.add(key)
+
+    if not planned_indices:
+        print(f"No new rows to generate; all {count} planned items were already present in ./{version}.jsonl")
+        return
+
+    print(f"Pre-skip (already in ./{version}.jsonl): {pre_skipped}")
+    print(f"Scheduling {len(planned_indices)} new generations out of requested {count}.")
+
     records: List[dict] = []
-    tasks = []
+    skipped = 0
 
-    with ProcessPoolExecutor(max_workers=workers) as ex, open(out_jsonl, "w", encoding="utf-8") as f:
-        for i in range(count):
-            args = (i, paths, model, temperature, top_p, api_key, base_seed)
-            tasks.append(ex.submit(_worker, args))
+    with ThreadPoolExecutor(max_workers=workers) as ex, open(out_jsonl, "a", encoding="utf-8") as f:
+        futures = []
+        for i in planned_indices:
+            fut = ex.submit(
+                _thread_worker,
+                i,
+                populated_seeds_yaml,
+                balanced_officers_csv,
+                model,
+                temperature,
+                top_p,
+                api_key,
+                base_seed,
+                version,
+            )
+            futures.append(fut)
 
-        for fut in tqdm(as_completed(tasks)):
+        for fut in as_completed(futures):
             rec = fut.result()
-            rec.setdefault("version", "v0")
+            if not rec:
+                print(f"Received error")
+                skipped += 1
+                continue
+
+            rec["version"] = version
+
+            # concat text + embedding from generated fields only
+            concat_text, concat_vec = embed_helper.build_concat_and_embedding(rec)
+            rec["concat_field"] = concat_text
+            rec["concat_embedding"] = concat_vec
+
             records.append(rec)
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
-    print(f"Wrote {len(records)} personas to {out_jsonl}")
+    print(f"Wrote {len(records)} personas to {out_jsonl} (skipped {skipped}, pre-skipped {pre_skipped}).")
 
-    if push_to_hub_flag:
+    if push_to_hub_flag and records:
         print(f"Pushing to HF dataset: {hf_repo_id} (append + dedupe + overwrite)")
         push_personas_to_hub(
             records=records,
             repo_id=hf_repo_id,
             hf_token=hf_token,
             private=hf_private,
-            commit_message="append personas (v0, deduped)",
+            commit_message=f"append personas ({version}, deduped)",
         )
         print("Push complete.")
 
-
-# =========================
-# Example usage (commented)
-# =========================
-# if __name__ == "__main__":
-#     run_batch(
-#         populated_seeds_yaml="populated_police_seeds.yaml",
-#         balanced_officers_csv="balanced_us_police_officers.csv",
-#         count=100,
-#         out_jsonl="personas.jsonl",
-#         workers=4,  # start here; try 6–8 if rate limits allow
-#         model="gpt-4.1-mini",
-#         temperature=2.0,
-#         top_p=0.98,
-#         api_key=os.getenv("OPENAI_API_KEY"),
-#         hf_repo_id="thoughtworks/psychometric_personas",
-#         hf_token=os.getenv("HUGGINGFACE_TOKEN"),
-#         hf_private=False,
-#         push_to_hub_flag=True,
-#     )
+def _thread_worker(
+    i: int,
+    populated_seeds_yaml: str,
+    balanced_officers_csv: str,
+    model: str,
+    temperature: float,
+    top_p: float,
+    api_key: Optional[str],
+    base_seed: int,
+    version: str,
+) -> Optional[dict]:
+    """
+    Thread worker: constructs its own PersonaGenerator (client per thread),
+    generates ONE persona for index i, and returns a plain dict (or None on skip).
+    """
+    try:
+        gen = PersonaGenerator(
+            populated_seeds_yaml=populated_seeds_yaml,
+            balanced_officers_csv=balanced_officers_csv,
+            model=model,
+            temperature=temperature,
+            top_p=top_p,
+            api_key=api_key,
+            rng_seed=base_seed,
+            version=version,
+        )
+        m = gen.generate_one(i)  # may return None (skip)
+        return m
+    except Exception:
+        with open("logs.txt", "a") as f_out:
+            f_out.write(traceback.format_exc())
+        return None
