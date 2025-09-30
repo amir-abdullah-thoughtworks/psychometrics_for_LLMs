@@ -6,8 +6,10 @@ import sys
 from typing import List, Literal
 import torch as t
 import transformers
+from jinja2 import Template
 import outlines
 from outlines import Generator
+from outlines.inputs import Chat
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from pydantic import BaseModel
 from huggingface_hub import login
@@ -154,23 +156,36 @@ def load_prompt_templates(model_name):
     
     if "gpt" in model_name.lower():
         print("Loading Prompt Templates for GPT models")
-        base_hexaco_template_str = hexaco_base_prompt_templates['gpt']
-        persona_hexaco_template_str = hexaco_persona_prompt_templates['gpt']
+        base_templates = hexaco_base_prompt_templates["gpt"]
+        persona_templates = hexaco_persona_prompt_templates["gpt"]
+        
+        # compile GPT messages into Jinja templates
+        def compile_message_templates(messages):
+            return [
+                {"role": msg["role"], "content": Template(msg["content"])}
+                for msg in messages
+            ]
+        
+        base_hexaco_template = compile_message_templates(base_templates)
+        persona_hexaco_template = compile_message_templates(persona_templates)
     
     elif "llama" in model_name.lower():
         print("Loading Prompt Templates for Llama models")
         base_hexaco_template_str = hexaco_base_prompt_templates['llama']
         persona_hexaco_template_str = hexaco_persona_prompt_templates['llama']
         
+        base_hexaco_template = outlines.Template.from_string(base_hexaco_template_str)
+        persona_hexaco_template = outlines.Template.from_string(persona_hexaco_template_str)
+        
     elif "qwen" in model_name.lower():
         print("Loading Prompt Templates for Qwen models")
         base_hexaco_template_str = hexaco_base_prompt_templates['qwen']
         persona_hexaco_template_str = hexaco_persona_prompt_templates['qwen']
+        
+        base_hexaco_template = outlines.Template.from_string(base_hexaco_template_str)
+        persona_hexaco_template = outlines.Template.from_string(persona_hexaco_template_str)
     else:
         raise NotImplementedError("Use Models from GPT, Llama or Qwen Families")
-
-    base_hexaco_template = outlines.Template.from_string(base_hexaco_template_str)
-    persona_hexaco_template = outlines.Template.from_string(persona_hexaco_template_str)
     
     return base_hexaco_template, persona_hexaco_template
 
@@ -215,6 +230,13 @@ def openai_answer(model, prompt: str):
 def local_answer(model, prompt, answer_options: List):
     return model(prompt, Literal[*answer_options])
 
+def render_openai_messages(template_messages, **kwargs):
+    rendered =  [
+        {"role": msg["role"], "content": msg["content"].render(**kwargs)}
+        for msg in template_messages
+    ]
+    
+    return Chat(rendered)
 
 def generation_function(model, hexaco_template, question_batch, likert_scale,
                         batching=False, persona_str=None, persona_base_text=None, likert_shuffle=False):
@@ -234,10 +256,18 @@ def generation_function(model, hexaco_template, question_batch, likert_scale,
         if likert_shuffle:
             random.shuffle(likert_scale)
         
-        prompt = hexaco_template(text=question,
-                                 likert_scale=", ".join(likert_scale),
-                                 base_text=persona_base_text,
-                                 attributes=persona_str)
+        if "gpt" in args.model_name.lower():
+            prompt = render_openai_messages(
+                                hexaco_template,
+                                attributes=persona_str,
+                                text=question,
+                                likert_scale=", ".join(likert_scale),
+                            )
+        else:
+            
+            prompt = hexaco_template(text=question,
+                                    likert_scale=", ".join(likert_scale),
+                                    attributes=persona_str)
         prompt_list.append(prompt)
 
     if "gpt" in args.model_name:
@@ -245,7 +275,6 @@ def generation_function(model, hexaco_template, question_batch, likert_scale,
             return list(executor.map(lambda p: openai_answer(model, p), prompt_list))
     else:
         return [local_answer(model, p, likert_scale) for p in prompt_list]
-
 
 # ----------------------------
 # Experiment Runner

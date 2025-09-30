@@ -1,19 +1,21 @@
 hexaco_persona_prompt_templates = {
-    "gpt": """<|im_start|>system
-    You are a law enforcement officer with following attributes :
-    
-    {{ attributes }}
-    
-    Task: Answer the below questions:
-    <|im_end|>
-    <|im_start|>user
+    "gpt": [
+        {
+            "role": "system",
+            "content": """You are a law enforcement officer with the following attributes:
 
-    {{ text }}
-    
-    Answer the question as either {{ likert_scale }}.
-    Do not return the question, just return the answer directly.
-    <|im_end|>
-    <|im_start|>assistant""",
+            {{ attributes }}
+
+            Task: Answer the below questions:""",
+                    },
+                    {
+                        "role": "user",
+                        "content": """{{ text }}
+
+            Answer the question as either {{ likert_scale }}.
+            Do not return the question, just return the answer directly.""",
+        },
+    ],
     
     "llama": """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
 

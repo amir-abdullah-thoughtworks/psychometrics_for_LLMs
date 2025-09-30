@@ -1,16 +1,17 @@
 hexaco_base_prompt_templates = {
-    "gpt": """<|im_start|>system
-    
-    Task: Answer the below questions:
-    <|im_end|>
-    <|im_start|>user
+    "gpt": [
+        {
+            "role": "system",
+            "content": """Task: Answer the below questions:""",
+                    },
+                    {
+                        "role": "user",
+                        "content": """{{ text }}
 
-    {{ text }}
-    
-    Answer the question as either {{ likert_scale }}.
-    Do not return the question, just return the answer directly.
-    <|im_end|>
-    <|im_start|>assistant""",
+            Answer the question as either {{ likert_scale }}.
+            Do not return the question, just return the answer directly.""",
+        },
+    ],
     
     "llama": """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
     
