@@ -1,6 +1,9 @@
 # pip install sentence-transformers scikit-learn vendi-score numpy
 
 import numpy as np
+import zlib
+
+from collections import Counter
 from typing import List, Optional, Literal, Dict, Any
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import KMeans
@@ -33,6 +36,57 @@ class TextDiversityMetricsST:
                 normalize_embeddings=normalize,
             )
         )
+
+    def _tokenize(self, text: str) -> List[str]:
+        return re.findall(r"\w+", text.lower())
+
+    def ttr(self) -> float:
+        tokens = [tok for t in self.texts for tok in self._tokenize(t)]
+        if not tokens:
+            return float("nan")
+        return len(set(tokens)) / len(tokens)
+
+    def distinct_n(self, n: int = 2) -> float:
+        ngrams = []
+        for t in self.texts:
+            toks = self._tokenize(t)
+            ngrams.extend(zip(*[toks[i:] for i in range(n)]))
+        total = len(ngrams)
+        return len(set(ngrams)) / total if total > 0 else float("nan")
+
+    def mtld(self, threshold: float = 0.72) -> float:
+        """Simplified MTLD implementation"""
+        def mtld_calc(tokens):
+            factors, start, types = 0, 0, set()
+            for i, tok in enumerate(tokens, 1):
+                types.add(tok)
+                ttr_val = len(types) / i
+                if ttr_val < threshold:
+                    factors += 1
+                    start, types = i, set()
+            excess = len(tokens) - start
+            return (len(tokens) - excess) / (factors + (excess / max(1, len(types))))
+        tokens = [tok for t in self.texts for tok in self._tokenize(t)]
+        if not tokens:
+            return float("nan")
+        return (mtld_calc(tokens) + mtld_calc(tokens[::-1])) / 2
+
+    def yule_k(self) -> float:
+        tokens = [tok for t in self.texts for tok in self._tokenize(t)]
+        N = len(tokens)
+        if N == 0:
+            return float("nan")
+        freqs = Counter(tokens)
+        M1 = N
+        M2 = sum(f * f for f in freqs.values())
+        return 1e4 * (M2 - M1) / (M1 * M1)
+
+    def compression_ratio(self) -> float:
+        text_concat = " ".join(self.texts).encode("utf-8")
+        if len(text_concat) == 0:
+            return float("nan")
+        comp = zlib.compress(text_concat)
+        return len(comp) / len(text_concat)
 
     # --- silhouette score ---
     def silhouette(self, k: int = 10) -> float:
