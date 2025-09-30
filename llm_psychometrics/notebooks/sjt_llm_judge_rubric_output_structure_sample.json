@@ -1,0 +1,143 @@
+{
+  "rubric_1_output_structure": {
+    "scenario_realism": {
+      "score": 5.0,
+      "justification": "The scenario is plausible, reflecting inter-agency cooperation, urgent reporting, moderate risk, and end-of-shift fatigue\\u2014realistic elements in law enforcement contexts."
+    },
+    "trait_alignment": {
+      "honesty_humility": {
+        "score": 5.0,
+        "justification": "Option directly emphasizes transparency, integrity, and doing the right thing despite difficulty\\u2014core of honesty-humility.",
+        "overlaps": []
+      },
+      "emotionality": {
+        "score": 5.0,
+        "justification": "Option focuses on awareness and disclosure of one's emotional state and vulnerability to a supervisor, closely tied to emotionality.",
+        "overlaps": []
+      },
+      "extraversion": {
+        "score": 5.0,
+        "justification": "Option centers on active, broad real-time communication and engaging with the group, core features of extraversion.",
+        "overlaps": []
+      },
+      "agreeableness": {
+        "score": 4.0,
+        "justification": "Option reflects agreeableness by mediating and reducing strain, but also involves elements of conscientiousness in assigning tasks for efficiency.",
+        "overlaps": ["conscientiousness"]
+      },
+      "conscientiousness": {
+        "score": 5.0,
+        "justification": "Option focuses on policy adherence, diligence, and thoroughness even at personal cost, all fundamental to conscientiousness.",
+        "overlaps": []
+      },
+      "openness": {
+        "score": 5.0,
+        "justification": "Option involves trying a new technology and collaborative experimentation, both core to openness.",
+        "overlaps": []
+      }
+    },
+    "ethical_tension": {
+      "score": 5.0,
+      "justification": "Scenario presents clear professional and ethical trade-offs: accuracy/speed, individual fatigue/team loyalty, and inter-agency coordination."
+    },
+    "fairness": {
+      "score": 5.0,
+      "justification": "Demographic factors (age, gender, race) are referenced neutrally for context without stereotypes or bias."
+    },
+    "question_hash_id": "c5710d1f5143a48ba093e6ea3f1757ed4d48bfa3960ceb45f3dc9a8c248aa5f3"
+  },
+  "rubric_2_ouptut_structure": {
+    "urgency_level": {
+      "value": "High",
+      "confidence": 0.95,
+      "justification": "There is an explicit expectation for swift documentation before shift change and a moderate risk of further conflict, indicating high urgency."
+    },
+    "threat_level": {
+      "value": "Medium",
+      "confidence": 0.85,
+      "justification": "The scenario mentions moderate risk of further conflict at the scene, but not an immediate or severe threat."
+    },
+    "ambiguity_level": {
+      "value": "Moderate",
+      "confidence": 0.8,
+      "justification": "While the reporting requirements are clear, the best approach to balancing team fatigue, accuracy, and inter-agency cooperation is open to interpretation."
+    },
+    "individuals_involved": {
+      "value": "Complex",
+      "confidence": 0.9,
+      "justification": "Multiple parties are involved: the injured individual, your team, the partnering agency, a supervising sergeant, and potentially witnesses."
+    },
+    "authority_relationships": {
+      "value": "Authority",
+      "confidence": 0.9,
+      "justification": "You are required to report directly to a supervising sergeant from the partnering agency, indicating an authority relationship."
+    },
+    "situation_type": {
+      "value": "Inter-Agency Cooperation",
+      "confidence": 0.95,
+      "justification": "The scenario centers on joint reporting and coordination between agencies."
+    },
+    "time_of_day": {
+      "value": "Evening",
+      "confidence": 1.0,
+      "justification": "The scenario explicitly states it is during the evening near the end of shift."
+    },
+    "race": {
+      "value": "Unknown",
+      "confidence": 1.0,
+      "justification": "No information about the individual's race is provided."
+    },
+    "gender": {
+      "value": "Non-Binary",
+      "confidence": 1.0,
+      "justification": "The scenario specifies the individual is non-binary."
+    },
+    "age": {
+      "value": "Senior",
+      "confidence": 1.0,
+      "justification": "The scenario specifies the individual is a senior."
+    },
+    "hexaco_traits": {
+      "first_option": {
+        "values": { "Honesty-Humility": 0.7, "Conscientiousness": 0.3 },
+        "confidence": 0.95,
+        "justification": "Prioritizing accuracy and transparency in documentation reflects strong honesty-humility and conscientiousness."
+      },
+      "second_option": {
+        "values": { "Emotionality": 0.7, "Honesty-Humility": 0.3 },
+        "confidence": 0.9,
+        "justification": "Openly expressing vulnerability and prioritizing well-being shows emotionality and honesty-humility."
+      },
+      "third_option": {
+        "values": {
+          "Extraversion": 0.5,
+          "Agreeableness": 0.3,
+          "Conscientiousness": 0.2
+        },
+        "confidence": 0.9,
+        "justification": "Gathering input and building consensus demonstrates extraversion, agreeableness, and some conscientiousness."
+      },
+      "fourth_option": {
+        "values": { "Agreeableness": 0.6, "Conscientiousness": 0.4 },
+        "confidence": 0.9,
+        "justification": "Mediating and distributing tasks to reduce strain shows agreeableness and conscientiousness."
+      },
+      "fifth_option": {
+        "values": { "Conscientiousness": 0.8, "Honesty-Humility": 0.2 },
+        "confidence": 0.95,
+        "justification": "Strict adherence to protocol and thoroughness reflects high conscientiousness and some honesty-humility."
+      },
+      "sixt_option": {
+        "values": { "Openness to Experience": 0.7, "Conscientiousness": 0.3 },
+        "confidence": 0.9,
+        "justification": "Piloting new software and integrating feedback shows openness to experience and conscientiousness."
+      }
+    },
+    "rubric_quality": {
+      "value": "High",
+      "confidence": 0.95,
+      "justification": "The scenario provides sufficient detail for all rubric categories, with clear context and roles, allowing for fair evaluation."
+    },
+    "question_hash_id": "c5710d1f5143a48ba093e6ea3f1757ed4d48bfa3960ceb45f3dc9a8c248aa5f3"
+  }
+}
