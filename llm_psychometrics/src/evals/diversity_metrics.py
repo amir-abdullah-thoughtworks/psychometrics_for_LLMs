@@ -131,8 +131,29 @@ class DiversityMetrics:
         return float(np.trace(P))
 
     # --- Vendi score ---
-    def vendi(self) -> float:
-        return float(vendi.score_K(self.embeddings))
+    def vendi(self, kernel: str = "rbf", rbf_sigma: Optional[float] = None) -> float:
+        X = self.embeddings
+        n = len(X)
+        if n == 0:
+            return float("nan")
+
+        if kernel == "cosine":
+            # L2-normalized X -> cosine sim in [-1,1]; shift to [0,1] for nonnegativity
+            S = (X @ X.T + 1.0) / 2.0
+        elif kernel == "rbf":
+            sq = np.sum(X ** 2, axis=1, keepdims=True)
+            D2 = sq + sq.T - 2 * (X @ X.T)
+            if rbf_sigma is None:
+                tri = D2[np.triu_indices(n, k=1)]
+                med = np.median(tri) if tri.size else 1.0
+                rbf_sigma = np.sqrt(med / 2.0) if med > 1e-12 else 1.0
+            S = np.exp(-D2 / (2.0 * (rbf_sigma ** 2)))
+        else:
+            raise ValueError("kernel must be 'cosine' or 'rbf'")
+
+        # Symmetrize numerically
+        K = 0.5 * (S + S.T)
+        return float(vendi.score_K(K))
 
     # --- run all ---
     def compute_all(self, k_for_silhouette: int = 10) -> Dict[str, Any]:
