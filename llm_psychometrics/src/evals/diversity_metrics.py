@@ -1,5 +1,5 @@
 # pip install sentence-transformers scikit-learn vendi-score numpy
-
+import json
 import numpy as np
 import zlib
 
@@ -88,6 +88,25 @@ class DiversityMetrics:
         comp = zlib.compress(text_concat)
         return len(comp) / len(text_concat)
 
+    def avg_cosine_distance(self) -> float:
+        """
+        Average pairwise cosine distance across all embeddings.
+        For normalized embeddings, cosine similarity = X @ X.T
+        Distance = 1 - similarity.
+        """
+        X = self.embeddings
+        n = len(X)
+        if n < 2:
+            return float("nan")
+
+        # Cosine similarity matrix
+        K = X @ X.T
+        # Only upper triangle (exclude diagonal)
+        i, j = np.triu_indices(n, k=1)
+        sims = K[i, j]
+        dists = 1.0 - sims
+        return float(np.mean(dists))
+
     # --- silhouette score ---
     def silhouette(self, k: int = 10) -> float:
         X = self.embeddings
@@ -157,11 +176,20 @@ class DiversityMetrics:
 
     # --- run all ---
     def compute_all(self, k_for_silhouette: int = 10) -> Dict[str, Any]:
-        return {
+        scores = {
             "silhouette": self.silhouette(k=k_for_silhouette),
             "dcs_score": self.dcs(tau=0.07, kernel="cosine"),
             "vendi_score": self.vendi(),
+            "ttr": self.ttr(),
+            "compression_ratio": self.compression_ratio(),
+            "yule_k": self.yule_k(),
+            "mtld": self.mtld(),
+            "distinct_n": self.distinct_n(),
+            "avg_cosine_distance": self.avg_cosine_distance()
         }
+
+        with open("scores.json", "w") as f_out:
+            json.dump(scores, f_out)
 
 
 # ---------------- Example ----------------
@@ -172,5 +200,6 @@ if __name__ == "__main__":
         "Transformers are powerful models for language tasks.",
         "Neural networks can learn complex representations of text."
     ]
-    tdm = TextDiversityMetricsST(texts)
-    print(tdm.compute_all(k_for_silhouette=3))
+    tdm = DiversityMetrics(texts)
+    scores = tdm.compute_all(k_for_silhouette=3)
+    print(scores)
