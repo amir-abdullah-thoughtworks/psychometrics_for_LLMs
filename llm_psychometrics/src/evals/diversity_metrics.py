@@ -41,11 +41,45 @@ class DiversityMetrics:
     def _tokenize(self, text: str) -> List[str]:
         return re.findall(r"\w+", text.lower())
 
-    def ttr(self) -> float:
-        tokens = [tok for t in self.texts for tok in self._tokenize(t)]
-        if not tokens:
-            return float("nan")
-        return len(set(tokens)) / len(tokens)
+    def per_text_ttr(self):
+        """Compute TTR for each text and return their average"""
+        ttrs = []
+        for text in self.texts:
+            tokens = self._tokenize(text)
+            if len(tokens) == 0:
+                continue
+            ttr = len(set(tokens)) / len(tokens)
+            ttrs.append(ttr)
+        return np.mean(ttrs) if ttrs else 0.0
+
+    def cumulative_ttr(self):
+        """Treat the dataset as one long text and compute TTR"""
+        all_tokens = []
+        for text in self.texts:
+            all_tokens.extend(self._tokenize(text))
+        if not all_tokens:
+            return 0.0
+        return len(set(all_tokens)) / len(all_tokens)
+
+    def msttr(self, segment_size=50):
+        """
+        Compute Mean Segmental TTR (MSTTR) across dataset
+        Concatenates all texts into one sequence first
+        """
+        all_tokens = []
+        for text in self.texts:
+            all_tokens.extend(self._tokenize(text))
+
+        n_segments = len(all_tokens) // segment_size
+        if n_segments == 0:
+            return 0.0
+
+        ttrs = []
+        for i in range(n_segments):
+            segment = all_tokens[i*segment_size : (i+1)*segment_size]
+            ttr = len(set(segment)) / len(segment)
+            ttrs.append(ttr)
+        return np.mean(ttrs)
 
     def distinct_n(self, n: int = 2) -> float:
         ngrams = []
@@ -181,7 +215,8 @@ class DiversityMetrics:
             "silhouette": self.silhouette(k=k_for_silhouette),
             "dcs_score": self.dcs(tau=0.07, kernel="cosine"),
             "vendi_score": self.vendi(),
-            "ttr": self.ttr(),
+            "per_text_ttr": self.per_text_ttr(),
+            "msttr": self.msttr(),
             "compression_ratio": self.compression_ratio(),
             "yule_k": self.yule_k(),
             "mtld": self.mtld(),
