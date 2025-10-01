@@ -52,6 +52,8 @@ class DiversityMetrics:
             )
         )
 
+        print(f"Done encoding {len(self.texts)} texts into embeddings")
+
         # --- spaCy once (lemmatized tokens; no punctuation/spaces) ---
         spacy_disable = spacy_disable or []
         self.nlp = spacy.load(spacy_model, disable=spacy_disable)
