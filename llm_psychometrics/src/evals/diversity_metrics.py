@@ -8,6 +8,7 @@ from collections import Counter
 from typing import List, Optional, Literal, Dict, Any
 
 import spacy
+from tqdm.notebook import tqdm
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
@@ -37,6 +38,7 @@ class DiversityMetrics:
         spacy_model: str = "en_core_web_sm",
         spacy_disable: Optional[List[str]] = None,  # e.g., ["ner"]
         remove_stopwords: bool = False,
+        batch_size: int = 32
     ):
         self.texts = texts
         self.remove_stopwords = remove_stopwords
@@ -45,14 +47,20 @@ class DiversityMetrics:
         print(f"Loading onto {device}.")
         self.model = SentenceTransformer(model_name, device=device)
         print("Generating embeddings...")
-        self.embeddings = np.asarray(
-            self.model.encode(
-                texts,
-                batch_size=32, convert_to_tensor=True,
-                show_progress_bar=True,
-                normalize_embeddings=normalize,
+
+        all_embs = []
+        for i in tqdm(range(0, len(texts), batch_size), desc="Encoding texts"):
+            batch = texts[i : i + batch_size]
+            embs = self.model.encode(
+                batch,
+                show_progress_bar=False,  # disable internal tqdm
+                normalize_embeddings=normalize, convert_to_tensor=True,
             )
-        )
+            all_embs.append(embs)
+
+        self.embeddings = np.vstack(all_embs)
+
+
 
         print(f"Done encoding {len(self.texts)} texts into embeddings")
 
