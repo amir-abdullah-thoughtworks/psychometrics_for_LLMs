@@ -11,7 +11,7 @@ from sklearn.metrics import silhouette_score
 from vendi_score import vendi
 
 
-class TextDiversityMetricsST:
+class DiversityMetrics:
     """
     Text diversity metrics using Sentence-Transformers embeddings (Qwen/Qwen3-Embedding-0.6B).
     Provides:
