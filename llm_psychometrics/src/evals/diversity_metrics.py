@@ -32,7 +32,7 @@ class DiversityMetrics:
         self,
         texts: List[str],
         model_name: str = "Qwen/Qwen3-Embedding-0.6B",
-        device: Optional[str] = None,
+        device: Optional[str] = "cuda",
         normalize: bool = True,
         spacy_model: str = "en_core_web_sm",
         spacy_disable: Optional[List[str]] = None,  # e.g., ["ner"]
