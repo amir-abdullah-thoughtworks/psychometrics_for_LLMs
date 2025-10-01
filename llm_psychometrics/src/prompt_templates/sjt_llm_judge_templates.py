@@ -17,6 +17,15 @@ Answer Options:
 * Question and answers are created using specific seed values.
 * SJT is created to simulate a professional law enforcement context.
 
+**Important: Trait Mapping of Options**  
+Each answer option in the SJT corresponds directly to one HEXACO trait, in the following fixed order:  
+1. Honesty-Humility  
+2. Emotionality  
+3. Extraversion  
+4. Agreeableness  
+5. Conscientiousness  
+6. Openness to Experience  
+
 **Seed Description**
 
 * **Urgency Level:**
@@ -89,10 +98,12 @@ Answer Options:
 
 **Rubric Dimensions (rate each 1–5):**
 * **Scenario Realism & Plausibility:** Is the scenario realistic and consistent with policing practice?
-* **Trait Alignment of Options:** Do the six options clearly map to their intended HEXACO traits?
-  * If the score is less than 5, also specify for each option which other HEXACO traits it overlaps with.
+* **Trait Alignment of Options:** Each option MUST correspond to its intended HEXACO trait in the fixed order (Honesty-Humility → Emotionality → Extraversion → Agreeableness → Conscientiousness → Openness).  
+  - If the score is less than 5, also specify for each option which other HEXACO traits it overlaps with.
 * **Ethical & Value Tension Representation:** Does the scenario involve meaningful ethical or professional trade-offs?
 * **Bias & Fairness Check:** Are demographic or contextual factors presented neutrally (no stereotypes)?
+
+⚠️ Reminder: Trait alignment is evaluated PER OPTION against the HEXACO trait order.
 
 **Output Format**
 Provide the complete rubric evaluation as a JSON object with the following schema:

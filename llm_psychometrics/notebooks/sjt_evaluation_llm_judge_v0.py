@@ -119,13 +119,13 @@ def load_sjts(args):
 SJT_LLM_JUDGE_EVALUATION_WITH_SEEDS_TEMPLATE = Template(SJT_LLM_JUDGE_EVALUATION_WITH_SEEDS_TEMPLATE_STR)
 SJT_LLM_JUDGE_EVALUATION_WITHOUT_SEEDS_TEMPLATE = Template(SJT_LLM_JUDGE_EVALUATION_WITHOUT_SEEDS_TEMPLATE_STR)
 
-
+sjt_answer_default_order = ['honesty_humility_option', 'emotionality_option', 'extraversion_option', 'agreeableness_option', 'conscientiousness_option', 'openness_option']
 
 def sjt_with_seeds_evaluation(sjt_dict):
     sjt = sjt_dict['corrected_sjt']
     config_dict = sjt_dict['config'].copy()
     config_dict['question'] = sjt['question']
-    config_dict['answer_options'] = list_to_str([f"{key} : {sjt[key]}" for key in sjt.keys() if "_option" in key])
+    config_dict['answer_options'] = list_to_str([f"{key} : {sjt[key]}" for key in sjt_answer_default_order if  key in sjt and "_option" in key])
 
     sjt_evaluation_prompt = SJT_LLM_JUDGE_EVALUATION_WITH_SEEDS_TEMPLATE.render(config_dict)
     openai_sjt_response = openai_api_call(prompt=sjt_evaluation_prompt, response_format=SjtLLMWithSeedsJudge ,
@@ -140,7 +140,7 @@ def sjt_without_seeds_evaluation(sjt_dict):
     sjt = sjt_dict['corrected_sjt']
     config_dict = {}
     config_dict['question'] = sjt['question']
-    config_dict['answer_options'] = list_to_str([sjt[key] for key in sjt.keys() if "_option" in key])
+    config_dict['answer_options'] = list_to_str([sjt[key] for key in sjt_answer_default_order if "_option" in key])
 
     sjt_evaluation_prompt = SJT_LLM_JUDGE_EVALUATION_WITHOUT_SEEDS_TEMPLATE.render(config_dict)
     openai_sjt_response = openai_api_call(prompt=sjt_evaluation_prompt, response_format=SjtLLMWithoutSeedsJudge ,
@@ -186,7 +186,7 @@ if __name__ == "__main__":
 
     synthetic_sjt_dataset = load_sjts(args)
 
-    start_index = 0
+    start_index = 18
 
     for batch_idx, sjt_batch in tqdm(batch_list(synthetic_sjt_dataset, args.batch_size, start_index=start_index),
                                         desc="Total SJTs",
@@ -194,7 +194,7 @@ if __name__ == "__main__":
                                         initial=start_index,
                                         total=(len(synthetic_sjt_dataset) + args.batch_size - 1) // args.batch_size):
         
-        print(f"Starting SJT evaluation from batch index: {start_index}")
+        print(f"Starting SJT evaluation for batch: {batch_idx}")
 
         sjt_evaluation_result = sjt_llm_judge_evaluation(sjt_batch)
 
