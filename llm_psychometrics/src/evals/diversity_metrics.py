@@ -176,7 +176,7 @@ class DiversityMetrics:
         return float(vendi.score_K(K))
 
     # --- run all ---
-    def compute_all(self, k_for_silhouette: int = 10) -> Dict[str, Any]:
+    def compute_all(self, k_for_silhouette: int = 10, dump_file=False) -> Dict[str, Any]:
         scores = {
             "silhouette": self.silhouette(k=k_for_silhouette),
             "dcs_score": self.dcs(tau=0.07, kernel="cosine"),
@@ -189,8 +189,11 @@ class DiversityMetrics:
             "avg_cosine_distance": self.avg_cosine_distance()
         }
 
-        with open("scores.json", "w") as f_out:
-            json.dump(scores, f_out)
+        print(scores)
+
+        if dump_file:
+            with open("gradio_demos/personas_viewer/scores.json", "w") as f_out:
+                json.dump(scores, f_out, indent=2)
 
 
 # ---------------- Example ----------------
