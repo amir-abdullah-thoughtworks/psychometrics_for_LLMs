@@ -1,5 +1,6 @@
 # pip install sentence-transformers scikit-learn vendi-score numpy
 import json
+import re
 import numpy as np
 import zlib
 
