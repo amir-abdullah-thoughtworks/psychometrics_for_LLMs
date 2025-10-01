@@ -8,7 +8,7 @@ from typing import List, Optional, Literal, Dict, Any
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
-from vendi_score import vendi_score
+from vendi_score import vendi
 
 
 class TextDiversityMetricsST:
@@ -132,7 +132,7 @@ class TextDiversityMetricsST:
 
     # --- Vendi score ---
     def vendi(self) -> float:
-        return float(vendi_score(self.embeddings))
+        return float(vendi.score_K(self.embeddings))
 
     # --- run all ---
     def compute_all(self, k_for_silhouette: int = 10) -> Dict[str, Any]:
