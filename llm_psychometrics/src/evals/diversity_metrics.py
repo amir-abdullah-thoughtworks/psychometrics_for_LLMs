@@ -42,6 +42,7 @@ class DiversityMetrics:
         self.remove_stopwords = remove_stopwords
 
         # --- embeddings once ---
+        print(f"Loading onto {device}.")
         self.model = SentenceTransformer(model_name, device=device)
         self.embeddings = np.asarray(
             self.model.encode(
