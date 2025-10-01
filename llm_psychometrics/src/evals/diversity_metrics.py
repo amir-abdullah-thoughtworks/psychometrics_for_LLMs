@@ -55,7 +55,7 @@ class DiversityMetrics:
                 batch,
                 show_progress_bar=False,  # disable internal tqdm
                 normalize_embeddings=normalize, convert_to_tensor=True,
-            )
+            ).cpu()
             all_embs.append(embs)
 
         self.embeddings = np.vstack(all_embs)
