@@ -61,7 +61,7 @@ class DiversityMetrics:
             return 0.0
         return len(set(all_tokens)) / len(all_tokens)
 
-    def msttr(self, segment_size=50):
+    def msttr(self, segment_size=100):
         """
         Compute Mean Segmental TTR (MSTTR) across dataset
         Concatenates all texts into one sequence first
