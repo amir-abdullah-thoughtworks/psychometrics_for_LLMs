@@ -44,9 +44,11 @@ class DiversityMetrics:
         # --- embeddings once ---
         print(f"Loading onto {device}.")
         self.model = SentenceTransformer(model_name, device=device)
+        print("Generating embeddings...")
         self.embeddings = np.asarray(
             self.model.encode(
                 texts,
+                batch_size=32, convert_to_tensor=True,
                 show_progress_bar=True,
                 normalize_embeddings=normalize,
             )
