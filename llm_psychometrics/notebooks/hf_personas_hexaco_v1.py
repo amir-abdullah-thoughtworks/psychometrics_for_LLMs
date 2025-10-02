@@ -70,7 +70,8 @@ class VLLMServerManager:
         if run_benchmark:
             print("Sanity checking tokens per second")
             benchmark = self.benchmark_tps()
-            write_to_json(benchmark, "benchmark_tps.json")
+            with open("benchmark_tps.json", "w") as f:
+                json.dump(benchmark, f)
             print("Finished benchmark with results \n {benchmark}")
 
     def benchmark_tps(
