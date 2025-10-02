@@ -72,7 +72,7 @@ class VLLMServerManager:
             benchmark = self.benchmark_tps()
             with open("benchmark_tps.json", "w") as f:
                 json.dump(benchmark, f)
-            print(f"Finished benchmark with results \n benchmark")
+            print(f"Finished benchmark with results \n {benchmark}")
 
     def benchmark_tps(
             self,
@@ -105,7 +105,7 @@ class VLLMServerManager:
                 "content": (
                     "Write a long, continuous stream of varied text about GPUs, kernels, "
                     "and parallelism without concluding, avoiding numbered lists. "
-                    "Do not stop until you reach the token limit."
+                    "Do not stop, ever."
                 ),
             },
         ]
@@ -205,6 +205,10 @@ class VLLMServerManager:
             "--gpu-memory-utilization", "0.90",
             "--max-num-batched-tokens", "40960",
             "--max-num-seqs", "2048",
+            "--disable-log-requests",
+            "--max-model-len 2048",
+            "--disable-log-stats",
+            "--kv-cache-dtype fp8",
             "--enable-chunked-prefill",
             "--model", self.model,
             "--host", self.host,
