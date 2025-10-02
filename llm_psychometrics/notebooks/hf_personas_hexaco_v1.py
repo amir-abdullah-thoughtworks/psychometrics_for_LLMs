@@ -482,6 +482,7 @@ def local_answer(model, prompt, answer_options: List[str]):
     model_name = model["model_name"].strip()
 
     messages = prompt if isinstance(prompt, list) else [{"role": "user", "content": str(prompt)}]
+    print(f"Working with {model_name}")
 
     resp = vllm_client.chat.completions.create(
         model=model_name,
@@ -612,7 +613,7 @@ if __name__ == "__main__":
         # Optional: pass extra CLI flags via env var VLLM_SERVER_ARGS="--gpu-memory-utilization 0.9 --dtype bfloat16"
         server_extra_args = os.environ.get("VLLM_SERVER_ARGS", "").strip().split()
         vllm_mgr = VLLMServerManager(
-            args.model_name,
+            model=args.model_name,
             host=host,
             port=port,
             timeout_s=180,
