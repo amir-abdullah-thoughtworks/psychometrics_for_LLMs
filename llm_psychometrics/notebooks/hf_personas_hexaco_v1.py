@@ -214,7 +214,6 @@ class VLLMServerManager:
             "--disable-log-stats",
             "--kv-cache-dtype", "fp8",
             "--enable-chunked-prefill",
-            "--use-cuda-graph",
             "--model", self.model,
             "--host", self.host,
             "--port", str(self.port),
