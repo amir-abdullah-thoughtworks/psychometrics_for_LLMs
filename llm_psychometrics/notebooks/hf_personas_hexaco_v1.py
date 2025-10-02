@@ -6,6 +6,7 @@ import sys
 from typing import List, Literal
 import torch as t
 import transformers
+from outlines import Generator
 from jinja2 import Template
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from pydantic import BaseModel
@@ -54,7 +55,7 @@ class VLLMServerManager:
         self.kill_existing = kill_existing
         self._proc = None
 
-    def ensure_fresh_server(self, run_benchmark: bool = True):
+    def ensure_fresh_server(self, run_benchmark: bool = False):
         if self.kill_existing:
             print("Killing existing vLLM server")
             self._kill_existing_servers()
@@ -500,7 +501,7 @@ def render_openai_messages(template_messages, **kwargs):
         {"role": msg["role"], "content": msg["content"].render(**kwargs)}
         for msg in template_messages
     ]
-    return Chat(rendered)
+    return rendered
 
 def generation_function(model, hexaco_template, question_batch, likert_scale,
                         batching=False, persona_str=None, persona_base_text=None, likert_shuffle=False):
