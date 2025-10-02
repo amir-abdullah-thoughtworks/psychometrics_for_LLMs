@@ -476,6 +476,7 @@ def local_answer(model, prompt, answer_options: List[str]):
     """
     client = model["client"]
     model_name = model["model_name"]
+    print(f"model name is {model_name}.")
 
     resp = client.chat.completions.create(
         model=model_name,
