@@ -500,11 +500,7 @@ def render_openai_messages(template_messages, **kwargs):
         {"role": msg["role"], "content": msg["content"].render(**kwargs)}
         for msg in template_messages
     ]
-    
-    return client.responses.parse(
-        model=model_name,
-        input=rendered,
-    )
+    return Chat(rendered)
 
 def generation_function(model, hexaco_template, question_batch, likert_scale,
                         batching=False, persona_str=None, persona_base_text=None, likert_shuffle=False):
