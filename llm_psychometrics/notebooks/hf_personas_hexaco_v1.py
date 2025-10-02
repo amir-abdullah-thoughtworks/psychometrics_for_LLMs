@@ -347,6 +347,7 @@ def load_model(model_name: str, hf_token: str = None):
     if args.provider == "openai":
         client = OpenAI()  # uses OPENAI_API_KEY from environment
     else:
+
         client = OpenAI(base_url=args.vllm_base_url.rstrip("/"), api_key=args.vllm_api_key)
     # NOTE: add provider so local_answer can branch to structured outputs for vLLM
     return {"client": client, "model_name": model_name, "provider": args.provider}
@@ -472,10 +473,13 @@ def local_answer(model, prompt, answer_options: List[str]):
     Use vLLM guided_choice to constrain the output to one of answer_options.
     Works with an OpenAI-compatible client pointed at your vLLM server.
     """
-    client = model["client"]
-    model_name = model["model_name"]
+    client = OpenAI(
+        base_url="http://localhost:8000/v1",
+        api_key="-",
+    )
+    model_name = "Qwen/Qwen2.5-0.5B-Instruct"
     messages = prompt if isinstance(prompt, list) else [{"role": "user", "content": str(prompt)}]
-    print(f"model name is {model_name} and messages is {messages} and answer_options is {answer_options}.")
+    print(f"model name is {model_name} of type {type(model_name)} and messages is {messages} of {type(messages)} and answer_options is {answer_options} of {type(answer_options)}.")
 
 
     resp = client.chat.completions.create(
@@ -483,7 +487,7 @@ def local_answer(model, prompt, answer_options: List[str]):
         messages=messages,
         temperature=0,
         max_tokens=16,  # small cap; response is a single choice
-        extra_body={"guided_choice": answer_options},
+        extra_body={"guided_choice": ["agree", "disagree"]},
     )
 
     text = resp.choices[0].message.content.strip()
