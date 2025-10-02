@@ -483,7 +483,7 @@ def local_answer(model, prompt, answer_options: List[str]):
         messages=messages,
         temperature=0,
         max_tokens=16,  # small cap; response is a single choice
-        extra_body={"guided_choice": list(answer_options)},
+        extra_body={"guided_choice": answer_options},
     )
 
     text = resp.choices[0].message.content.strip()
@@ -628,6 +628,7 @@ if __name__ == "__main__":
     # Load persona
     persona_datasets = load_personas(args)
 
+    print(f"model name is {args.model_name}.")
     # Run
     results = generate_answers(model, args, persona_datasets, question_list, likert_scale)
 
