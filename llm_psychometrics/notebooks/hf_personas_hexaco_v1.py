@@ -210,6 +210,7 @@ class VLLMServerManager:
             "--disable-log-stats",
             "--kv-cache-dtype", "fp8",
             "--enable-chunked-prefill",
+            "--use-cuda-graph",
             "--model", self.model,
             "--host", self.host,
             "--port", str(self.port),
@@ -541,7 +542,7 @@ def generation_function(model, hexaco_template, question_batch, likert_scale,
         with ThreadPoolExecutor(max_workers=4) as executor:
             return list(executor.map(lambda p: openai_answer(model, p, likert_scale), prompt_list))
     else:
-        with ThreadPoolExecutor(max_workers=30) as executor:
+        with ThreadPoolExecutor(max_workers=100) as executor:
             return list(executor.map(lambda p: local_answer(model, p, likert_scale), prompt_list))
 
 # ----------------------------
