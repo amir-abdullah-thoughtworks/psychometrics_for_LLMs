@@ -226,6 +226,10 @@ class VLLMServerManager:
         r.raise_for_status()
         data = r.json()
         output = (data["choices"][0]["message"]["content"] or "").strip()
+        if "4" in output:
+            print(f"Hello world check successful returned 2+2={output}")
+        else:
+            print(f"Hello world check unexpected 2+2={output}")
 
         return output
 
