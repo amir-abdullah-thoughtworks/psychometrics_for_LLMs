@@ -204,7 +204,7 @@ class VLLMServerManager:
             "-m", "vllm.entrypoints.openai.api_server",
             "--gpu-memory-utilization", "0.90",
             "--max-num-batched-tokens", "65536",
-            "--max-num-seqs", "2048",
+            "--max-num-seqs", "512",
             "--disable-log-requests",
             "--max-model-len", "2048",
             "--disable-log-stats",
@@ -541,8 +541,8 @@ def generation_function(model, hexaco_template, question_batch, likert_scale,
         with ThreadPoolExecutor(max_workers=4) as executor:
             return list(executor.map(lambda p: openai_answer(model, p, likert_scale), prompt_list))
     else:
-        results = []
-        return [local_answer(model, p, likert_scale) for p in prompt_list]
+        with ThreadPoolExecutor(max_workers=30) as executor:
+            return list(executor.map(lambda p: local_answer(model, p, likert_scale), prompt_list))
 
 # ----------------------------
 # Experiment Runner
