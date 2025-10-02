@@ -463,7 +463,7 @@ def openai_answer(model, prompt: List[dict], answer_options: List):
     resp = client.responses.parse(
         model=model_name,
         input=prompt,               # list of messages, unchanged
-        response_format=LikertAnswer,
+        text_format=LikertAnswer,
         max_tokens=64
     )
 
@@ -490,7 +490,7 @@ def local_answer(model, prompt, answer_options: List[str]):
     resp = client.responses.parse(
         model=model_name,
         input=prompt,               # list of messages, unchanged
-        response_format=LikertAnswer,
+        text_format=LikertAnswer,
     )
 
     parsed = resp.output_parsed    # LikertAnswer instance
