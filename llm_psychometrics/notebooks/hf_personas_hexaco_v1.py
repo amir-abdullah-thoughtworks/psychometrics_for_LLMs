@@ -121,7 +121,6 @@ class VLLMServerManager:
                 "model": model_name,
                 "messages": messages,
                 "temperature": 0.0,
-                "max_tokens": max_tokens,
             }
             t0 = time.perf_counter()
             r = requests.post(url, json=payload, timeout=600)
@@ -150,7 +149,6 @@ class VLLMServerManager:
         return {
             "model": model_name,
             "delay_s": delay_s,
-            "max_tokens": max_tokens,
             "trials": trials,
             "per_trial": results,
             "avg_tps": avg_tps,
@@ -463,12 +461,11 @@ def openai_answer(model, prompt: List[dict], answer_options: List):
     resp = client.responses.parse(
         model=model_name,
         input=prompt,               # list of messages, unchanged
-        text_format=LikertAnswer,
-        max_tokens=64
+        text_format=LikertAnswer
     )
 
     parsed = resp.output_parsed    # LikertAnswer instance
-    return parsed.answer or pa
+    return parsed.answer
 
     content = (resp.choices[0].message.content or "").strip()
     return content
