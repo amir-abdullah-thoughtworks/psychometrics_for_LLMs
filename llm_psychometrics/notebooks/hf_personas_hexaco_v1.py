@@ -72,13 +72,13 @@ class VLLMServerManager:
             benchmark = self.benchmark_tps()
             with open("benchmark_tps.json", "w") as f:
                 json.dump(benchmark, f)
-            print("Finished benchmark with results \n {benchmark}")
+            print(f"Finished benchmark with results \n benchmark")
 
     def benchmark_tps(
             self,
-            delay_s: int = 10,
+            delay_s: int = 5,
             max_tokens: int = 1024,
-            trials: int = 5,
+            trials: int = 30,
             model_override: str | None = None,
     ) -> dict:
         """
@@ -200,8 +200,17 @@ class VLLMServerManager:
     def _start(self):
         print(f"Starting vLLM server on {self.host}:{self.port}")
         cmd = [
-            self.python_executable, "-m", "vllm.entrypoints.openai.api_server",
-            "--model", self.model, "--host", self.host, "--port", str(self.port),
+            self.python_executable,
+            "-m", "vllm.entrypoints.openai.api_server",
+            "--gpu-memory-utilization", "0.90",
+            "--max-num-batched-tokens", 40960,
+            "--max-num-seqs", 2048,
+            "--enable-chunked-prefill",
+            "--model", self.model,
+            "--host", self.host,
+            "--port", str(self.port),
+            "--dtype", "bfloat16",
+
         ] + self.server_extra_args
         stdout = open(self.log_file, "a", buffering=1, encoding="utf-8")
         self._proc = subprocess.Popen(cmd, stdout=stdout, stderr=stdout, env=self.env, start_new_session=True)
