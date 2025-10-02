@@ -480,10 +480,8 @@ def local_answer(model, prompt, answer_options: List[str]):
     """
 
     model_name = model["model_name"].strip()
-    # model_name = "Qwen/Qwen2.5-0.5B-Instruct"
 
     messages = prompt if isinstance(prompt, list) else [{"role": "user", "content": str(prompt)}]
-
 
     resp = vllm_client.chat.completions.create(
         model=model_name,
