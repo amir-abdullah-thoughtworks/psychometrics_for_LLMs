@@ -36,7 +36,8 @@ class VLLMServerManager:
     - Starts a fresh server on host:port for the requested model.
     - Waits until /v1/models responds.
     """
-    def __init__(self, model: str, host: str = "127.0.0.1", port: int = 8000,
+    def __init__(self, model: str = "Qwen/Qwen2.5-0.5B-Instruct",
+                 host: str = "127.0.0.1", port: int = 8000,
                  python_executable: str = sys.executable,
                  server_extra_args=None, env=None,
                  log_file: str = "vllm_server.log",
@@ -59,6 +60,89 @@ class VLLMServerManager:
         if not self._is_up():
             self._start()
             self._wait_ready()
+
+    def benchmark_tps(
+            self,
+            delay_s: int = 30,
+            max_tokens: int = 1024,
+            trials: int = 1,
+            model_override: str | None = None,
+    ) -> dict:
+        """
+        Benchmark generation throughput after a post-startup delay.
+
+        - Waits `delay_s` seconds (default 30) before benchmarking.
+        - Runs `trials` chat.completions with `max_tokens` tokens each.
+        - Uses /v1/chat/completions and reads usage.completion_tokens.
+        - Returns a dict with per-trial stats and averaged TPS.
+
+        NOTE: Assumes the server is already up (call ensure_fresh_server first).
+        """
+        import time
+        import requests
+
+        model_name = model_override or self.model
+        url = f"{self.base_url}/v1/chat/completions"
+
+        # Simple, high-entropy prompt to avoid early stopping
+        messages = [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {
+                "role": "user",
+                "content": (
+                    "Write a long, continuous stream of varied text about GPUs, kernels, "
+                    "and parallelism without concluding, avoiding numbered lists. "
+                    "Do not stop until you reach the token limit."
+                ),
+            },
+        ]
+
+        # One-time post-startup delay (e.g., to let CUDA warm up)
+        if delay_s > 0:
+            time.sleep(delay_s)
+
+        results = []
+        for _ in range(max(1, trials)):
+            payload = {
+                "model": model_name,
+                "messages": messages,
+                "temperature": 0.0,
+                "max_tokens": max_tokens,
+            }
+            t0 = time.perf_counter()
+            r = requests.post(url, json=payload, timeout=600)
+            t1 = time.perf_counter()
+            r.raise_for_status()
+            data = r.json()
+
+            # vLLM and OpenAI-compatible servers return usage.{completion_tokens,prompt_tokens,total_tokens}
+            usage = data.get("usage", {}) or {}
+            completion_tokens = int(usage.get("completion_tokens", 0))
+            elapsed = max(t1 - t0, 1e-9)
+            tps = completion_tokens / elapsed if completion_tokens else 0.0
+
+            results.append(
+                {
+                    "completion_tokens": completion_tokens,
+                    "elapsed_s": elapsed,
+                    "tps": tps,
+                }
+            )
+
+        avg_tps = sum(item["tps"] for item in results) / len(results)
+        total_tokens = sum(item["completion_tokens"] for item in results)
+        total_time = sum(item["elapsed_s"] for item in results)
+
+        return {
+            "model": model_name,
+            "delay_s": delay_s,
+            "max_tokens": max_tokens,
+            "trials": trials,
+            "per_trial": results,
+            "avg_tps": avg_tps,
+            "total_tokens": total_tokens,
+            "total_elapsed_s": total_time,
+        }
 
     # ---------- internals ----------
     def _is_up(self) -> bool:
