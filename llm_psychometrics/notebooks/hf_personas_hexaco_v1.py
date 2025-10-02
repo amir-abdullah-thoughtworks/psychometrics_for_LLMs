@@ -31,7 +31,7 @@ import requests
 import socket
 
 vllm_client = OpenAI(
-        base_url="http://localhost:8000/v1",
+        base_url="http://127.0.0.1:8000/v1",
         api_key="-",
 )
 
@@ -42,7 +42,7 @@ class VLLMServerManager:
     - Starts a fresh server on host:port for the requested model.
     - Waits until /v1/models responds.
     """
-    def __init__(self, model: str = "Qwen/Qwen2.5-7B-Instruct",
+    def __init__(self, model: str = "Qwen/Qwen2.5-0.5B-Instruct",
                  host: str = "127.0.0.1", port: int = 8000,
                  python_executable: str = sys.executable,
                  server_extra_args=None, env=None,
@@ -206,13 +206,12 @@ class VLLMServerManager:
         cmd = [
             self.python_executable,
             "-m", "vllm.entrypoints.openai.api_server",
-            "--gpu-memory-utilization", "0.90",
-            "--max-num-batched-tokens", "65536",
-            "--max-num-seqs", "512",
+            "--gpu-memory-utilization", "0.8",
+            "--max-num-batched-tokens", "40000",
+            "--max-num-seqs", "100",
             "--disable-log-requests",
             "--max-model-len", "2048",
             "--disable-log-stats",
-            "--kv-cache-dtype", "fp8",
             "--enable-chunked-prefill",
             "--model", self.model,
             "--host", self.host,
@@ -285,7 +284,7 @@ NO_ANSWER = "Do not wish to answer"
 # ----------------------------
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model-name", type=str, default="Qwen/Qwen2.5-7B-Instruct",
+    parser.add_argument("--model-name", type=str, default="Qwen/Qwen2.5-0.5B-Instruct",
                         help="Model Name")
     parser.add_argument("--persona-source", type=str, default="huggingface",
                         help="Source of Persona (huggingface | base_model | personallm_paper)")
@@ -312,8 +311,8 @@ def parse_args():
     parser.add_argument("--provider", type=str, default="openai",
                         choices=["openai", "vllm"],
                         help="Backend provider: openai (API), vllm (OpenAI-compatible server), or hf (local Transformers).")
-    parser.add_argument("--vllm-base-url", type=str, default="http://localhost:8000/v1",
-                        help="Base URL for vLLM OpenAI-compatible server, e.g., http://localhost:8000/v1")
+    parser.add_argument("--vllm-base-url", type=str, default="http://127.0.0.1:8000/v1",
+                        help="Base URL for vLLM OpenAI-compatible server, e.g., http://127.0.0.1:8000/v1")
     parser.add_argument("--vllm-api-key", type=str, default="-",
                         help="API key to send to vLLM (usually ignored but required by the OpenAI client).")
     return parser.parse_args()
@@ -529,7 +528,7 @@ def generation_function(model, hexaco_template, question_batch, likert_scale,
         with ThreadPoolExecutor(max_workers=12) as executor:
             return list(executor.map(lambda p: openai_answer(model, p, likert_scale), prompt_list))
     else:
-        with ThreadPoolExecutor(max_workers=200) as executor:
+        with ThreadPoolExecutor(max_workers=10) as executor:
             return list(executor.map(lambda p: local_answer(model, p, likert_scale), prompt_list))
 
 # ----------------------------
