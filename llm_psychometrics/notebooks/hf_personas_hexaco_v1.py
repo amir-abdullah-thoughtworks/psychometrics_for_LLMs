@@ -481,7 +481,6 @@ def local_answer(model, prompt, answer_options: List[str]):
     model_name = model["model_name"].strip()
 
     messages = prompt if isinstance(prompt, list) else [{"role": "user", "content": str(prompt)}]
-    print(f"Working with {model_name}")
 
     resp = vllm_client.chat.completions.create(
         model=model_name,
