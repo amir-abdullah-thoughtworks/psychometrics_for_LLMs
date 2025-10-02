@@ -209,6 +209,7 @@ class VLLMServerManager:
             "--gpu-memory-utilization", "0.8",
             "--max-num-batched-tokens", "40000",
             "--max-num-seqs", "100",
+            "--enforce-eager", # Needed to prevent erroring out on cluster.
             "--disable-log-requests",
             "--max-model-len", "2048",
             "--disable-log-stats",
