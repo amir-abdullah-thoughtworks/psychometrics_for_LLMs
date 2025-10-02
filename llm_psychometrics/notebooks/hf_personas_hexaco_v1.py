@@ -31,7 +31,7 @@ import requests
 import socket
 
 vllm_client = OpenAI(
-        base_url="http://localhost:8000/v1",
+        base_url="http://127.0.0.1:8000/v1",
         api_key="-",
 )
 
@@ -312,8 +312,8 @@ def parse_args():
     parser.add_argument("--provider", type=str, default="openai",
                         choices=["openai", "vllm"],
                         help="Backend provider: openai (API), vllm (OpenAI-compatible server), or hf (local Transformers).")
-    parser.add_argument("--vllm-base-url", type=str, default="http://localhost:8000/v1",
-                        help="Base URL for vLLM OpenAI-compatible server, e.g., http://localhost:8000/v1")
+    parser.add_argument("--vllm-base-url", type=str, default="http://127.0.0.1:8000/v1",
+                        help="Base URL for vLLM OpenAI-compatible server, e.g., http://127.0.0.1:8000/v1")
     parser.add_argument("--vllm-api-key", type=str, default="-",
                         help="API key to send to vLLM (usually ignored but required by the OpenAI client).")
     return parser.parse_args()
