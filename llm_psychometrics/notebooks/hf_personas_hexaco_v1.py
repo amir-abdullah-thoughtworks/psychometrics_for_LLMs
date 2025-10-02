@@ -167,10 +167,12 @@ class VLLMServerManager:
         procs = []
         for pid in pids:
             try:
+                print(f"Attempting to terminate vLLM server on {pid}")
                 pr = psutil.Process(pid)
                 pr.terminate()
                 procs.append(pr)
             except Exception:
+                print(f"Failed to terminate vLLM server on {pid}")
                 pass
         if procs:
             psutil.wait_procs(procs, timeout=5)
