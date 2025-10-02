@@ -214,7 +214,6 @@ class VLLMServerManager:
             "--host", self.host,
             "--port", str(self.port),
             "--dtype", "bfloat16",
-
         ] + self.server_extra_args
         stdout = open(self.log_file, "a", buffering=1, encoding="utf-8")
         self._proc = subprocess.Popen(cmd, stdout=stdout, stderr=stdout, env=self.env, start_new_session=True)
@@ -284,7 +283,7 @@ NO_ANSWER = "Do not wish to answer"
 # ----------------------------
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model-name", type=str, default="gpt-4.1-mini",
+    parser.add_argument("--model-name", type=str, default="Qwen/Qwen2.5-0.5B-Instruct",
                         help="Model Name")
     parser.add_argument("--persona-source", type=str, default="huggingface",
                         help="Source of Persona (huggingface | base_model | personallm_paper)")
