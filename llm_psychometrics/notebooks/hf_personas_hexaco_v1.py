@@ -503,32 +503,22 @@ def generation_function(model, hexaco_template, question_batch, likert_scale,
                         batching=False, persona_str=None, persona_base_text=None, likert_shuffle=False):
 
     if batching:
-        generator = Generator(model)
-        prompt = hexaco_template(text=list_to_str(question_batch),
-                                 likert_scale=", ".join(likert_scale),
-                                 base_text=persona_base_text,
-                                 attributes=persona_str)
-        answers = generator(prompt).strip().replace(">", "").splitlines()
-        return [re.sub(r"[^a-zA-Z]", "", ans).strip() for ans in answers]
+        raise NotImplementedError("Batching not implemented")
 
     # Non-batched
+    print(f"Hexaco template: {hexaco_template}")
     prompt_list = []
     for question in question_batch:
         if likert_shuffle:
             random.shuffle(likert_scale)
-        
-        if "gpt" in args.model_name.lower():
-            prompt = render_openai_messages(
-                                hexaco_template,
-                                attributes=persona_str,
-                                text=question,
-                                likert_scale=", ".join(likert_scale),
-                            )
-        else:
-            
-            prompt = hexaco_template(text=question,
-                                    likert_scale=", ".join(likert_scale),
-                                    attributes=persona_str)
+
+
+        prompt = render_openai_messages(
+                            hexaco_template,
+                            attributes=persona_str,
+                            text=question,
+                            likert_scale=", ".join(likert_scale),
+                )
         prompt_list.append(prompt)
 
     if "gpt" in args.model_name:
