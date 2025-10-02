@@ -56,10 +56,16 @@ class VLLMServerManager:
 
     def ensure_fresh_server(self):
         if self.kill_existing:
+            print("Killing existing vLLM server")
             self._kill_existing_servers()
         if not self._is_up():
+            print("Starting vLLM server")
             self._start()
+            print("Waiting for vLLM server to start")
             self._wait_ready()
+
+        print("Running hello world check")
+        self.hello_world_check()
 
     def benchmark_tps(
             self,
@@ -192,6 +198,36 @@ class VLLMServerManager:
         ] + self.server_extra_args
         stdout = open(self.log_file, "a", buffering=1, encoding="utf-8")
         self._proc = subprocess.Popen(cmd, stdout=stdout, stderr=stdout, env=self.env, start_new_session=True)
+
+    def hello_world_check(self, model_override: str | None = None) -> str:
+        """
+        Run a quick smoke test once the server is up:
+        Ask 'What is 2+2?' and return the model's raw output string.
+        Caller can check `'4' in output` to validate.
+        """
+        import requests
+
+        model_name = model_override or self.model
+        url = f"{self.base_url}/v1/chat/completions"
+
+        messages = [
+            {"role": "system", "content": "You are a math assistant."},
+            {"role": "user", "content": "What is 2 + 2?"},
+        ]
+
+        payload = {
+            "model": model_name,
+            "messages": messages,
+            "temperature": 0.0,
+            "max_tokens": 16,
+        }
+
+        r = requests.post(url, json=payload, timeout=30)
+        r.raise_for_status()
+        data = r.json()
+        output = (data["choices"][0]["message"]["content"] or "").strip()
+
+        return output
 
     def _wait_ready(self):
         start = time.time()
