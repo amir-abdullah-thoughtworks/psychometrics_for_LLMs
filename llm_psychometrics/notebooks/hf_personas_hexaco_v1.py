@@ -148,8 +148,10 @@ class VLLMServerManager:
     def _is_up(self) -> bool:
         try:
             r = requests.get(f"{self.base_url}/v1/models", timeout=1.5)
-            return r.status_code == 200
+            is_up = (r.status_code == 200)
+            print(f"Server is up.")
         except Exception:
+            print(f"Server is not up.")
             return False
 
     def _kill_existing_servers(self):
@@ -158,6 +160,7 @@ class VLLMServerManager:
             try:
                 cmd = " ".join(p.info.get("cmdline") or [])
                 if "vllm" in cmd and "entrypoints" in cmd and "openai" in cmd and "api_server" in cmd:
+                    print(f"Found existing vLLM server on {p.info['pid']}")
                     pids.append(p.info["pid"])
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
@@ -180,6 +183,7 @@ class VLLMServerManager:
                 pass  # not listening or already free
 
     def _start(self):
+        print(f"Starting vLLM server on {self.host}:{self.port}")
         cmd = [
             self.python_executable, "-m", "vllm.entrypoints.openai.api_server",
             "--model", self.model, "--host", self.host, "--port", str(self.port),
