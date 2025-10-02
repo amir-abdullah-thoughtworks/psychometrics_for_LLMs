@@ -54,7 +54,7 @@ class VLLMServerManager:
         self.kill_existing = kill_existing
         self._proc = None
 
-    def ensure_fresh_server(self):
+    def ensure_fresh_server(self, run_benchmark: bool = True):
         if self.kill_existing:
             print("Killing existing vLLM server")
             self._kill_existing_servers()
@@ -67,11 +67,17 @@ class VLLMServerManager:
         print("Running hello world check")
         self.hello_world_check()
 
+        if run_benchmark:
+            print("Sanity checking tokens per second")
+            benchmark = self.benchmark_tps()
+            write_to_json(benchmark, "benchmark_tps.json")
+            print("Finished benchmark with results \n {benchmark}")
+
     def benchmark_tps(
             self,
-            delay_s: int = 30,
+            delay_s: int = 10,
             max_tokens: int = 1024,
-            trials: int = 1,
+            trials: int = 5,
             model_override: str | None = None,
     ) -> dict:
         """
@@ -108,7 +114,7 @@ class VLLMServerManager:
             time.sleep(delay_s)
 
         results = []
-        for _ in range(max(1, trials)):
+        for _ in tqdm(range(max(1, trials))):
             payload = {
                 "model": model_name,
                 "messages": messages,
@@ -227,7 +233,7 @@ class VLLMServerManager:
         data = r.json()
         output = (data["choices"][0]["message"]["content"] or "").strip()
         if "4" in output:
-            print(f"Hello world check successful returned 2+2={output}")
+            print(f"Hello world check successful returned 2+2='{output}'")
         else:
             print(f"Hello world check unexpected 2+2={output}")
 
