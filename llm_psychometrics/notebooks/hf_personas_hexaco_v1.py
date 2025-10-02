@@ -208,7 +208,7 @@ class VLLMServerManager:
             "--disable-log-requests",
             "--max-model-len 2048",
             "--disable-log-stats",
-            "--kv-cache-dtype fp8",
+            "--kv-cache-dtype", "fp8",
             "--enable-chunked-prefill",
             "--model", self.model,
             "--host", self.host,
