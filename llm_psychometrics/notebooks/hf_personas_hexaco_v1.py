@@ -471,26 +471,25 @@ def openai_answer(model, prompt: List[dict], answer_options: List):
 
 def local_answer(model, prompt, answer_options: List[str]):
     """
-    Use Pydantic structured outputs (responses.parse) with Literal choices.
-    Assumes system prompt already constrains outputs.
+    Use vLLM guided_choice to constrain the output to one of answer_options.
+    Works with an OpenAI-compatible client pointed at your vLLM server.
     """
-    # Dynamically constrain to one of the Likert strings
-    AnswerLiteral = Literal[tuple(answer_options)]
-
-    class LikertAnswer(BaseModel):
-        answer: AnswerLiteral
-
     client = model["client"]
     model_name = model["model_name"]
 
-    resp = client.responses.parse(
+    resp = client.chat.completions.create(
         model=model_name,
-        input=prompt,               # list of messages, unchanged
-        text_format=LikertAnswer,
+        messages=prompt if isinstance(prompt, list) else [{"role": "user", "content": str(prompt)}],
+        temperature=0,
+        max_tokens=16,  # small cap; response is a single choice
+        extra_body={"guided_choice": list(answer_options)},
     )
 
-    parsed = resp.output_parsed    # LikertAnswer instance
-    return parsed.answer
+    text = resp.choices[0].message.content.strip()
+
+    # Safety: normalize and map back to the exact canonical option
+    norm_map = {opt.strip().lower(): opt for opt in answer_options}
+    return norm_map.get(text.lower(), text)
 
 def render_openai_messages(template_messages, **kwargs):
     rendered =  [
