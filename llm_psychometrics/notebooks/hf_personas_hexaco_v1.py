@@ -308,9 +308,9 @@ def parse_args():
     parser.add_argument("--provider", type=str, default="openai",
                         choices=["openai", "vllm"],
                         help="Backend provider: openai (API), vllm (OpenAI-compatible server), or hf (local Transformers).")
-    parser.add_argument("--vllm-base-url", type=str, default="http://127.0.0.1:8000/v1",
+    parser.add_argument("--vllm-base-url", type=str, default="http://localhost:8000/v1",
                         help="Base URL for vLLM OpenAI-compatible server, e.g., http://localhost:8000/v1")
-    parser.add_argument("--vllm-api-key", type=str, default="dummy-key",
+    parser.add_argument("--vllm-api-key", type=str, default="-",
                         help="API key to send to vLLM (usually ignored but required by the OpenAI client).")
     return parser.parse_args()
 
@@ -487,7 +487,7 @@ def local_answer(model, prompt, answer_options: List[str]):
         messages=messages,
         temperature=0,
         max_tokens=16,  # small cap; response is a single choice
-        extra_body={"guided_choice": ["agree", "disagree"]},
+        extra_body={"guided_choice": answer_options},
     )
 
     text = resp.choices[0].message.content.strip()
