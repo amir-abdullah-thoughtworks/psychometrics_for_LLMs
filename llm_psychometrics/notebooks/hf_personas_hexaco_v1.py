@@ -533,7 +533,7 @@ def generation_function(model, hexaco_template, question_batch, likert_scale,
         prompt_list.append(prompt)
 
     if "gpt" in args.model_name:
-        with ThreadPoolExecutor(max_workers=4) as executor:
+        with ThreadPoolExecutor(max_workers=12) as executor:
             return list(executor.map(lambda p: openai_answer(model, p, likert_scale), prompt_list))
     else:
         with ThreadPoolExecutor(max_workers=100) as executor:
