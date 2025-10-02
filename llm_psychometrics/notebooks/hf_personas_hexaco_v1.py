@@ -30,6 +30,11 @@ import time
 import requests
 import socket
 
+vllm_client = OpenAI(
+        base_url="http://localhost:8000/v1",
+        api_key="-",
+)
+
 class VLLMServerManager:
     """
     Minimal manager for a local vLLM OpenAI-compatible server.
@@ -473,16 +478,16 @@ def local_answer(model, prompt, answer_options: List[str]):
     Use vLLM guided_choice to constrain the output to one of answer_options.
     Works with an OpenAI-compatible client pointed at your vLLM server.
     """
-    client = OpenAI(
-        base_url="http://localhost:8000/v1",
-        api_key="-",
-    )
+
+    model_name = model["model_name"].strip()
+    print(f"Model name was {model_name}")
     model_name = "Qwen/Qwen2.5-0.5B-Instruct"
+
     messages = prompt if isinstance(prompt, list) else [{"role": "user", "content": str(prompt)}]
     print(f"model name is {model_name} of type {type(model_name)} and messages is {messages} of {type(messages)} and answer_options is {answer_options} of {type(answer_options)}.")
 
 
-    resp = client.chat.completions.create(
+    resp = vllm_client.chat.completions.create(
         model=model_name,
         messages=messages,
         temperature=0,
