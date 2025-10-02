@@ -42,7 +42,7 @@ class VLLMServerManager:
     - Starts a fresh server on host:port for the requested model.
     - Waits until /v1/models responds.
     """
-    def __init__(self, model: str = "Qwen/Qwen2.5-0.5B-Instruct",
+    def __init__(self, model: str = "Qwen/Qwen2.5-7B-Instruct",
                  host: str = "127.0.0.1", port: int = 8000,
                  python_executable: str = sys.executable,
                  server_extra_args=None, env=None,
