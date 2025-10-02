@@ -272,8 +272,6 @@ class VLLMServerManager:
 # Setup
 # ----------------------------
 transformers.logging.set_verbosity_error()
-device = t.device("cuda" if t.cuda.is_available() else "cpu")
-print(f"Device: {device}")
 
 NO_ANSWER = "Do not wish to answer"
 
@@ -476,11 +474,13 @@ def local_answer(model, prompt, answer_options: List[str]):
     """
     client = model["client"]
     model_name = model["model_name"]
-    print(f"model name is {model_name}.")
+    messages = prompt if isinstance(prompt, list) else [{"role": "user", "content": str(prompt)}]
+    print(f"model name is {model_name} and messages is {messages} and answer_options is {answer_options}.")
+
 
     resp = client.chat.completions.create(
         model=model_name,
-        messages=prompt if isinstance(prompt, list) else [{"role": "user", "content": str(prompt)}],
+        messages=messages,
         temperature=0,
         max_tokens=16,  # small cap; response is a single choice
         extra_body={"guided_choice": list(answer_options)},
@@ -625,7 +625,7 @@ if __name__ == "__main__":
     # Load data
     question_list, likert_scale = load_data(args)
 
-    # Load personas
+    # Load persona
     persona_datasets = load_personas(args)
 
     # Run
