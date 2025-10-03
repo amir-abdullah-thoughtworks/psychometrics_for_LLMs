@@ -6,7 +6,7 @@ import sys
 from typing import List, Literal
 import torch as t
 import transformers
-from outlines import Generator
+# from outlines import Generator
 from jinja2 import Template
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from pydantic import BaseModel
@@ -42,7 +42,7 @@ class VLLMServerManager:
     - Starts a fresh server on host:port for the requested model.
     - Waits until /v1/models responds.
     """
-    def __init__(self, model: str = "Qwen/Qwen2.5-0.5B-Instruct",
+    def __init__(self, model: str = "Qwen/Qwen2.5-7B-Instruct",
                  host: str = "127.0.0.1", port: int = 8000,
                  python_executable: str = sys.executable,
                  server_extra_args=None, env=None,
@@ -285,7 +285,7 @@ NO_ANSWER = "Do not wish to answer"
 # ----------------------------
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model-name", type=str, default="Qwen/Qwen2.5-0.5B-Instruct",
+    parser.add_argument("--model-name", type=str, default="Qwen/Qwen2.5-7B-Instruct",
                         help="Model Name")
     parser.add_argument("--persona-source", type=str, default="huggingface",
                         help="Source of Persona (huggingface | base_model | personallm_paper)")
@@ -432,7 +432,10 @@ def load_personas(args):
         print(f"No of Personas: {len(persona_datasets)}")
     elif args.persona_source == "personallm_paper":
         print("Using Persona LLM Paper Personas")
-        persona_datasets = read_json("../data/persona_llm_paper_seed_combinations.json")
+        persona_datasets_total = read_json("../data/persona_llm_paper_seed_combinations.json")
+        random.seed(42)
+        persona_datasets = random.sample(persona_datasets_total, args.n_personasample)
+        print(f"No of Personas: {len(persona_datasets)}")
     elif args.persona_source == "base_model":
         return None
     else:
@@ -481,7 +484,7 @@ def local_answer(model, prompt, answer_options: List[str]):
     model_name = model["model_name"].strip()
 
     messages = prompt if isinstance(prompt, list) else [{"role": "user", "content": str(prompt)}]
-    print(f"Working with {model_name}")
+    # print(f"Working with {model_name}")
 
     resp = vllm_client.chat.completions.create(
         model=model_name,
@@ -638,7 +641,7 @@ if __name__ == "__main__":
 
     # Save results
     model_name = args.model_name.replace(".", "_").split("/")[-1]
-    out_dir = "../experiment_results/reliability_experiments/vllm_experiment_1"
+    out_dir = "../experiment_results/reliability_experiments/vllm_experiment_2"
     os.makedirs(out_dir, exist_ok=True)
     out_file = os.path.join(out_dir, f"{args.persona_source}_hexaco_answers_{model_name}.json")
     write_to_json(results, out_file)
