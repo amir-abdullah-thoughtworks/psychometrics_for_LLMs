@@ -1,20 +1,20 @@
 sjt_base_prompt_templates = {
-    "gpt": """<|im_start|>system
-    
-    Task: Answer the below multiple choice questions:
-    <|im_end|>
-    <|im_start|>user
+    "gpt": [
+        {
+            "role": "system",
+            "content": """Task: Answer the below multiple choice questions:""",
+                    },
+        {
+            "role": "user",
+            "content": """Question: {{ question }}
 
-    Question: {{ question }}
-    
-    Choices for these questions are:
+            Choices for these questions are:
 
-    {{ answer_options }}
+            {{ answer_options }}
 
-    Answer the question using one of the values from [1,2,3,4,5,6].
-    
-    <|im_end|>
-    <|im_start|>assistant""",
+            Answer the question using one of the values from [1,2,3,4,5,6].""",
+        },
+    ],
     
     "llama": """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
     

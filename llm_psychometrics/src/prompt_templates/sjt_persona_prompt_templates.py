@@ -1,24 +1,24 @@
 sjt_persona_prompt_templates = {
-    "gpt": """<|im_start|>system
-    You are a law enforcement officer with following attributes :
-    
-    {{ attributes }}
-    
-    Task: Answer the below multiple choice questions:
-    <|im_end|>
-    <|im_start|>user
+    "gpt": [
+        {
+            "role": "system",
+            "content": """You are a law enforcement officer with the following attributes:
 
-    Question: {{ question }}
-    
-    Choices for these questions are:
+            {{ attributes }}
 
-    {{ answer_options }}
+            Task: Answer the below multiple choice questions:""",
+                    },
+                    {
+                        "role": "user",
+                        "content": """Question: {{ question }}
 
-    Answer the question using one of the values from [1,2,3,4,5,6].
-    
-    <|im_end|>
-    <|im_start|>assistant""",
-    
+            Choices for these questions are:
+
+            {{ answer_options }}
+
+            Answer the question using one of the values from [1,2,3,4,5,6].""",
+        },
+    ],
     "llama": """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
 
     You are a law enforcement officer with following attributes :
