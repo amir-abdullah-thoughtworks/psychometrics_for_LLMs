@@ -206,8 +206,8 @@ class VLLMServerManager:
         cmd = [
             self.python_executable,
             "-m", "vllm.entrypoints.openai.api_server",
-            "--gpu-memory-utilization", "0.8",
-            "--max-num-batched-tokens", "40000",
+            "--gpu-memory-utilization", "0.9",
+            "--max-num-batched-tokens", "70000",
             "--max-num-seqs", "100",
             "--enforce-eager", # Needed to prevent erroring out on cluster.
             "--disable-log-requests",
@@ -484,8 +484,8 @@ def local_answer(model, prompt, answer_options: List[str]):
     model_name = model["model_name"].strip()
 
     messages = prompt if isinstance(prompt, list) else [{"role": "user", "content": str(prompt)}]
-    # print(f"Working with {model_name}")
 
+    # print(f"Working with {model_name}")
     resp = vllm_client.chat.completions.create(
         model=model_name,
         messages=messages,
