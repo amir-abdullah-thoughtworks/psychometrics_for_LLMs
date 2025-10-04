@@ -8,7 +8,7 @@ import random
 import torch as t
 import transformers
 from jinja2 import Template
-from outlines import Generator
+# from outlines import Generator
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from pydantic import BaseModel
 from huggingface_hub import login
@@ -298,7 +298,7 @@ def parse_args():
                         help="Model Name")
     parser.add_argument("--persona-source", type=str, default="huggingface",
                         help="Source of Persona Being Used (base_model | huggingface)")
-    parser.add_argument("--hf-persona-path", type=str, default="thoughtworks/psychometric_personas_temp",
+    parser.add_argument("--hf-persona-path", type=str, default="thoughtworks/psychometric_personas",
                         help="HF Path for Personas")
     parser.add_argument("--hf-sjt-path", type=str, default="thoughtworks/psychometric_SJTs",
                         help="HF Path for SJTs")
@@ -325,6 +325,8 @@ def parse_args():
                         help="Base URL for vLLM OpenAI-compatible server, e.g., http://127.0.0.1:8000/v1")
     parser.add_argument("--vllm-api-key", type=str, default="-",
                         help="API key to send to vLLM (usually ignored but required by the OpenAI client).")
+    parser.add_argument("--out-dir", type=str, default=".",
+                        help="Directory for Storing output")
     return parser.parse_args()
 
 
@@ -464,7 +466,8 @@ def openai_answer(model, prompt: List[dict], answer_options: List):
     resp = client.responses.parse(
         model=model_name,
         input=prompt,               # list of messages, unchanged
-        text_format=SJTAnswer
+        text_format=SJTAnswer,
+        temperature=0
     )
 
     parsed = resp.output_parsed    # SJTAnswer instance
@@ -519,9 +522,11 @@ def generation_function(model, sjt_template, question_batch,answer_index ,batchi
         answer_index_list.append(list(answer_index))
 
         sjt = sjt_dict['corrected_sjt']
-
+        # print("raw sjt", sjt)
         answer_options = [sjt[key] for key in default_answer_option_ordering if "_option" in key]
+        # print("answer options after default ordering ", answer_options)
         answer_options = [answer_options[idx] for idx in answer_index]
+        # print("final answer options", answer_options)
         question = sjt['question']
         
         prompt = render_openai_messages(
@@ -530,6 +535,7 @@ def generation_function(model, sjt_template, question_batch,answer_index ,batchi
                             question=question,
                             answer_options=list_to_str(answer_options)
                 )
+        # print("final prompt",prompt)
         prompt_list.append(prompt)
         hash_list.append(sjt_dict['hash_id'])
 
@@ -643,6 +649,7 @@ def generate_answers(model, args, synthetic_sjts, persona_datasets=None, answer_
 if __name__ == "__main__":
     args = parse_args()
     print(f"Model Used: {args.model_name}")
+    print(f"Writing Output in: {args.out_dir}")
     
     # --- NEW: auto-boot vLLM server when provider==vllm ---
     if args.provider == "vllm":
@@ -680,8 +687,8 @@ if __name__ == "__main__":
 
     # Save results
     model_name = args.model_name.replace(".", "_").split("/")[-1]
-    out_dir = "../experiment_results/reliability_experiments/vllm_experiment_6"
-    out_file = os.path.join(out_dir,
+    # out_dir = "../experiment_results/reliability_experiments/vllm_experiment_6"
+    out_file = os.path.join(args.out_dir,
                             f"{args.persona_source}_sjt_answers_{model_name}.json")
     write_to_json(results, out_file)
     print(f"Results saved to {out_file}")

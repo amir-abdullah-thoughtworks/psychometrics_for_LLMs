@@ -289,7 +289,7 @@ def parse_args():
                         help="Model Name")
     parser.add_argument("--persona-source", type=str, default="huggingface",
                         help="Source of Persona (huggingface | base_model | personallm_paper)")
-    parser.add_argument("--hf-persona-path", type=str, default="thoughtworks/psychometric_personas_temp",
+    parser.add_argument("--hf-persona-path", type=str, default="thoughtworks/psychometric_personas",
                         help="HF Path for Personas")
     parser.add_argument("--hf-token", type=str, default=None,
                         help="Huggingface token")
@@ -316,6 +316,8 @@ def parse_args():
                         help="Base URL for vLLM OpenAI-compatible server, e.g., http://127.0.0.1:8000/v1")
     parser.add_argument("--vllm-api-key", type=str, default="-",
                         help="API key to send to vLLM (usually ignored but required by the OpenAI client).")
+    parser.add_argument("--out-dir", type=str, default=".",
+                        help="Directory for Storing output")
     return parser.parse_args()
 
 
@@ -466,7 +468,8 @@ def openai_answer(model, prompt: List[dict], answer_options: List):
     resp = client.responses.parse(
         model=model_name,
         input=prompt,               # list of messages, unchanged
-        text_format=LikertAnswer
+        text_format=LikertAnswer,
+        temperature=0
     )
 
     parsed = resp.output_parsed    # LikertAnswer instance
@@ -604,6 +607,7 @@ if __name__ == "__main__":
 
     args = parse_args()
     print(f"Model Used: {args.model_name}")
+    print(f"Writing Output in: {args.out_dir}")
 
     # --- NEW: auto-boot vLLM server when provider==vllm ---
     if args.provider == "vllm":
@@ -641,8 +645,8 @@ if __name__ == "__main__":
 
     # Save results
     model_name = args.model_name.replace(".", "_").split("/")[-1]
-    out_dir = "../experiment_results/reliability_experiments/vllm_experiment_4"
+    # out_dir = "../experiment_results/zero_compute_analysis_hexaco"
     os.makedirs(out_dir, exist_ok=True)
-    out_file = os.path.join(out_dir, f"{args.persona_source}_paraphrase_hexaco_answers_{model_name}.json")
+    out_file = os.path.join(args.out_dir, f"{args.persona_source}_hexaco_answers_{model_name}.json")
     write_to_json(results, out_file)
     print(f"Results saved to {out_file}")
