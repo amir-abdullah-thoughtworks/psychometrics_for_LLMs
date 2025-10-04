@@ -580,7 +580,7 @@ def generate_answers(model, args, synthetic_sjts, persona_datasets=None, answer_
         print("Running SJTs on Base Model without Personas")
         sjt_template = base_sjt_template
         repeated_answers = []
-
+        repeated_answer_indexes = []
         for _ in tqdm(range(args.n_times), desc="Iterations"):
             persona_answer = []
             question_hashes = []
@@ -593,13 +593,13 @@ def generate_answers(model, args, synthetic_sjts, persona_datasets=None, answer_
                 question_hashes.extend(batch_hash_list)
                 answer_indexes.extend(batch_answer_index_list)
             repeated_answers.append(persona_answer)
-
+            repeated_answer_indexes.append(answer_indexes)
         answers['base_model'] = {
             'config': {
                 'persona': "base_model",
                 'question_hashes': question_hashes,
                 'sjt_answer_options': sjt_answer_options,
-                'answer_index': answer_indexes,
+                'answer_index': repeated_answer_indexes,
                 'model_name': args.model_name
             },
             'answers': repeated_answers
@@ -613,6 +613,7 @@ def generate_answers(model, args, synthetic_sjts, persona_datasets=None, answer_
             persona_str = persona_dataset['persona_string']
             
             repeated_answers = []
+            repeated_answer_indexes = []
 
             for _ in tqdm(range(args.n_times), desc="Iterations"):
                 persona_answer = []
@@ -628,13 +629,14 @@ def generate_answers(model, args, synthetic_sjts, persona_datasets=None, answer_
                     question_hashes.extend(batch_hash_list)
                     answer_indexes.extend(batch_answer_index_list)
                 repeated_answers.append(persona_answer)
+                repeated_answer_indexes.append(answer_indexes)
 
             answers[persona_dataset['uuid']] = {
                 'config': {
                     'persona': persona_dataset['uuid'],
                     'question_hashes': question_hashes,
                     'sjt_answer_options': sjt_answer_options,
-                    'answer_index': answer_indexes,
+                    'answer_index': repeated_answer_indexes,
                     'model_name': args.model_name
                 },
                 'answers': repeated_answers
