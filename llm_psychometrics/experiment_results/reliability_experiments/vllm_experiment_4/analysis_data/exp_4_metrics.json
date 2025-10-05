@@ -1,0 +1,95 @@
+{
+  "Llama-3_1-8B-Instruct": {
+    "base_model": {
+      "normal_v_paraphrase_cohen_kappa": 0.5295820517459744,
+      "corr_val_cols": [
+        "normal",
+        "paraphrase"
+      ],
+      "trait_corr_mat": [
+        [
+          1.0,
+          0.8731903097913188
+        ],
+        [
+          0.8731903097913188,
+          1.0
+        ]
+      ],
+      "subtrait_corr_mat": [
+        [
+          1.0,
+          0.6421728079516653
+        ],
+        [
+          0.6421728079516653,
+          1.0
+        ]
+      ],
+      "trait_corr_mean": 0.937,
+      "subtrait_corr_mean": 0.821
+    }
+  },
+  "Qwen2_5-7B-Instruct": {
+    "base_model": {
+      "normal_v_paraphrase_cohen_kappa": 0.49811794228356343,
+      "corr_val_cols": [
+        "normal",
+        "paraphrase"
+      ],
+      "trait_corr_mat": [
+        [
+          1.0,
+          0.8305662178050088
+        ],
+        [
+          0.8305662178050088,
+          1.0
+        ]
+      ],
+      "subtrait_corr_mat": [
+        [
+          1.0,
+          0.6330298100404879
+        ],
+        [
+          0.6330298100404879,
+          1.0
+        ]
+      ],
+      "trait_corr_mean": 0.915,
+      "subtrait_corr_mean": 0.817
+    }
+  },
+  "gpt-4_1": {
+    "base_model": {
+      "normal_v_paraphrase_cohen_kappa": 0.43566591422121903,
+      "corr_val_cols": [
+        "normal",
+        "paraphrase"
+      ],
+      "trait_corr_mat": [
+        [
+          1.0,
+          0.970204349908637
+        ],
+        [
+          0.970204349908637,
+          1.0
+        ]
+      ],
+      "subtrait_corr_mat": [
+        [
+          1.0,
+          0.8951120422414196
+        ],
+        [
+          0.8951120422414196,
+          1.0
+        ]
+      ],
+      "trait_corr_mean": 0.985,
+      "subtrait_corr_mean": 0.948
+    }
+  }
+}
