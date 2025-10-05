@@ -91,7 +91,7 @@ def parse_args():
                         help="Source of Persona (huggingface | local)")
     parser.add_argument("--hf-sjt-path", type=str, default="thoughtworks/psychometric_SJTs",
                         help="HF Path for SJTs")
-    parser.add_argument("--local-sjt-path", type=str, default="../data/sjt_data/synthetic_generated_sjt_list_v6.1_temp_point9_for_annotations.json",
+    parser.add_argument("--local-sjt-path", type=str, default="../data/sjt_data/synthetic_generated_sjt_list_v8.1_temp_1point5_for_annotations.json",
                         help="HF Path for SJTs")
     parser.add_argument("--hf-token", type=str, default=None,
                         help="Huggingface token")
@@ -207,7 +207,7 @@ if __name__ == "__main__":
 
         out_dir = "../data/sjt_llm_judge_evaluation"
         os.makedirs(out_dir, exist_ok=True)
-        out_file = os.path.join(out_dir, f"sjt_llmjudge_evaluation_result_v{batch_idx}_for_annotations.json")
+        out_file = os.path.join(out_dir, f"sjt_llmjudge_evaluation_result_temp1point5_v{batch_idx}_for_annotations.json")
         write_to_json(sjt_evaluation_result, out_file)
         print(f"Results saved to {out_file}")
         
