@@ -246,13 +246,7 @@ def generation_function(model, hexaco_template, question_batch, likert_scale,
                         batching=False, persona_str=None, persona_base_text=None, likert_shuffle=False):
 
     if batching:
-        generator = Generator(model)
-        prompt = hexaco_template(text=list_to_str(question_batch),
-                                 likert_scale=", ".join(likert_scale),
-                                 base_text=persona_base_text,
-                                 attributes=persona_str)
-        answers = generator(prompt).strip().replace(">", "").splitlines()
-        return [re.sub(r"[^a-zA-Z]", "", ans).strip() for ans in answers]
+        raise NotImplementedError("Batching not implemented")
 
     # Non-batched
     prompt_list = []
