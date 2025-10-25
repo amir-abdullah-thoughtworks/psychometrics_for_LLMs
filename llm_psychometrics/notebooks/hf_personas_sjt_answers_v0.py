@@ -18,9 +18,13 @@ from openai import OpenAI
 import yaml
 from concurrent.futures import ThreadPoolExecutor
 
+
 # Custom imports
 sys.path.append("../")
 from src.utils_v0 import list_to_str
+from src.prompt_templates.sjt_base_prompt_templates import sjt_base_prompt_templates
+from src.prompt_templates.sjt_persona_prompt_templates import sjt_persona_prompt_templates
+
 
 # ----------------------------
 # Setup
@@ -122,6 +126,30 @@ def load_sjt(args):
 
     print(f"{len(sjt_list)} SJTs Loaded")
     return sjt_list
+
+def load_prompt_templates(model_name):
+    
+    if "gpt" in model_name.lower():
+        print("Loading Prompt Templates for GPT models")
+        base_sjt_template_str = sjt_base_prompt_templates['gpt']
+        persona_sjt_template_str = sjt_persona_prompt_templates['gpt']
+    
+    elif "llama" in model_name.lower():
+        print("Loading Prompt Templates for Llama models")
+        base_sjt_template_str = sjt_base_prompt_templates['llama']
+        persona_sjt_template_str = sjt_persona_prompt_templates['llama']
+        
+    elif "qwen" in model_name.lower():
+        print("Loading Prompt Templates for Qwen models")
+        base_sjt_template_str = sjt_base_prompt_templates['qwen']
+        persona_sjt_template_str = sjt_persona_prompt_templates['qwen']
+    else:
+        raise NotImplementedError("Use Models from GPT, Llama or Qwen Families")
+
+    base_sjt_template = outlines.Template.from_string(base_sjt_template_str)
+    persona_sjt_template = outlines.Template.from_string(persona_sjt_template_str)
+    
+    return base_sjt_template, persona_sjt_template
 
 
 def load_personas(args):
@@ -309,6 +337,8 @@ def generate_answers(model, args, synthetic_sjts, persona_datasets=None, answer_
 if __name__ == "__main__":
     args = parse_args()
     print(f"Model Used: {args.model_name}")
+    
+    base_sjt_template, persona_sjt_template = load_prompt_templates(args.model_name)
 
     # Load model
     model = load_model(args.model_name, args.hf_token)
@@ -319,47 +349,13 @@ if __name__ == "__main__":
     # Load Personas
     persona_datasets = load_personas(args)
 
-    # Define templates (TODO: replace placeholders)
-    base_sjt_template = outlines.Template.from_string("""
-    <|im_start>user
-    Task: Answer the below multiple choice questions:
-
-    Question: {{ question }}
-
-    Choices for these questions are:
-
-    {{ answer_options }}
-
-    Answer the question using one of the values from [1,2,3,4,5,6].
-    <|im_end>
-    <|im_start>assistant
-    """)
-
-    persona_sjt_template = outlines.Template.from_string("""
-    <|im_start>user
-    You are a law enforcement officer with following attributes :
-
-    {{attributes}}
-
-    Task: Answer the below multiple choice questions:
-
-    Question: {{ question }}
-
-    Choices for these questions are:
-
-    {{ answer_options }}
-
-    Answer the question using one of the values from [1,2,3,4,5,6].
-    <|im_end>
-    <|im_start>assistant
-    """)
 
     # Run
     results = generate_answers(model, args, synthetic_sjts, persona_datasets, args.answer_shuffle)
 
     # Save results
     model_name = args.model_name.replace(".", "_").split("/")[-1]
-    out_dir = "case_study_data"
+    out_dir = "../experiment_results/reliability_experiments/experiment_1"
     out_file = os.path.join(out_dir,
                             f"{args.persona_source}_sjt_answers_{model_name}.json")
     write_to_json(results, out_file)

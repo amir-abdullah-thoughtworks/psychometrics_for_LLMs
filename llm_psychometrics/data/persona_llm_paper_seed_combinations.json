@@ -1,0 +1,258 @@
+[
+  {
+    "uuid": "16ce4665-1377-4022-aabc-29d406f9f81c",
+    "persona_string": "humble, vulnerable, outgoing, forgiving, diligent, curious"
+  },
+  {
+    "uuid": "654ec43f-627c-4940-b313-7c1569797102",
+    "persona_string": "humble, vulnerable, outgoing, forgiving, diligent, conventional"
+  },
+  {
+    "uuid": "9b5bdec4-fcbd-4f37-96f2-1b85dd8cdc98",
+    "persona_string": "humble, vulnerable, outgoing, forgiving, careless, curious"
+  },
+  {
+    "uuid": "6f8840f1-5b43-44bd-9782-b16ed16cde46",
+    "persona_string": "humble, vulnerable, outgoing, forgiving, careless, conventional"
+  },
+  {
+    "uuid": "db4fb54d-d765-44e1-88c2-fd950457170f",
+    "persona_string": "humble, vulnerable, outgoing, critical, diligent, curious"
+  },
+  {
+    "uuid": "a7ce5b8e-f40a-4d93-a4a7-2534843af0a3",
+    "persona_string": "humble, vulnerable, outgoing, critical, diligent, conventional"
+  },
+  {
+    "uuid": "3aac48fb-b974-4895-9051-84c1a29eced3",
+    "persona_string": "humble, vulnerable, outgoing, critical, careless, curious"
+  },
+  {
+    "uuid": "fa389064-2d22-4662-90ed-5eaa452d7d35",
+    "persona_string": "humble, vulnerable, outgoing, critical, careless, conventional"
+  },
+  {
+    "uuid": "3260db5b-7aa5-41bd-91fe-b7e165cb3a72",
+    "persona_string": "humble, vulnerable, withdrawn, forgiving, diligent, curious"
+  },
+  {
+    "uuid": "4d223aaf-9c4d-4ff3-beea-18bcb45fe885",
+    "persona_string": "humble, vulnerable, withdrawn, forgiving, diligent, conventional"
+  },
+  {
+    "uuid": "bb938d8e-8bd2-493f-8106-5e50e7b0ebd3",
+    "persona_string": "humble, vulnerable, withdrawn, forgiving, careless, curious"
+  },
+  {
+    "uuid": "9a47be74-5ec8-4cdd-bb60-4de5806e4ce8",
+    "persona_string": "humble, vulnerable, withdrawn, forgiving, careless, conventional"
+  },
+  {
+    "uuid": "3602839f-a875-4999-a091-3f7ca89e817a",
+    "persona_string": "humble, vulnerable, withdrawn, critical, diligent, curious"
+  },
+  {
+    "uuid": "b8158c29-b66f-44e3-bb7b-2fb06669e01a",
+    "persona_string": "humble, vulnerable, withdrawn, critical, diligent, conventional"
+  },
+  {
+    "uuid": "fcd4577d-09ce-4e07-8ee8-48c604956d17",
+    "persona_string": "humble, vulnerable, withdrawn, critical, careless, curious"
+  },
+  {
+    "uuid": "a4b8038c-edfe-424d-b87e-5b9fc4f0eaf3",
+    "persona_string": "humble, vulnerable, withdrawn, critical, careless, conventional"
+  },
+  {
+    "uuid": "a956f128-ed57-4025-9e02-8d5daa43864e",
+    "persona_string": "humble, resilient, outgoing, forgiving, diligent, curious"
+  },
+  {
+    "uuid": "38e4d907-2bc0-4d5e-9270-e6f0b7c996bc",
+    "persona_string": "humble, resilient, outgoing, forgiving, diligent, conventional"
+  },
+  {
+    "uuid": "f02815f0-dcae-485b-8f86-573148eaa65e",
+    "persona_string": "humble, resilient, outgoing, forgiving, careless, curious"
+  },
+  {
+    "uuid": "7b9f6a17-ff40-459e-8063-acfad2747849",
+    "persona_string": "humble, resilient, outgoing, forgiving, careless, conventional"
+  },
+  {
+    "uuid": "624a08d2-8ab5-4a97-8968-cb6e0aa73f4f",
+    "persona_string": "humble, resilient, outgoing, critical, diligent, curious"
+  },
+  {
+    "uuid": "e3f5413c-5840-4e1b-9691-9051747eacc4",
+    "persona_string": "humble, resilient, outgoing, critical, diligent, conventional"
+  },
+  {
+    "uuid": "77db3f22-13dd-4726-8737-a1eb1a57c361",
+    "persona_string": "humble, resilient, outgoing, critical, careless, curious"
+  },
+  {
+    "uuid": "ae283161-8e85-4de2-afb1-1b57cc4080fd",
+    "persona_string": "humble, resilient, outgoing, critical, careless, conventional"
+  },
+  {
+    "uuid": "32dbd983-41e4-4e2c-8d6a-fee9debc647c",
+    "persona_string": "humble, resilient, withdrawn, forgiving, diligent, curious"
+  },
+  {
+    "uuid": "254fc8e9-8ccc-4001-a531-8edf9c5b268c",
+    "persona_string": "humble, resilient, withdrawn, forgiving, diligent, conventional"
+  },
+  {
+    "uuid": "b6b2f57d-9d6a-4ca3-9c3f-473a17d74fba",
+    "persona_string": "humble, resilient, withdrawn, forgiving, careless, curious"
+  },
+  {
+    "uuid": "46151110-f679-46cf-952b-97cdfe03a1c6",
+    "persona_string": "humble, resilient, withdrawn, forgiving, careless, conventional"
+  },
+  {
+    "uuid": "bcf5b43b-8104-4629-8964-e2b98d0998a6",
+    "persona_string": "humble, resilient, withdrawn, critical, diligent, curious"
+  },
+  {
+    "uuid": "ab8ef62d-f4d9-4f2b-b6db-0b89ddd793b3",
+    "persona_string": "humble, resilient, withdrawn, critical, diligent, conventional"
+  },
+  {
+    "uuid": "dcbb014b-3c82-4102-a808-c73cadae07f5",
+    "persona_string": "humble, resilient, withdrawn, critical, careless, curious"
+  },
+  {
+    "uuid": "d8a3eaeb-b9fb-42a5-a0eb-94679794359f",
+    "persona_string": "humble, resilient, withdrawn, critical, careless, conventional"
+  },
+  {
+    "uuid": "1e24eed4-292a-4cb1-866f-481ad349449a",
+    "persona_string": "arrogant, vulnerable, outgoing, forgiving, diligent, curious"
+  },
+  {
+    "uuid": "c9d72d89-ef66-4c82-bb5c-02fa1f89093d",
+    "persona_string": "arrogant, vulnerable, outgoing, forgiving, diligent, conventional"
+  },
+  {
+    "uuid": "4e7a8c06-81c3-403c-ae18-df470bc6b06c",
+    "persona_string": "arrogant, vulnerable, outgoing, forgiving, careless, curious"
+  },
+  {
+    "uuid": "8329f886-d7f5-4b62-8105-5fff3bf04712",
+    "persona_string": "arrogant, vulnerable, outgoing, forgiving, careless, conventional"
+  },
+  {
+    "uuid": "31cacd67-5653-4345-b0b6-fd445c24514d",
+    "persona_string": "arrogant, vulnerable, outgoing, critical, diligent, curious"
+  },
+  {
+    "uuid": "cb1ed3ac-97e1-4e58-b72d-ad836b574e71",
+    "persona_string": "arrogant, vulnerable, outgoing, critical, diligent, conventional"
+  },
+  {
+    "uuid": "f72d39e3-4c39-4027-ad8c-d0c4912e5e78",
+    "persona_string": "arrogant, vulnerable, outgoing, critical, careless, curious"
+  },
+  {
+    "uuid": "eb447a23-2ac7-490f-bbdb-de6f607721ea",
+    "persona_string": "arrogant, vulnerable, outgoing, critical, careless, conventional"
+  },
+  {
+    "uuid": "c22a5b21-8781-4fc1-852a-5c0cbac7fc44",
+    "persona_string": "arrogant, vulnerable, withdrawn, forgiving, diligent, curious"
+  },
+  {
+    "uuid": "2593c9ef-8317-440f-affd-93c0b5b06688",
+    "persona_string": "arrogant, vulnerable, withdrawn, forgiving, diligent, conventional"
+  },
+  {
+    "uuid": "2b1d3ed3-ed22-45a6-97e6-be2d337d5738",
+    "persona_string": "arrogant, vulnerable, withdrawn, forgiving, careless, curious"
+  },
+  {
+    "uuid": "8f21bf5c-8763-4bf9-8cd0-91914add435f",
+    "persona_string": "arrogant, vulnerable, withdrawn, forgiving, careless, conventional"
+  },
+  {
+    "uuid": "c78860a6-4674-4f57-9b1e-60ceef38e6ad",
+    "persona_string": "arrogant, vulnerable, withdrawn, critical, diligent, curious"
+  },
+  {
+    "uuid": "c6ecc1c4-7cee-49ca-9494-5c87978495c3",
+    "persona_string": "arrogant, vulnerable, withdrawn, critical, diligent, conventional"
+  },
+  {
+    "uuid": "0ad8bc9f-94a0-418d-bae8-a3c12ccdadaf",
+    "persona_string": "arrogant, vulnerable, withdrawn, critical, careless, curious"
+  },
+  {
+    "uuid": "10f6e2e5-007c-448a-bc9a-d131e829d568",
+    "persona_string": "arrogant, vulnerable, withdrawn, critical, careless, conventional"
+  },
+  {
+    "uuid": "2bd2e708-bcd8-444d-b9c4-750dec5d1fed",
+    "persona_string": "arrogant, resilient, outgoing, forgiving, diligent, curious"
+  },
+  {
+    "uuid": "586aa379-d343-4fab-a872-fa2c6fe055f7",
+    "persona_string": "arrogant, resilient, outgoing, forgiving, diligent, conventional"
+  },
+  {
+    "uuid": "9e284fd2-d9c3-42ca-9c7b-229e2710b626",
+    "persona_string": "arrogant, resilient, outgoing, forgiving, careless, curious"
+  },
+  {
+    "uuid": "0c009912-9981-4945-8900-1cf95439eeac",
+    "persona_string": "arrogant, resilient, outgoing, forgiving, careless, conventional"
+  },
+  {
+    "uuid": "f4e4eaa0-ba83-483d-91c6-a475a8bef192",
+    "persona_string": "arrogant, resilient, outgoing, critical, diligent, curious"
+  },
+  {
+    "uuid": "58ac96f6-2f3a-462a-bb31-4ac9b4ccb4ff",
+    "persona_string": "arrogant, resilient, outgoing, critical, diligent, conventional"
+  },
+  {
+    "uuid": "56eaf1aa-8e1f-45d5-aefe-ce45e454f436",
+    "persona_string": "arrogant, resilient, outgoing, critical, careless, curious"
+  },
+  {
+    "uuid": "048e83c9-6e5e-49c3-b3c0-7d08c35cebcc",
+    "persona_string": "arrogant, resilient, outgoing, critical, careless, conventional"
+  },
+  {
+    "uuid": "deb07a4f-9ca2-4395-b3ac-3af756b763fc",
+    "persona_string": "arrogant, resilient, withdrawn, forgiving, diligent, curious"
+  },
+  {
+    "uuid": "8eaf88ba-ec96-4a62-b32c-2c87e7c1a2fd",
+    "persona_string": "arrogant, resilient, withdrawn, forgiving, diligent, conventional"
+  },
+  {
+    "uuid": "b5646b56-a658-4f52-b949-954aa1914794",
+    "persona_string": "arrogant, resilient, withdrawn, forgiving, careless, curious"
+  },
+  {
+    "uuid": "da742ac2-08d6-4574-b902-1c1896bdb03c",
+    "persona_string": "arrogant, resilient, withdrawn, forgiving, careless, conventional"
+  },
+  {
+    "uuid": "6f01cccd-16a9-4639-a510-49608889ae83",
+    "persona_string": "arrogant, resilient, withdrawn, critical, diligent, curious"
+  },
+  {
+    "uuid": "dd0db261-f734-4e19-8ad5-d0e147bb82b0",
+    "persona_string": "arrogant, resilient, withdrawn, critical, diligent, conventional"
+  },
+  {
+    "uuid": "c8af9e88-d4a2-4156-8a8c-ac7f1e7bc8ac",
+    "persona_string": "arrogant, resilient, withdrawn, critical, careless, curious"
+  },
+  {
+    "uuid": "aae740b7-8210-4c44-9c2b-bc619680bd39",
+    "persona_string": "arrogant, resilient, withdrawn, critical, careless, conventional"
+  }
+]

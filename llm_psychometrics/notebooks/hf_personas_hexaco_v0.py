@@ -6,8 +6,10 @@ import sys
 from typing import List, Literal
 import torch as t
 import transformers
+from jinja2 import Template
 import outlines
 from outlines import Generator
+from outlines.inputs import Chat
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from pydantic import BaseModel
 from huggingface_hub import login
@@ -21,6 +23,8 @@ import random
 # Custom imports
 sys.path.append("../")
 from src.utils_v0 import list_to_str, inverse_likert
+from src.prompt_templates.hexaco_base_prompt_templates import hexaco_base_prompt_templates
+from src.prompt_templates.hexaco_persona_prompt_templates import hexaco_persona_prompt_templates
 
 # ----------------------------
 # Setup
@@ -40,7 +44,7 @@ def parse_args():
     parser.add_argument("--model-name", type=str, default="gpt-4.1-mini",
                         help="Model Name")
     parser.add_argument("--persona-source", type=str, default="huggingface",
-                        help="Source of Persona (huggingface | base_model | local)")
+                        help="Source of Persona (huggingface | base_model | personallm_paper)")
     parser.add_argument("--hf-persona-path", type=str, default="thoughtworks/psychometric_personas_temp",
                         help="HF Path for Personas")
     parser.add_argument("--hf-token", type=str, default=None,
@@ -141,9 +145,49 @@ def load_data(args):
         likert_scale.append(NO_ANSWER)
 
     if args.paraphrase:
+        print("Using Paraphrased Questions")
         question_list = paraphrased_question_list
+    else:
+        print("Using Normal Questions")
 
     return question_list, likert_scale
+
+def load_prompt_templates(model_name):
+    
+    if "gpt" in model_name.lower():
+        print("Loading Prompt Templates for GPT models")
+        base_templates = hexaco_base_prompt_templates["gpt"]
+        persona_templates = hexaco_persona_prompt_templates["gpt"]
+        
+        # compile GPT messages into Jinja templates
+        def compile_message_templates(messages):
+            return [
+                {"role": msg["role"], "content": Template(msg["content"])}
+                for msg in messages
+            ]
+        
+        base_hexaco_template = compile_message_templates(base_templates)
+        persona_hexaco_template = compile_message_templates(persona_templates)
+    
+    elif "llama" in model_name.lower():
+        print("Loading Prompt Templates for Llama models")
+        base_hexaco_template_str = hexaco_base_prompt_templates['llama']
+        persona_hexaco_template_str = hexaco_persona_prompt_templates['llama']
+        
+        base_hexaco_template = outlines.Template.from_string(base_hexaco_template_str)
+        persona_hexaco_template = outlines.Template.from_string(persona_hexaco_template_str)
+        
+    elif "qwen" in model_name.lower():
+        print("Loading Prompt Templates for Qwen models")
+        base_hexaco_template_str = hexaco_base_prompt_templates['qwen']
+        persona_hexaco_template_str = hexaco_persona_prompt_templates['qwen']
+        
+        base_hexaco_template = outlines.Template.from_string(base_hexaco_template_str)
+        persona_hexaco_template = outlines.Template.from_string(persona_hexaco_template_str)
+    else:
+        raise NotImplementedError("Use Models from GPT, Llama or Qwen Families")
+    
+    return base_hexaco_template, persona_hexaco_template
 
 
 def load_personas(args):
@@ -156,8 +200,12 @@ def load_personas(args):
         sampled_personas = total_persona_df.groupby("archetype").sample(n=args.n_personasample, random_state=42)
         persona_datasets = Dataset.from_pandas(sampled_personas)
         print(f"No of Personas: {len(persona_datasets)}")
-    elif args.persona_source == "base_synthetic_personas":
-        raise NotImplementedError("Base Synthetic Personas is not implemented yet")
+    elif args.persona_source == "personallm_paper":
+        print("Using Persona LLM Paper Personas")
+        persona_datasets_total = read_json("../data/persona_llm_paper_seed_combinations.json")
+        random.seed(42)
+        persona_datasets = random.sample(persona_datasets_total, args.n_personasample)
+        print(f"No of Personas: {len(persona_datasets)}")
     elif args.persona_source == "base_model":
         return None
     else:
@@ -176,34 +224,6 @@ def load_personas(args):
 # Answer Generation
 # ----------------------------
 
-base_hexaco_template = outlines.Template.from_string("""
-<|im_start>user
-Task: Answer the below questions:
-
-{{ text }}
-
-Answer the question as either {{ likert_scale }}.
-Do not return the question, just return the answer directly.
-<|im_end>
-<|im_start>assistant
-""")
-
-persona_hexaco_template = outlines.Template.from_string("""
-<|im_start>user
-You are a law enforcement officer with following attributes :
-
-{{attributes}}
-
-Task: Answer the below questions:
-
-{{ text }}
-
-Answer the question as either {{ likert_scale }}.
-Do not return the question, just return the answer directly.
-<|im_end>
-<|im_start>assistant
-""")
-
 
 def openai_answer(model, prompt: str):
     response = model(prompt, OpenaiResponse, temperature=0)
@@ -211,20 +231,22 @@ def openai_answer(model, prompt: str):
 
 
 def local_answer(model, prompt, answer_options: List):
+    # print(f"Model loaded on: {model.model.device}")
     return model(prompt, Literal[*answer_options])
 
+def render_openai_messages(template_messages, **kwargs):
+    rendered =  [
+        {"role": msg["role"], "content": msg["content"].render(**kwargs)}
+        for msg in template_messages
+    ]
+    
+    return Chat(rendered)
 
 def generation_function(model, hexaco_template, question_batch, likert_scale,
                         batching=False, persona_str=None, persona_base_text=None, likert_shuffle=False):
 
     if batching:
-        generator = Generator(model)
-        prompt = hexaco_template(text=list_to_str(question_batch),
-                                 likert_scale=", ".join(likert_scale),
-                                 base_text=persona_base_text,
-                                 attributes=persona_str)
-        answers = generator(prompt).strip().replace(">", "").splitlines()
-        return [re.sub(r"[^a-zA-Z]", "", ans).strip() for ans in answers]
+        raise NotImplementedError("Batching not implemented")
 
     # Non-batched
     prompt_list = []
@@ -232,10 +254,18 @@ def generation_function(model, hexaco_template, question_batch, likert_scale,
         if likert_shuffle:
             random.shuffle(likert_scale)
         
-        prompt = hexaco_template(text=question,
-                                 likert_scale=", ".join(likert_scale),
-                                 base_text=persona_base_text,
-                                 attributes=persona_str)
+        if "gpt" in args.model_name.lower():
+            prompt = render_openai_messages(
+                                hexaco_template,
+                                attributes=persona_str,
+                                text=question,
+                                likert_scale=", ".join(likert_scale),
+                            )
+        else:
+            
+            prompt = hexaco_template(text=question,
+                                    likert_scale=", ".join(likert_scale),
+                                    attributes=persona_str)
         prompt_list.append(prompt)
 
     if "gpt" in args.model_name:
@@ -243,7 +273,6 @@ def generation_function(model, hexaco_template, question_batch, likert_scale,
             return list(executor.map(lambda p: openai_answer(model, p), prompt_list))
     else:
         return [local_answer(model, p, likert_scale) for p in prompt_list]
-
 
 # ----------------------------
 # Experiment Runner
@@ -313,9 +342,18 @@ def generate_answers(model, args, persona_datasets, question_list,
 if __name__ == "__main__":
     args = parse_args()
     print(f"Model Used: {args.model_name}")
+    
+    base_hexaco_template, persona_hexaco_template = load_prompt_templates(args.model_name)
 
     # Load model
     model = load_model(args.model_name, args.hf_token)
+    if "gpt" not in args.model_name:
+        print(f"Model loaded on: {model.model.device}")
+
+    
+    print(t.cuda.is_available())  # True means GPU is visible
+    print(t.cuda.current_device())  
+    print(t.cuda.get_device_name(0))
 
     # Load data
     question_list, likert_scale = load_data(args)
@@ -328,9 +366,8 @@ if __name__ == "__main__":
 
     # Save results
     model_name = args.model_name.replace(".", "_").split("/")[-1]
-    out_dir = "case_study_data"
+    out_dir = "../experiment_results/reliability_experiments/experiment_2"
     os.makedirs(out_dir, exist_ok=True)
     out_file = os.path.join(out_dir, f"{args.persona_source}_hexaco_answers_{model_name}.json")
     write_to_json(results, out_file)
     print(f"Results saved to {out_file}")
-
