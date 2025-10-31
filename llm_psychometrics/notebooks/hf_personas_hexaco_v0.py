@@ -202,7 +202,10 @@ def load_personas(args):
         print(f"No of Personas: {len(persona_datasets)}")
     elif args.persona_source == "personallm_paper":
         print("Using Persona LLM Paper Personas")
-        persona_datasets = read_json("../data/persona_llm_paper_seed_combinations.json")
+        persona_datasets_total = read_json("../data/persona_llm_paper_seed_combinations.json")
+        random.seed(42)
+        persona_datasets = random.sample(persona_datasets_total, args.n_personasample)
+        print(f"No of Personas: {len(persona_datasets)}")
     elif args.persona_source == "base_model":
         return None
     else:
@@ -228,6 +231,7 @@ def openai_answer(model, prompt: str):
 
 
 def local_answer(model, prompt, answer_options: List):
+    # print(f"Model loaded on: {model.model.device}")
     return model(prompt, Literal[*answer_options])
 
 def render_openai_messages(template_messages, **kwargs):
@@ -343,6 +347,13 @@ if __name__ == "__main__":
 
     # Load model
     model = load_model(args.model_name, args.hf_token)
+    if "gpt" not in args.model_name:
+        print(f"Model loaded on: {model.model.device}")
+
+    
+    print(t.cuda.is_available())  # True means GPU is visible
+    print(t.cuda.current_device())  
+    print(t.cuda.get_device_name(0))
 
     # Load data
     question_list, likert_scale = load_data(args)
@@ -355,7 +366,7 @@ if __name__ == "__main__":
 
     # Save results
     model_name = args.model_name.replace(".", "_").split("/")[-1]
-    out_dir = "../experiment_results/reliability_experiments/experiment_1"
+    out_dir = "../experiment_results/reliability_experiments/experiment_2"
     os.makedirs(out_dir, exist_ok=True)
     out_file = os.path.join(out_dir, f"{args.persona_source}_hexaco_answers_{model_name}.json")
     write_to_json(results, out_file)
