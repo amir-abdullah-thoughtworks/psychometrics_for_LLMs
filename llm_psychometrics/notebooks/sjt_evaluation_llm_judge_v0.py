@@ -99,6 +99,8 @@ def parse_args():
                         help="Number of SJTs to be sampled for each template")
     parser.add_argument("--batch-size", type=int, default=40,
                         help="Batch Size to divide SJT processing")
+    parser.add_argument("--model-name", type=str, default="gpt-4.1",
+                        help="Model for LLM Judge")
     return parser.parse_args()
 
 def load_sjts(args):
@@ -128,7 +130,7 @@ SJT_LLM_JUDGE_EVALUATION_WITHOUT_SEEDS_TEMPLATE = Template(SJT_LLM_JUDGE_EVALUAT
 
 sjt_answer_default_order = ['honesty_humility_option', 'emotionality_option', 'extraversion_option', 'agreeableness_option', 'conscientiousness_option', 'openness_option']
 
-def sjt_with_seeds_evaluation(sjt_dict):
+def sjt_with_seeds_evaluation(sjt_dict, args):
     sjt = sjt_dict['corrected_sjt']
     config_dict = sjt_dict['config'].copy()
     config_dict['question'] = sjt['question']
@@ -136,13 +138,13 @@ def sjt_with_seeds_evaluation(sjt_dict):
 
     sjt_evaluation_prompt = SJT_LLM_JUDGE_EVALUATION_WITH_SEEDS_TEMPLATE.render(config_dict)
     openai_sjt_response = openai_api_call(prompt=sjt_evaluation_prompt, response_format=SjtLLMWithSeedsJudge ,
-                                          model="gpt-4.1", temperature=0, top_p=1, presence_penalty=0, frequency_penalty=0)
+                                          model=args.model_name, temperature=0, top_p=1, presence_penalty=0, frequency_penalty=0)
 
     response = openai_sjt_response.model_dump()
     # response['question_hash_id'] = sjt_dict['hash_id']
     return response
 
-def sjt_without_seeds_evaluation(sjt_dict):
+def sjt_without_seeds_evaluation(sjt_dict, args):
 
     sjt = sjt_dict['corrected_sjt']
     config_dict = {}
@@ -151,14 +153,14 @@ def sjt_without_seeds_evaluation(sjt_dict):
 
     sjt_evaluation_prompt = SJT_LLM_JUDGE_EVALUATION_WITHOUT_SEEDS_TEMPLATE.render(config_dict)
     openai_sjt_response = openai_api_call(prompt=sjt_evaluation_prompt, response_format=SjtLLMWithoutSeedsJudge ,
-                                          model="gpt-4.1", temperature=0, top_p=1, presence_penalty=0, frequency_penalty=0)
+                                          model=args.model_name, temperature=0, top_p=1, presence_penalty=0, frequency_penalty=0)
 
     response = openai_sjt_response.model_dump()
     # response['question_hash_id'] = sjt_dict['hash_id']
 
     return response
 
-def sjt_llm_judge_evaluation(synthetic_sjt_list):
+def sjt_llm_judge_evaluation(synthetic_sjt_list, args):
 
     sjt_evaluation_result = {}
 
@@ -169,8 +171,8 @@ def sjt_llm_judge_evaluation(synthetic_sjt_list):
         # sjt_without_seeds_evaluation_response = sjt_without_seeds_evaluation(sjt_dict)
         
         with ThreadPoolExecutor(max_workers=2) as executor:
-            future1 = executor.submit(sjt_with_seeds_evaluation, sjt_dict)
-            future2 = executor.submit(sjt_without_seeds_evaluation, sjt_dict)
+            future1 = executor.submit(sjt_with_seeds_evaluation, sjt_dict, args)
+            future2 = executor.submit(sjt_without_seeds_evaluation, sjt_dict, args)
 
             # get results (waits for them to finish)
             sjt_with_seeds_evaluation_response = future1.result()
@@ -203,9 +205,9 @@ if __name__ == "__main__":
         
         print(f"Starting SJT evaluation for batch: {batch_idx}")
 
-        sjt_evaluation_result = sjt_llm_judge_evaluation(sjt_batch)
+        sjt_evaluation_result = sjt_llm_judge_evaluation(sjt_batch, args)
 
-        out_dir = "../data/sjt_llm_judge_evaluation"
+        out_dir = "../data/sjt_llm_judge_evaluation_anthropic"
         os.makedirs(out_dir, exist_ok=True)
         out_file = os.path.join(out_dir, f"sjt_llmjudge_evaluation_result_temp1point5_v{batch_idx}_for_annotations.json")
         write_to_json(sjt_evaluation_result, out_file)

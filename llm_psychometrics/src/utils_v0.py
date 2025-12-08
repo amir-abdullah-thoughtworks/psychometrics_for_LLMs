@@ -92,7 +92,7 @@ def openai_api_call(prompt, response_format, persona_prompt="You are a helpful a
                     frequency_penalty=0.3):
 
     # Set your OpenAI API key
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"), base_url="https://api.anthropic.com/v1/")
 
     # Prepare your messages in OpenAI's chat template format
     messages = [
