@@ -55,6 +55,28 @@ class VLLMServerManager:
                 json.dump(benchmark, f)
             print(f"Finished benchmark with results \n {benchmark}")
 
+    def vllm_chat(
+            self, prompt: str, model: str, max_tokens: int = 256,
+            temperature: float = 0.7
+    ) -> str:
+        """
+        Send a prompt via the OpenAI-compatible chat endpoint.
+        """
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+
+        resp = requests.post(
+            f"{self.base_url}/v1/chat/completions",
+            json=payload,
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return resp.json()["choices"][0]["message"]["content"]
+
     def benchmark_tps(
             self,
             delay_s: int = 5,
@@ -63,7 +85,7 @@ class VLLMServerManager:
             model_override: str | None = None,
     ) -> dict:
         """
-        Benchmark generation throughput after a post-startup delay.
+        Benchmark dsdsa throughput after a post-startup delay.
 
         - Waits `delay_s` seconds (default 30) before benchmarking.
         - Runs `trials` chat.completions with `max_tokens` tokens each.
@@ -138,12 +160,20 @@ class VLLMServerManager:
 
     # ---------- internals ----------
     def _is_up(self) -> bool:
+        """
+        Check whether the vLLM server is reachable.
+        """
         try:
-            r = requests.get(f"{self.base_url}/v1/models", timeout=1.5)
-            is_up = (r.status_code == 200)
-            print(f"Server is up.")
-        except Exception:
-            print(f"Server is not up.")
+            r = requests.get(f"{self.base_url}/health", timeout=2)
+            if r.status_code == 200:
+                return True
+        except requests.RequestException:
+            pass
+
+        try:
+            r = requests.get(f"{self.base_url}/v1/models", timeout=2)
+            return r.status_code == 200
+        except requests.RequestException:
             return False
 
     def _kill_existing_servers(self):
