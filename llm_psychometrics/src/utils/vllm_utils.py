@@ -64,8 +64,8 @@ class VLLMServerManager:
             print(f"Finished benchmark with results \n {benchmark}")
 
     def vllm_chat(
-            self, prompt: str, model: str, max_tokens: int = 512,
-            temperature: float = 0.7
+        self, prompt: str, model: str = "Qwen/Qwen2.5-7B-Instruct",
+        max_tokens: int = 512, temperature: float = 0.7
     ) -> str:
         """
         Send a prompt via the OpenAI-compatible chat endpoint.
