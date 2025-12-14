@@ -35,6 +35,14 @@ class VLLMServerManager:
         self.kill_existing = kill_existing
         self._proc = None
 
+    def list_vllm_models(self) -> List[str]:
+        """
+        Return model IDs served by the vLLM server.
+        """
+        resp = requests.get(f"{self.base_url}/v1/models", timeout=5)
+        resp.raise_for_status()
+        return [m["id"] for m in resp.json().get("data", [])]
+
     def ensure_fresh_server(self, run_benchmark: bool = False):
         if self.kill_existing:
             print("Killing existing vLLM server")
@@ -56,7 +64,7 @@ class VLLMServerManager:
             print(f"Finished benchmark with results \n {benchmark}")
 
     def vllm_chat(
-            self, prompt: str, model: str, max_tokens: int = 256,
+            self, prompt: str, model: str, max_tokens: int = 512,
             temperature: float = 0.7
     ) -> str:
         """
