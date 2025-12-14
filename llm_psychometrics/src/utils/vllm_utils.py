@@ -35,7 +35,7 @@ class VLLMServerManager:
         self.kill_existing = kill_existing
         self._proc = None
 
-    def list_vllm_models(self) -> List[str]:
+    def list_vllm_models(self) -> list[str]:
         """
         Return model IDs served by the vLLM server.
         """
