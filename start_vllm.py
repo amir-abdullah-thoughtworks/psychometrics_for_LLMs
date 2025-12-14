@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import psutil
+import requests
 import sys
 from typing import List, Literal
 from urllib.parse import urlparse
@@ -38,7 +39,7 @@ NO_ANSWER = "Do not wish to answer"
 # ----------------------------
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model-name", type=str, default="Qwen/Qwen2.5-7B-Instruct",
+    parser.add_argument("--model-name", type=str, default="meta-llama/Llama-3.2-1B-Instruct",
                         help="Model Name")
     parser.add_argument("--hf-token", type=str, default=None,
                         help="Huggingface token")
@@ -67,3 +68,4 @@ vllm_mgr = VLLMServerManager(
     server_extra_args=server_extra_args,
 )
 vllm_mgr.ensure_fresh_server()
+
