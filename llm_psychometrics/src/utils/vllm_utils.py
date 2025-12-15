@@ -335,7 +335,7 @@ class VLLMServerManager:
 
     def _mp_chat_chunk(
         self,
-        prompts: List[str],
+        prompts: list[str],
         model: str,
         max_tokens: int,
         temperature: float,
@@ -365,7 +365,7 @@ class VLLMServerManager:
 
     def vllm_chat_batched(
         self,
-        prompts: List[str],
+        prompts: list[str],
         model: str = "Qwen/Qwen2.5-7B-Instruct",
         max_tokens: int = 128,
         temperature: float = 0.0,
@@ -373,7 +373,7 @@ class VLLMServerManager:
         num_workers: int = 50,
         max_retries: int = 3,
         retry_backoff_s: float = 1.0,
-    ) -> List[str]:
+    ) -> list[str]:
         outputs: List[str] = []
         for i in range(0, len(prompts), batch_size):
             chunk = prompts[i : i + batch_size]
@@ -416,7 +416,7 @@ def _mp_chat_one_worker(
     raise RuntimeError("vllm_chat failed") from last_err
 
 
-def make_math_prompts(n: int) -> List[str]:
+def make_math_prompts(n: int) -> list[str]:
     return [f"What is {i} + {i + 1}? Show your reasoning briefly." for i in range(n)]
 
 
