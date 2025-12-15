@@ -384,9 +384,9 @@ class VLLMServerManager:
         max_tokens: int = 128,
         temperature: float = 0.0,
         batch_size: int = 100,
-        num_workers: int = 50,
+        num_workers: int = 100,
         max_retries: int = 3,
-        retry_backoff_s: float = 1.0,
+        retry_backoff_s: float = 0.1,
     ) -> List[str]:
         outputs: List[str] = []
 
@@ -437,8 +437,8 @@ def make_math_prompts(n: int) -> list[str]:
 
 
 def main():
-    NUM_PROMPTS = 5007
-    MP_WORKERS = 50
+    NUM_PROMPTS = 7007
+    MP_WORKERS = 100
     BATCH_SIZE = 100
 
     out_jsonl = Path("outputs/debug_math_vllm_batching.jsonl")
