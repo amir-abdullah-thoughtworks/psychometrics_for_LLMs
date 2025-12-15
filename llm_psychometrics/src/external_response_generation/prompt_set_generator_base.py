@@ -5,6 +5,8 @@ import json
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any
 
+from datasets import load_dataset
+
 
 @dataclass
 class PromptSetGeneratorBase:
@@ -19,7 +21,7 @@ class PromptSetGeneratorBase:
     def stable_hash(self, text: str) -> str:
         return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
-    def load_source_dataset(self) -> Dataset:
+    def load_source_dataset(self):
         ds = load_dataset(
             self.source_dataset_id,
             split=self.source_split,
@@ -44,7 +46,7 @@ class PromptSetGeneratorBase:
         }
         return self.stable_hash(json.dumps(payload, sort_keys=True, ensure_ascii=False))
 
-    def get_prompt_rows(self, source_ds: Dataset) -> List[Dict[str, Any]]:
+    def get_prompt_rows(self, source_ds) -> List[Dict[str, Any]]:
         raise NotImplementedError
 
     def format_prompt(self, persona_string: str, prompt_row: Dict[str, Any]) -> str:
