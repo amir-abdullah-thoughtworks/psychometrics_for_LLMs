@@ -284,3 +284,173 @@ class VLLMServerManager:
                 last_err = e
             time.sleep(1.0)
         raise TimeoutError(f"Timed out waiting for vLLM at {self.base_url} ({last_err})")
+
+
+    def stable_hash(self, text: str) -> str:
+        return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+    def vllm_chat(
+        self,
+        prompt: str,
+        model: str = "Qwen/Qwen2.5-7B-Instruct",
+        max_tokens: int = 128,
+        temperature: float = 0.0,
+    ) -> str:
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+        resp = requests.post(
+            f"{self.base_url}/v1/chat/completions",
+            json=payload,
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return resp.json()["choices"][0]["message"]["content"]
+
+    def _chat_one(
+        self,
+        prompt: str,
+        model: str,
+        max_tokens: int,
+        temperature: float,
+        max_retries: int,
+        retry_backoff_s: float,
+    ) -> str:
+        last_err = None
+        for attempt in range(max_retries):
+            try:
+                return self.vllm_chat(
+                    prompt=prompt,
+                    model=model,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                )
+            except Exception as e:
+                last_err = e
+                time.sleep(retry_backoff_s * (2 ** attempt))
+        raise RuntimeError("vllm_chat failed") from last_err
+
+    def _mp_chat_chunk(
+        self,
+        prompts: List[str],
+        model: str,
+        max_tokens: int,
+        temperature: float,
+        num_workers: int,
+        max_retries: int,
+        retry_backoff_s: float,
+    ) -> List[str]:
+        results: List[Optional[str]] = [None] * len(prompts)
+        with ProcessPoolExecutor(max_workers=num_workers) as ex:
+            futures = {
+                ex.submit(
+                    _mp_chat_one_worker,
+                    self.base_url,
+                    p,
+                    model,
+                    max_tokens,
+                    temperature,
+                    max_retries,
+                    retry_backoff_s,
+                ): idx
+                for idx, p in enumerate(prompts)
+            }
+            for fut in as_completed(futures):
+                idx = futures[fut]
+                results[idx] = fut.result()
+        return [r for r in results if r is not None]
+
+    def vllm_chat_batched(
+        self,
+        prompts: List[str],
+        model: str = "Qwen/Qwen2.5-7B-Instruct",
+        max_tokens: int = 128,
+        temperature: float = 0.0,
+        batch_size: int = 100,
+        num_workers: int = 50,
+        max_retries: int = 3,
+        retry_backoff_s: float = 1.0,
+    ) -> List[str]:
+        outputs: List[str] = []
+        for i in range(0, len(prompts), batch_size):
+            chunk = prompts[i : i + batch_size]
+            outputs.extend(
+                self._mp_chat_chunk(
+                    prompts=chunk,
+                    model=model,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    num_workers=num_workers,
+                    max_retries=max_retries,
+                    retry_backoff_s=retry_backoff_s,
+                )
+            )
+        return outputs
+
+
+def _mp_chat_one_worker(
+    base_url: str,
+    prompt: str,
+    model: str,
+    max_tokens: int,
+    temperature: float,
+    max_retries: int,
+    retry_backoff_s: float,
+) -> str:
+    mgr = VLLMServerManager(base_url=base_url)
+    last_err = None
+    for attempt in range(max_retries):
+        try:
+            return mgr.vllm_chat(
+                prompt=prompt,
+                model=model,
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+        except Exception as e:
+            last_err = e
+            time.sleep(retry_backoff_s * (2 ** attempt))
+    raise RuntimeError("vllm_chat failed") from last_err
+
+
+def make_math_prompts(n: int) -> List[str]:
+    return [f"What is {i} + {i + 1}? Show your reasoning briefly." for i in range(n)]
+
+
+def main():
+    NUM_PROMPTS = 2000
+    MP_WORKERS = 50
+    BATCH_SIZE = 100
+
+    out_jsonl = Path("outputs/debug_math_vllm_batching.jsonl")
+    out_jsonl.parent.mkdir(parents=True, exist_ok=True)
+
+    mgr = VLLMServerManager(base_url="http://localhost:8000")
+    prompts = make_math_prompts(NUM_PROMPTS)
+
+    outputs = mgr.vllm_chat_batched(
+        prompts=prompts,
+        model="Qwen/Qwen2.5-7B-Instruct",
+        max_tokens=128,
+        temperature=0.0,
+        batch_size=BATCH_SIZE,
+        num_workers=MP_WORKERS,
+    )
+
+    with out_jsonl.open("w", encoding="utf-8") as f:
+        for prompt, response in zip(prompts, outputs):
+            f.write(
+                json.dumps(
+                    {
+                        "prompt": prompt,
+                        "prompt_hash": mgr.stable_hash(prompt),
+                        "response": response,
+                        "model": "Qwen/Qwen2.5-7B-Instruct",
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n"
+            )
