@@ -249,7 +249,7 @@ def main():
         debug_n=5,
     )
 
-    mgr = VLLMServerManager(base_url="http://localhost:8000")
+    mgr = VLLMServerManager()
     jsonl_path = runner.run(mgr)
 
     if not debug:
