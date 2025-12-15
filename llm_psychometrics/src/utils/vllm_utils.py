@@ -353,7 +353,6 @@ class VLLMServerManager:
             futures = {
                 ex.submit(
                     _mp_chat_one_worker,
-                    self.base_url,
                     p,
                     model,
                     max_tokens,
@@ -397,7 +396,6 @@ class VLLMServerManager:
 
 
 def _mp_chat_one_worker(
-    base_url: str,
     prompt: str,
     model: str,
     max_tokens: int,
@@ -405,7 +403,7 @@ def _mp_chat_one_worker(
     max_retries: int,
     retry_backoff_s: float,
 ) -> str:
-    mgr = VLLMServerManager(base_url=base_url)
+    mgr = VLLMServerManager()
     last_err = None
     for attempt in range(max_retries):
         try:
