@@ -10,8 +10,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from datasets import Dataset, DatasetDict, load_dataset
 from tqdm import tqdm
 
-from vllm_server_manager import VLLMServerManager
-
+from utils.vllm_utils import VLLMServerManager
 
 def iter_seen_pairs(jsonl_path: Path) -> Set[Tuple[str, str]]:
     seen: Set[Tuple[str, str]] = set()

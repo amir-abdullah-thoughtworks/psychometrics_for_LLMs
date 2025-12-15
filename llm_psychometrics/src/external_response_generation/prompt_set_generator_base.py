@@ -7,7 +7,6 @@ from typing import Optional, List, Dict, Any
 
 from datasets import load_dataset
 
-
 @dataclass
 class PromptSetGeneratorBase:
     source_dataset_id: str
