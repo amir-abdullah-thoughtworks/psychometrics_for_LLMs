@@ -227,9 +227,9 @@ class VLLMServerManager:
         cmd = [
             self.python_executable,
             "-m", "vllm.entrypoints.openai.api_server",
-            "--gpu-memory-utilization", "0.7",
+            "--gpu-memory-utilization", "0.8",
             "--max-num-batched-tokens", "70000",
-            "--max-num-seqs", "100",
+            "--max-num-seqs", "200",
             "--enforce-eager", # Needed to prevent erroring out on cluster.
             "--disable-log-requests",
             "--max-model-len", "2048",
