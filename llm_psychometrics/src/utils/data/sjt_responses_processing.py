@@ -1,9 +1,11 @@
-import os
 import json
-import yaml
 import numpy as np
+import os
 import pandas as pd
+import yaml
+
 from collections import Counter
+from pathlib import Path
 
 trait_map = {
     "1": "Honesty-Humility",
@@ -15,6 +17,30 @@ trait_map = {
 }
 
 trait_list = ['honest-humility','emotionality','extraversion','agreeableness','conscientiousness','openness to experience','altruism']
+
+# Anchor everything to *this file*, not the working directory
+HERE = Path(__file__).resolve().parent
+PROJECT_ROOT = HERE.parents[2]   # 3 levels up
+
+# Directories / files
+FACTOR_ANALYSIS_DATA_DIR = (
+    PROJECT_ROOT / "experiment_results" / "factor_analysis_data"
+)
+
+GENERATION_CONFIG_PATH = (
+    PROJECT_ROOT / "configs" / "generation_config.yaml"
+)
+
+HEXACO_EVAL_PATH = (
+    PROJECT_ROOT / "psychometric_tests" / "hexaco_100_eval.yaml"
+)
+
+# Load YAML files
+with open(GENERATION_CONFIG_PATH, "r") as f:
+    generation_config = yaml.safe_load(f)
+
+with open(HEXACO_EVAL_PATH, "r") as f:
+    hexaco_eval = yaml.safe_load(f)
 
 def write_to_json(file, file_path):
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -95,7 +121,7 @@ def get_trait_scores(answer,likert_scale = generation_config['likert_scale']):
 def load_personas_to_sjt_scores(model_name='Qwen2_5-7B-Instruct'):
     factor_analysis_data_dir = "../experiment_results/factor_analysis_data/"
     sjt_data = read_json(os.path.join(factor_analysis_data_dir, f"huggingface_sjt_answers_{model_name}.json"))
-    sjt_answer_df = pd.DataFrame([{"persona_id": key, "answers": get_true_indices_v1(sjt_data[key])[1]} for key in sjt_data.keys()])
+    sjt_answers_df = pd.DataFrame([{"persona_id": key, "answers": get_true_indices_v1(sjt_data[key])[1]} for key in sjt_data.keys()])
     sjt_indexed_df = pd.DataFrame([{"persona_id": key, "answers": get_trait_distribution_v1(sjt_data[key])} for key in sjt_data.keys()])
     sjt_trait_df = pd.DataFrame(sjt_indexed_df['answers'].to_list(), columns = trait_map.values(), index = sjt_indexed_df['persona_id'])
     return {
