@@ -358,7 +358,6 @@ class VLLMServerManager:
             futures = {
                 ex.submit(
                     _mp_chat_one_worker,
-                    self.base_url,
                     p,
                     model,
                     max_tokens,
@@ -438,7 +437,7 @@ def make_math_prompts(n: int) -> list[str]:
 
 
 def main():
-    NUM_PROMPTS = 2000
+    NUM_PROMPTS = 5007
     MP_WORKERS = 50
     BATCH_SIZE = 100
 
