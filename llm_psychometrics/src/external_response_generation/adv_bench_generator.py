@@ -83,7 +83,7 @@ class PromptSetGeneratorBase:
 
 @dataclass
 class AdvBenchPromptSetGenerator(PromptSetGeneratorBase):
-    source_field: str = "source"
+    source_field: str = "prompt"
     target_field: str = "target"
 
     def get_prompt_rows(self, source_ds: Dataset) -> List[Dict[str, Any]]:
