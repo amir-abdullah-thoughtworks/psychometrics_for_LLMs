@@ -163,44 +163,57 @@ class PersonaPromptRunner:
 
         persona_ds = self.load_personas()
 
-        with jsonl_path.open("a", encoding="utf-8") as out_f:
-            for persona in tqdm(persona_ds, desc="Personas"):
-                uuid = persona["uuid"]
-                persona_string = persona["persona_string"]
-                persona_hash = self.stable_hash(persona_string)
+        tasks: List[Dict[str, Any]] = []
+        for persona in tqdm(persona_ds, desc="Indexing tasks", unit="persona"):
+            uuid = persona["uuid"]
+            persona_string = persona["persona_string"]
+            persona_hash = self.stable_hash(persona_string)
+            persona_details = dict(persona)
 
-                todo: List[Dict[str, Any]] = []
-                for pr in prompt_rows:
-                    key = (uuid, pr["prompt_hash"])
-                    if key not in seen:
-                        todo.append(pr)
-
-                if self.debug:
-                    todo = todo[: self.debug_n]
-
-                if not todo:
+            for pr in prompt_rows:
+                prompt_hash = pr["prompt_hash"]
+                if (uuid, prompt_hash) in seen:
                     continue
-
-                prompts_text = [
-                    self.prompt_generator.format_prompt(persona_string, pr)
-                    for pr in todo
-                ]
-
-                outputs = mgr.vllm_chat_batched(
-                    prompts_text,
-                    model=self.model,
-                    max_tokens=self.max_tokens,
-                    temperature=self.temperature,
-                    batch_size=self.mp_batch_size,
-                    num_workers=self.mp_workers,
-                )
-
-                for pr, completion in zip(todo, outputs):
-                    record = {
-                        "run_id": jsonl_path.stem,
+                tasks.append(
+                    {
                         "uuid": uuid,
                         "persona_hash": persona_hash,
-                        "prompt_hash": pr["prompt_hash"],
+                        "prompt_hash": prompt_hash,
+                        "persona_string": persona_string,
+                        "persona_details": persona_details,
+                        "prompt_row": pr,
+                    }
+                )
+
+        if self.debug:
+            tasks = tasks[: self.debug_n]
+
+        if not tasks:
+            return jsonl_path
+
+        prompts_text = [
+            self.prompt_generator.format_prompt(t["persona_string"], t["prompt_row"])
+            for t in tasks
+        ]
+
+        outputs = mgr.vllm_chat_batched(
+            prompts=prompts_text,
+            model=self.model,
+            max_tokens=self.max_tokens,
+            temperature=self.temperature,
+            batch_size=self.mp_batch_size,
+            num_workers=self.mp_workers,
+        )
+
+        with jsonl_path.open("a", encoding="utf-8") as out_f:
+            with tqdm(total=len(tasks), desc="Writing JSONL", unit="row") as pbar:
+                for t, completion in zip(tasks, outputs):
+                    pr = t["prompt_row"]
+                    record = {
+                        "run_id": jsonl_path.stem,
+                        "uuid": t["uuid"],
+                        "persona_hash": t["persona_hash"],
+                        "prompt_hash": t["prompt_hash"],
                         "meta_hash": meta_hash,
                         "source_dataset_id": self.prompt_generator.source_dataset_id,
                         "source_split": self.prompt_generator.source_split,
@@ -208,12 +221,11 @@ class PersonaPromptRunner:
                         "source_fingerprint": self.prompt_generator.source_fingerprint,
                         "response": completion,
                         "model": self.model,
-                        "persona_details": dict(persona),
+                        "persona_details": t["persona_details"],
                         **pr,
                     }
                     out_f.write(json.dumps(record, ensure_ascii=False) + "\n")
-                    out_f.flush()
-                    seen.add((uuid, pr["prompt_hash"]))
+                    pbar.update(1)
 
         return jsonl_path
 
