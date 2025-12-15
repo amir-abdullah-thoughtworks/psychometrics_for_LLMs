@@ -3,10 +3,13 @@ import os
 import psutil
 import socket
 import subprocess
+import hashlib
 import sys
 import time
 from dataclasses import dataclass
 from concurrent.futures import ProcessPoolExecutor, as_completed
+
+from tqdm import tqdm
 from typing import List, Optional
 
 
