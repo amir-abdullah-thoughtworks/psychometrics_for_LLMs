@@ -343,19 +343,22 @@ class VLLMServerManager:
 
     def _mp_chat_chunk(
         self,
-        prompts: list[str],
+        prompts: List[str],
         model: str,
         max_tokens: int,
         temperature: float,
         num_workers: int,
         max_retries: int,
         retry_backoff_s: float,
-    ) -> list[str]:
-        results: list[Optional[str]] = [None] * len(prompts)
+        pbar: Optional[tqdm] = None,
+    ) -> List[str]:
+        results: List[Optional[str]] = [None] * len(prompts)
+
         with ProcessPoolExecutor(max_workers=num_workers) as ex:
             futures = {
                 ex.submit(
                     _mp_chat_one_worker,
+                    self.base_url,
                     p,
                     model,
                     max_tokens,
@@ -365,14 +368,19 @@ class VLLMServerManager:
                 ): idx
                 for idx, p in enumerate(prompts)
             }
+
             for fut in as_completed(futures):
                 idx = futures[fut]
                 results[idx] = fut.result()
+                if pbar is not None:
+                    pbar.update(1)
+
         return [r for r in results if r is not None]
+
 
     def vllm_chat_batched(
         self,
-        prompts: list[str],
+        prompts: List[str],
         model: str = "Qwen/Qwen2.5-7B-Instruct",
         max_tokens: int = 128,
         temperature: float = 0.0,
@@ -380,23 +388,26 @@ class VLLMServerManager:
         num_workers: int = 50,
         max_retries: int = 3,
         retry_backoff_s: float = 1.0,
-    ) -> list[str]:
+    ) -> List[str]:
         outputs: List[str] = []
-        for i in range(0, len(prompts), batch_size):
-            chunk = prompts[i : i + batch_size]
-            outputs.extend(
-                self._mp_chat_chunk(
-                    prompts=chunk,
-                    model=model,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    num_workers=num_workers,
-                    max_retries=max_retries,
-                    retry_backoff_s=retry_backoff_s,
-                )
-            )
-        return outputs
 
+        with tqdm(total=len(prompts), desc="vLLM completions", unit="req") as pbar:
+            for i in range(0, len(prompts), batch_size):
+                chunk = prompts[i : i + batch_size]
+                outputs.extend(
+                    self._mp_chat_chunk(
+                        prompts=chunk,
+                        model=model,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                        num_workers=num_workers,
+                        max_retries=max_retries,
+                        retry_backoff_s=retry_backoff_s,
+                        pbar=pbar,
+                    )
+                )
+
+        return outputs
 
 def _mp_chat_one_worker(
     prompt: str,
