@@ -16,9 +16,6 @@ trait_map = {
     "6": "Openness"
 }
 
-with open('../configs/generation_config.yaml', 'r') as file:
-    generation_config = yaml.safe_load(file)
-
 
 trait_list = ['honest-humility','emotionality','extraversion','agreeableness','conscientiousness','openness to experience','altruism']
 
