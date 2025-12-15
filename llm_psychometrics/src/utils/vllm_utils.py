@@ -429,7 +429,7 @@ def main():
     out_jsonl = Path("outputs/debug_math_vllm_batching.jsonl")
     out_jsonl.parent.mkdir(parents=True, exist_ok=True)
 
-    mgr = VLLMServerManager(base_url="http://localhost:8000")
+    mgr = VLLMServerManager()
     prompts = make_math_prompts(NUM_PROMPTS)
 
     outputs = mgr.vllm_chat_batched(
