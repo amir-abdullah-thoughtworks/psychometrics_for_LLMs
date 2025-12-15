@@ -235,7 +235,7 @@ class VLLMServerManager:
             "--max-model-len", "2048",
             "--disable-log-stats",
             "--enable-chunked-prefill",
-            "--tensor-parallel-size", "1",
+            "--tensor-parallel-size", "2",
             "--model", self.model,
             "--host", self.host,
             "--port", str(self.port),
