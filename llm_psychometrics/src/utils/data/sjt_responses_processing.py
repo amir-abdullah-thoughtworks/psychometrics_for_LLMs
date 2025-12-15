@@ -123,8 +123,7 @@ def get_trait_scores(answer,likert_scale = generation_config['likert_scale']):
 
 
 def load_personas_to_sjt_scores(model_name='Qwen2_5-7B-Instruct'):
-    factor_analysis_data_dir = "../experiment_results/factor_analysis_data/"
-    sjt_data = read_json(os.path.join(factor_analysis_data_dir, f"huggingface_sjt_answers_{model_name}.json"))
+    sjt_data = read_json(os.path.join(FACTOR_ANALYSIS_DATA_DIR, f"huggingface_sjt_answers_{model_name}.json"))
     sjt_answers_df = pd.DataFrame([{"persona_id": key, "answers": get_true_indices_v1(sjt_data[key])[1]} for key in sjt_data.keys()])
     sjt_indexed_df = pd.DataFrame([{"persona_id": key, "answers": get_trait_distribution_v1(sjt_data[key])} for key in sjt_data.keys()])
     sjt_trait_df = pd.DataFrame(sjt_indexed_df['answers'].to_list(), columns = trait_map.values(), index = sjt_indexed_df['persona_id'])
