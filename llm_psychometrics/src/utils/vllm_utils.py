@@ -342,8 +342,8 @@ class VLLMServerManager:
         num_workers: int,
         max_retries: int,
         retry_backoff_s: float,
-    ) -> List[str]:
-        results: List[Optional[str]] = [None] * len(prompts)
+    ) -> list[str]:
+        results: list[Optional[str]] = [None] * len(prompts)
         with ProcessPoolExecutor(max_workers=num_workers) as ex:
             futures = {
                 ex.submit(
