@@ -118,7 +118,7 @@ class AdvBenchPromptSetGenerator(PromptSetGeneratorBase):
 class PersonaPromptRunner:
     prompt_generator: PromptSetGeneratorBase
     persona_dataset_id: str
-    persona_split: str = "train"
+    persona_split: str = "restricted"
     persona_revision: Optional[str] = None
 
     out_jsonl: Path = Path("outputs/advbench_persona_responses")
@@ -235,12 +235,12 @@ class PersonaPromptRunner:
 
 
 def main():
-    debug = True
+    debug = False
 
     prompt_gen = AdvBenchPromptSetGenerator(
         source_dataset_id="walledai/AdvBench",
         source_split="train",
-        take_n=100,
+        take_n=50,
         debug=debug,
         debug_n=5,
     )
@@ -255,8 +255,8 @@ def main():
         model="Qwen/Qwen2.5-7B-Instruct",
         max_tokens=512,
         temperature=0.7,
-        mp_batch_size=100,
-        mp_workers=None,
+        mp_batch_size=50,
+        mp_workers=100,
         debug=debug,
         debug_n=5,
     )
