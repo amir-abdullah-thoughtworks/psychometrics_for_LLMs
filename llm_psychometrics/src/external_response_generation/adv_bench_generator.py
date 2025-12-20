@@ -44,7 +44,7 @@ class PromptSetGeneratorBase:
     source_fingerprint: Optional[str] = None
     take_n: Optional[int] = None
     debug: bool = False
-    debug_n: int = 5
+    limit_personas: int = 100
 
     def stable_hash(self, text: str) -> str:
         return hashlib.sha256(text.encode("utf-8")).hexdigest()
@@ -69,7 +69,7 @@ class PromptSetGeneratorBase:
             "source_fingerprint": self.source_fingerprint,
             "take_n": self.take_n,
             "debug": self.debug,
-            "debug_n": self.debug_n,
+            "limit_personas": self.limit_personas,
             "generator_class": self.__class__.__name__,
         }
         return self.stable_hash(json.dumps(payload, sort_keys=True, ensure_ascii=False))
@@ -89,7 +89,7 @@ class AdvBenchPromptSetGenerator(PromptSetGeneratorBase):
     def get_prompt_rows(self, source_ds: Dataset) -> List[Dict[str, Any]]:
         n = len(source_ds) if self.take_n is None else min(self.take_n, len(source_ds))
         if self.debug:
-            n = min(self.debug_n, n)
+            n = min(self.limit_personas, n)
 
         rows: List[Dict[str, Any]] = []
         for row in source_ds.select(range(n)):
@@ -129,10 +129,10 @@ class PersonaPromptRunner:
     max_tokens: int = 512
     temperature: float = 0.7
     mp_batch_size: int = 100
-    mp_workers: Optional[int] = None
+    mp_workers: Optional[int] = 50
 
     debug: bool = False
-    debug_n: int = 5
+    limit_personas: int = 100
 
     def stable_hash(self, text: str) -> str:
         return self.prompt_generator.stable_hash(text)
@@ -149,8 +149,8 @@ class PersonaPromptRunner:
             split=self.persona_split,
             revision=self.persona_revision,
         )
-        if self.debug:
-            ds = ds.select(range(min(self.debug_n, len(ds))))
+
+        ds = ds.select(range(min(self.limit_personas, len(ds))))
         return ds
 
     def run(self, mgr: VLLMServerManager) -> Path:
@@ -186,7 +186,7 @@ class PersonaPromptRunner:
                 )
 
         if self.debug:
-            tasks = tasks[: self.debug_n]
+            tasks = tasks[: self.limit_personas]
 
         if not tasks:
             return jsonl_path
@@ -240,9 +240,9 @@ def main():
     prompt_gen = AdvBenchPromptSetGenerator(
         source_dataset_id="walledai/AdvBench",
         source_split="train",
-        take_n=50,
+        take_n=1600,
         debug=debug,
-        debug_n=5,
+        limit_personas=1600,
     )
 
     runner = PersonaPromptRunner(
@@ -255,10 +255,10 @@ def main():
         model="Qwen/Qwen2.5-7B-Instruct",
         max_tokens=512,
         temperature=0.7,
-        mp_batch_size=50,
-        mp_workers=100,
+        mp_batch_size=400,
+        mp_workers=30,
         debug=debug,
-        debug_n=5,
+        limit_personas=1600,
     )
 
     mgr = VLLMServerManager()
