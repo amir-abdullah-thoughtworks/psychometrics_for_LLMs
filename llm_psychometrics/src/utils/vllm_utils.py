@@ -3,10 +3,18 @@ import os
 import psutil
 import socket
 import subprocess
+import hashlib
 import sys
 import time
+from dataclasses import dataclass
+from concurrent.futures import ProcessPoolExecutor, as_completed
+
+from tqdm import tqdm
+from typing import List, Optional
+
 
 import requests
+from pathlib import Path
 from tqdm import tqdm
 
 
@@ -17,7 +25,7 @@ class VLLMServerManager:
     - Starts a fresh server on host:port for the requested model.
     - Waits until /v1/models responds.
     """
-    def __init__(self, model: str = "meta-llama/Llama-3.2-1B-Instruct",
+    def __init__(self, model: str = "Qwen/Qwen2.5-7B-Instruct",
                  host: str = "127.0.0.1", port: int = 8000,
                  python_executable: str = sys.executable,
                  server_extra_args=None, env=None,
@@ -34,6 +42,14 @@ class VLLMServerManager:
         self.timeout_s = timeout_s
         self.kill_existing = kill_existing
         self._proc = None
+
+    def list_vllm_models(self) -> list[str]:
+        """
+        Return model IDs served by the vLLM server.
+        """
+        resp = requests.get(f"{self.base_url}/v1/models", timeout=5)
+        resp.raise_for_status()
+        return [m["id"] for m in resp.json().get("data", [])]
 
     def ensure_fresh_server(self, run_benchmark: bool = False):
         if self.kill_existing:
@@ -55,6 +71,28 @@ class VLLMServerManager:
                 json.dump(benchmark, f)
             print(f"Finished benchmark with results \n {benchmark}")
 
+    def vllm_chat(
+        self, prompt: str, model: str = "Qwen/Qwen2.5-7B-Instruct",
+        max_tokens: int = 512, temperature: float = 0.7
+    ) -> str:
+        """
+        Send a prompt via the OpenAI-compatible chat endpoint.
+        """
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+
+        resp = requests.post(
+            f"{self.base_url}/v1/chat/completions",
+            json=payload,
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return resp.json()["choices"][0]["message"]["content"]
+
     def benchmark_tps(
             self,
             delay_s: int = 5,
@@ -63,7 +101,7 @@ class VLLMServerManager:
             model_override: str | None = None,
     ) -> dict:
         """
-        Benchmark generation throughput after a post-startup delay.
+        Benchmark dsdsa throughput after a post-startup delay.
 
         - Waits `delay_s` seconds (default 30) before benchmarking.
         - Runs `trials` chat.completions with `max_tokens` tokens each.
@@ -138,12 +176,20 @@ class VLLMServerManager:
 
     # ---------- internals ----------
     def _is_up(self) -> bool:
+        """
+        Check whether the vLLM server is reachable.
+        """
         try:
-            r = requests.get(f"{self.base_url}/v1/models", timeout=1.5)
-            is_up = (r.status_code == 200)
-            print(f"Server is up.")
-        except Exception:
-            print(f"Server is not up.")
+            r = requests.get(f"{self.base_url}/health", timeout=2)
+            if r.status_code == 200:
+                return True
+        except requests.RequestException:
+            pass
+
+        try:
+            r = requests.get(f"{self.base_url}/v1/models", timeout=2)
+            return r.status_code == 200
+        except requests.RequestException:
             return False
 
     def _kill_existing_servers(self):
@@ -181,14 +227,15 @@ class VLLMServerManager:
         cmd = [
             self.python_executable,
             "-m", "vllm.entrypoints.openai.api_server",
-            "--gpu-memory-utilization", "0.9",
+            "--gpu-memory-utilization", "0.8",
             "--max-num-batched-tokens", "70000",
-            "--max-num-seqs", "100",
+            "--max-num-seqs", "200",
             "--enforce-eager", # Needed to prevent erroring out on cluster.
             "--disable-log-requests",
             "--max-model-len", "2048",
             "--disable-log-stats",
             "--enable-chunked-prefill",
+            "--tensor-parallel-size", "1",
             "--model", self.model,
             "--host", self.host,
             "--port", str(self.port),
@@ -245,3 +292,184 @@ class VLLMServerManager:
                 last_err = e
             time.sleep(1.0)
         raise TimeoutError(f"Timed out waiting for vLLM at {self.base_url} ({last_err})")
+
+
+    def stable_hash(self, text: str) -> str:
+        return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+    def vllm_chat(
+        self,
+        prompt: str,
+        model: str = "Qwen/Qwen2.5-7B-Instruct",
+        max_tokens: int = 128,
+        temperature: float = 0.0,
+    ) -> str:
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+        resp = requests.post(
+            f"{self.base_url}/v1/chat/completions",
+            json=payload,
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return resp.json()["choices"][0]["message"]["content"]
+
+    def _chat_one(
+        self,
+        prompt: str,
+        model: str,
+        max_tokens: int,
+        temperature: float,
+        max_retries: int,
+        retry_backoff_s: float,
+    ) -> str:
+        last_err = None
+        for attempt in range(max_retries):
+            try:
+                return self.vllm_chat(
+                    prompt=prompt,
+                    model=model,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                )
+            except Exception as e:
+                last_err = e
+                time.sleep(retry_backoff_s * (2 ** attempt))
+        raise RuntimeError("vllm_chat failed") from last_err
+
+    def _mp_chat_chunk(
+        self,
+        prompts: List[str],
+        model: str,
+        max_tokens: int,
+        temperature: float,
+        num_workers: int,
+        max_retries: int,
+        retry_backoff_s: float,
+        pbar: Optional[tqdm] = None,
+    ) -> List[str]:
+        results: List[Optional[str]] = [None] * len(prompts)
+
+        with ProcessPoolExecutor(max_workers=num_workers) as ex:
+            futures = {
+                ex.submit(
+                    _mp_chat_one_worker,
+                    p,
+                    model,
+                    max_tokens,
+                    temperature,
+                    max_retries,
+                    retry_backoff_s,
+                ): idx
+                for idx, p in enumerate(prompts)
+            }
+
+            for fut in as_completed(futures):
+                idx = futures[fut]
+                results[idx] = fut.result()
+                if pbar is not None:
+                    pbar.update(1)
+
+        return [r for r in results if r is not None]
+
+
+    def vllm_chat_batched(
+        self,
+        prompts: List[str],
+        model: str = "Qwen/Qwen2.5-7B-Instruct",
+        max_tokens: int = 128,
+        temperature: float = 0.0,
+        batch_size: int = 100,
+        num_workers: int = 100,
+        max_retries: int = 3,
+        retry_backoff_s: float = 0.1,
+    ) -> List[str]:
+        outputs: List[str] = []
+
+        with tqdm(total=len(prompts), desc="vLLM completions", unit="req") as pbar:
+            for i in range(0, len(prompts), batch_size):
+                chunk = prompts[i : i + batch_size]
+                outputs.extend(
+                    self._mp_chat_chunk(
+                        prompts=chunk,
+                        model=model,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                        num_workers=num_workers,
+                        max_retries=max_retries,
+                        retry_backoff_s=retry_backoff_s,
+                        pbar=pbar,
+                    )
+                )
+
+        return outputs
+
+def _mp_chat_one_worker(
+    prompt: str,
+    model: str,
+    max_tokens: int,
+    temperature: float,
+    max_retries: int,
+    retry_backoff_s: float,
+) -> str:
+    mgr = VLLMServerManager()
+    last_err = None
+    for attempt in range(max_retries):
+        try:
+            return mgr.vllm_chat(
+                prompt=prompt,
+                model=model,
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+        except Exception as e:
+            last_err = e
+            time.sleep(retry_backoff_s * (2 ** attempt))
+    raise RuntimeError("vllm_chat failed") from last_err
+
+
+def make_math_prompts(n: int) -> list[str]:
+    return [f"What is {i} + {i + 1}? Show your reasoning briefly." for i in range(n)]
+
+
+def main():
+    NUM_PROMPTS = 7007
+    MP_WORKERS = 100
+    BATCH_SIZE = 100
+
+    out_jsonl = Path("outputs/debug_math_vllm_batching.jsonl")
+    out_jsonl.parent.mkdir(parents=True, exist_ok=True)
+
+    mgr = VLLMServerManager()
+    prompts = make_math_prompts(NUM_PROMPTS)
+
+    outputs = mgr.vllm_chat_batched(
+        prompts=prompts,
+        model="Qwen/Qwen2.5-7B-Instruct",
+        max_tokens=128,
+        temperature=0.0,
+        batch_size=BATCH_SIZE,
+        num_workers=MP_WORKERS,
+    )
+
+    with out_jsonl.open("w", encoding="utf-8") as f:
+        for prompt, response in zip(prompts, outputs):
+            f.write(
+                json.dumps(
+                    {
+                        "prompt": prompt,
+                        "prompt_hash": mgr.stable_hash(prompt),
+                        "response": response,
+                        "model": "Qwen/Qwen2.5-7B-Instruct",
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n"
+            )
+
+if __name__ == "__main__":
+    main()
