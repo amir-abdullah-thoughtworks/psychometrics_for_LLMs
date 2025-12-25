@@ -316,61 +316,52 @@ class VLLMServerManager:
                 time.sleep(retry_backoff_s * (2 ** attempt))
         raise RuntimeError("vllm_chat failed") from last_err
 
+
     def _mp_chat_chunk(
-        self,
-        prompts: List[str],
-        model: str,
-        max_tokens: int,
-        temperature: float,
-        num_workers: int,
-        max_retries: int,
-        retry_backoff_s: float,
-        pbar: Optional[tqdm] = None,
+            self,
+            prompts: List[str],
+            model: str,
+            max_tokens: int,
+            temperature: float,
+            num_workers: int,
+            max_retries: int,
+            retry_backoff_s: float,
+            pbar: Optional[tqdm] = None,
     ) -> List[str]:
         """
         Returns outputs in the exact same order as `prompts`.
         """
         n = len(prompts)
         results: List[Optional[str]] = [None] * n
-        failures: List[Tuple[int, str]] = []
+
+        args_list = [
+            (idx, self.base_url, prompt, model, max_tokens, temperature, max_retries, retry_backoff_s)
+            for idx, prompt in enumerate(prompts)
+        ]
 
         with ProcessPoolExecutor(max_workers=num_workers) as ex:
-            futures = [
-                ex.submit(
-                    _mp_chat_one_worker_indexed,
-                    idx,
-                    prompt,
-                    model,
-                    max_tokens,
-                    temperature,
-                    max_retries,
-                    retry_backoff_s,
-                )
-                for idx, prompt in enumerate(prompts)
-            ]
+            futures = [ex.submit(_mp_chat_one_worker_args, args) for args in args_list]
 
+            failures: List[str] = []
             for fut in as_completed(futures):
                 try:
                     idx, text = fut.result()
                     results[idx] = text
                 except Exception as e:
-                    # We don't know idx unless it’s in the exception message,
-                    # but we can still fail fast with context.
-                    failures.append((-1, repr(e)))
+                    failures.append(repr(e))
                 finally:
                     if pbar is not None:
                         pbar.update(1)
 
         if failures:
-            # Fail loudly instead of returning misaligned outputs.
-            raise RuntimeError(f"One or more vLLM worker calls failed: {failures[:3]}")
+            raise RuntimeError(f"One or more vLLM worker calls failed (showing up to 3): {failures[:3]}")
 
-        # At this point, results should be fully populated and ordered.
         missing = [i for i, r in enumerate(results) if r is None]
         if missing:
             raise RuntimeError(f"Missing outputs for indices: {missing[:10]} (total missing={len(missing)})")
 
-        return results  # <- NO filtering, preserves 1:1 alignment
+        return results  # preserves 1:1 alignment
+
 
     def vllm_chat_batched(
         self,
@@ -427,27 +418,35 @@ class VLLMServerManager:
 
 
 def _mp_chat_one_worker(
+    idx: int,
+    base_url: str,
     prompt: str,
     model: str,
     max_tokens: int,
     temperature: float,
     max_retries: int,
     retry_backoff_s: float,
-) -> str:
-    mgr = VLLMServerManager()
+) -> tuple[int, str]:
+    mgr = VLLMServerManager(host=base_url.split("://", 1)[1].split(":", 1)[0],
+                            port=int(base_url.rsplit(":", 1)[1]))
     last_err = None
     for attempt in range(max_retries):
         try:
-            return mgr.vllm_chat(
+            text = mgr.vllm_chat(
                 prompt=prompt,
                 model=model,
                 max_tokens=max_tokens,
                 temperature=temperature,
             )
+            return idx, text
         except Exception as e:
             last_err = e
             time.sleep(retry_backoff_s * (2 ** attempt))
-    raise RuntimeError("vllm_chat failed") from last_err
+    raise RuntimeError(f"vllm_chat failed for idx={idx}") from last_err
+
+def _mp_chat_one_worker_args(args):
+    return _mp_chat_one_worker(*args)
+
 
 
 def make_math_prompts(n: int) -> list[str]:
