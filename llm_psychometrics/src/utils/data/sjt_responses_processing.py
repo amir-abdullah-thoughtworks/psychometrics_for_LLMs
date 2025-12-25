@@ -130,7 +130,7 @@ def load_personas_to_hexaco_scores(model_name='Qwen2_5-7B-Instruct'):
                                    index=hexaco_df.index, columns=trait_list)
     return {
         "persona_summary":hexaco_trait_df,
-        "hexaco_trait_df":  hexaco_trait_df,
+        "hexaco_answers":  hexaco_df,
     }
 
 def load_personas_to_sjt_scores(model_name='Qwen2_5-7B-Instruct'):
