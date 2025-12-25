@@ -188,13 +188,15 @@ class PersonaPromptRunner:
         if not tasks:
             return jsonl_path
 
-        prompts_text = [
+        persona_formatted_prompts = [
             self.prompt_generator.format_prompt(t["persona_string"], t["prompt_row"])
             for t in tasks
         ]
 
+        print(f"Sending {len(persona_formatted_prompts)} prompts to vllm")
+
         outputs = mgr.vllm_chat_batched(
-            prompts=prompts_text,
+            prompts=persona_formatted_prompts,
             model=self.model,
             max_tokens=self.max_tokens,
             temperature=self.temperature,
@@ -204,7 +206,7 @@ class PersonaPromptRunner:
 
         with jsonl_path.open("a", encoding="utf-8") as out_f:
             with tqdm(total=len(tasks), desc="Writing JSONL", unit="row") as pbar:
-                for t, completion in zip(tasks, outputs):
+                for t, persona_formatted_prompt, completion in zip(tasks, persona_formatted_prompts, outputs):
                     pr = t["prompt_row"]
                     record = {
                         "run_id": jsonl_path.stem,
@@ -218,6 +220,7 @@ class PersonaPromptRunner:
                         "source_fingerprint": self.prompt_generator.source_fingerprint,
                         "response": completion,
                         "model": self.model,
+                        "formatted_prompt": persona_formatted_prompt,
                         "persona_details": t["persona_details"],
                         **pr,
                     }
