@@ -71,28 +71,6 @@ class VLLMServerManager:
                 json.dump(benchmark, f)
             print(f"Finished benchmark with results \n {benchmark}")
 
-    def vllm_chat(
-        self, prompt: str, model: str = "Qwen/Qwen2.5-7B-Instruct",
-        max_tokens: int = 512, temperature: float = 0.7
-    ) -> str:
-        """
-        Send a prompt via the OpenAI-compatible chat endpoint.
-        """
-        payload = {
-            "model": model,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-        }
-
-        resp = requests.post(
-            f"{self.base_url}/v1/chat/completions",
-            json=payload,
-            timeout=30,
-        )
-        resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"]
-
     def benchmark_tps(
             self,
             delay_s: int = 5,
@@ -352,49 +330,81 @@ class VLLMServerManager:
         retry_backoff_s: float,
         pbar: Optional[tqdm] = None,
     ) -> List[str]:
-        results: List[Optional[str]] = [None] * len(prompts)
+        """
+        Returns outputs in the exact same order as `prompts`.
+        """
+        n = len(prompts)
+        results: List[Optional[str]] = [None] * n
+        failures: List[Tuple[int, str]] = []
 
         with ProcessPoolExecutor(max_workers=num_workers) as ex:
-            futures = {
+            futures = [
                 ex.submit(
-                    _mp_chat_one_worker,
-                    p,
+                    _mp_chat_one_worker_indexed,
+                    idx,
+                    prompt,
                     model,
                     max_tokens,
                     temperature,
                     max_retries,
                     retry_backoff_s,
-                ): idx
-                for idx, p in enumerate(prompts)
-            }
+                )
+                for idx, prompt in enumerate(prompts)
+            ]
 
             for fut in as_completed(futures):
-                idx = futures[fut]
-                results[idx] = fut.result()
-                if pbar is not None:
-                    pbar.update(1)
+                try:
+                    idx, text = fut.result()
+                    results[idx] = text
+                except Exception as e:
+                    # We don't know idx unless it’s in the exception message,
+                    # but we can still fail fast with context.
+                    failures.append((-1, repr(e)))
+                finally:
+                    if pbar is not None:
+                        pbar.update(1)
 
-        return [r for r in results if r is not None]
+        if failures:
+            # Fail loudly instead of returning misaligned outputs.
+            raise RuntimeError(f"One or more vLLM worker calls failed: {failures[:3]}")
+
+        # At this point, results should be fully populated and ordered.
+        missing = [i for i, r in enumerate(results) if r is None]
+        if missing:
+            raise RuntimeError(f"Missing outputs for indices: {missing[:10]} (total missing={len(missing)})")
+
+        return results  # <- NO filtering, preserves 1:1 alignment
 
 
-    def vllm_chat_batched(
-        self,
-        prompts: List[str],
-        model: str = "Qwen/Qwen2.5-7B-Instruct",
-        max_tokens: int = 128,
-        temperature: float = 0.0,
-        batch_size: int = 100,
-        num_workers: int = 100,
-        max_retries: int = 3,
-        retry_backoff_s: float = 0.1,
-    ) -> List[str]:
-        outputs: List[str] = []
+import time
+from typing import List, Optional
 
-        with tqdm(total=len(prompts), desc="vLLM completions", unit="req") as pbar:
-            for i in range(0, len(prompts), batch_size):
-                chunk = prompts[i : i + batch_size]
-                outputs.extend(
-                    self._mp_chat_chunk(
+def vllm_chat_batched(
+    self,
+    prompts: List[str],
+    guided_choices: List[str] = None,
+    model: str = "Qwen/Qwen2.5-7B-Instruct",
+    max_tokens: int = 128,
+    temperature: float = 0.0,
+    batch_size: int = 100,
+    num_workers: int = 100,
+    max_retries: int = 3,
+    retry_backoff_s: float = 0.1,
+    chunk_max_retries: int = 2,
+    chunk_retry_backoff_s: float = 0.5,
+) -> List[str]:
+    outputs: List[str] = []
+    guided_choices = guided_choices or []
+
+    with tqdm(total=len(prompts), desc="vLLM completions", unit="req") as pbar:
+        for i in range(0, len(prompts), batch_size):
+            chunk = prompts[i : i + batch_size]
+
+            last_err: Optional[Exception] = None
+            for attempt in range(chunk_max_retries + 1):
+                try:
+                    # IMPORTANT: never let the chunk touch the shared pbar
+                    chunk_out = self._mp_chat_chunk(
                         prompts=chunk,
                         model=model,
                         max_tokens=max_tokens,
@@ -402,11 +412,26 @@ class VLLMServerManager:
                         num_workers=num_workers,
                         max_retries=max_retries,
                         retry_backoff_s=retry_backoff_s,
-                        pbar=pbar,
+                        pbar=None,
                     )
-                )
 
-        return outputs
+                    outputs.extend(chunk_out)
+                    pbar.update(len(chunk))  # update exactly once
+                    last_err = None
+                    break
+
+                except RuntimeError as e:
+                    last_err = e
+                    if attempt >= chunk_max_retries:
+                        raise
+
+                    time.sleep(chunk_retry_backoff_s * (2 ** attempt))
+
+            if last_err is not None:
+                raise last_err
+
+    return outputs
+
 
 def _mp_chat_one_worker(
     prompt: str,
