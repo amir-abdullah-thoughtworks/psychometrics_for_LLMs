@@ -4,18 +4,15 @@ import psutil
 import socket
 import subprocess
 import hashlib
+import requests
 import sys
 import time
 from dataclasses import dataclass
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
-from tqdm import tqdm
-from typing import List, Optional
-
-
-import requests
 from pathlib import Path
 from tqdm import tqdm
+from typing import List, Optional
 
 
 class VLLMServerManager:
@@ -375,62 +372,58 @@ class VLLMServerManager:
 
         return results  # <- NO filtering, preserves 1:1 alignment
 
+    def vllm_chat_batched(
+        self,
+        prompts: List[str],
+        guided_choices: List[str] = None,
+        model: str = "Qwen/Qwen2.5-7B-Instruct",
+        max_tokens: int = 128,
+        temperature: float = 0.0,
+        batch_size: int = 100,
+        num_workers: int = 100,
+        max_retries: int = 3,
+        retry_backoff_s: float = 0.1,
+        chunk_max_retries: int = 2,
+        chunk_retry_backoff_s: float = 0.5,
+    ) -> List[str]:
+        outputs: List[str] = []
+        guided_choices = guided_choices or []
 
-import time
-from typing import List, Optional
+        with tqdm(total=len(prompts), desc="vLLM completions", unit="req") as pbar:
+            for i in range(0, len(prompts), batch_size):
+                chunk = prompts[i : i + batch_size]
 
-def vllm_chat_batched(
-    self,
-    prompts: List[str],
-    guided_choices: List[str] = None,
-    model: str = "Qwen/Qwen2.5-7B-Instruct",
-    max_tokens: int = 128,
-    temperature: float = 0.0,
-    batch_size: int = 100,
-    num_workers: int = 100,
-    max_retries: int = 3,
-    retry_backoff_s: float = 0.1,
-    chunk_max_retries: int = 2,
-    chunk_retry_backoff_s: float = 0.5,
-) -> List[str]:
-    outputs: List[str] = []
-    guided_choices = guided_choices or []
+                last_err: Optional[Exception] = None
+                for attempt in range(chunk_max_retries + 1):
+                    try:
+                        # IMPORTANT: never let the chunk touch the shared pbar
+                        chunk_out = self._mp_chat_chunk(
+                            prompts=chunk,
+                            model=model,
+                            max_tokens=max_tokens,
+                            temperature=temperature,
+                            num_workers=num_workers,
+                            max_retries=max_retries,
+                            retry_backoff_s=retry_backoff_s,
+                            pbar=None,
+                        )
 
-    with tqdm(total=len(prompts), desc="vLLM completions", unit="req") as pbar:
-        for i in range(0, len(prompts), batch_size):
-            chunk = prompts[i : i + batch_size]
+                        outputs.extend(chunk_out)
+                        pbar.update(len(chunk))  # update exactly once
+                        last_err = None
+                        break
 
-            last_err: Optional[Exception] = None
-            for attempt in range(chunk_max_retries + 1):
-                try:
-                    # IMPORTANT: never let the chunk touch the shared pbar
-                    chunk_out = self._mp_chat_chunk(
-                        prompts=chunk,
-                        model=model,
-                        max_tokens=max_tokens,
-                        temperature=temperature,
-                        num_workers=num_workers,
-                        max_retries=max_retries,
-                        retry_backoff_s=retry_backoff_s,
-                        pbar=None,
-                    )
+                    except RuntimeError as e:
+                        last_err = e
+                        if attempt >= chunk_max_retries:
+                            raise
 
-                    outputs.extend(chunk_out)
-                    pbar.update(len(chunk))  # update exactly once
-                    last_err = None
-                    break
+                        time.sleep(chunk_retry_backoff_s * (2 ** attempt))
 
-                except RuntimeError as e:
-                    last_err = e
-                    if attempt >= chunk_max_retries:
-                        raise
+                if last_err is not None:
+                    raise last_err
 
-                    time.sleep(chunk_retry_backoff_s * (2 ** attempt))
-
-            if last_err is not None:
-                raise last_err
-
-    return outputs
+        return outputs
 
 
 def _mp_chat_one_worker(
