@@ -2,7 +2,8 @@ sjt_base_prompt_templates = {
     "gpt": [
         {
             "role": "system",
-            "content": """Task: Answer the below multiple choice questions:""",
+            "content": """You are a law enforcement officer.
+            Task: Answer the below multiple choice questions:""",
                     },
         {
             "role": "user",
