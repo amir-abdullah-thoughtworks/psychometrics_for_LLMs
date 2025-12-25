@@ -120,7 +120,7 @@ def get_trait_scores(answer,likert_scale = generation_config['likert_scale']):
 
 
 def load_personas_to_hexaco_scores(model_name='Qwen2_5-7B-Instruct'):
-    hexaco_data = read_json(os.path.join(FACTOR_ANALYSIS_DATA_DIR, f"huggingface_sjt_answers_{model_name}.json"))
+    hexaco_data = read_json(os.path.join(FACTOR_ANALYSIS_DATA_DIR, f"huggingface_hexaco_answers_{model_name}.json"))
     hexaco_df = pd.DataFrame(
         [{"persona_id": key, "answers": hexaco_data[key]['answers'][0]} for key in hexaco_data.keys()])
 
