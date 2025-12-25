@@ -119,6 +119,20 @@ def get_trait_scores(answer,likert_scale = generation_config['likert_scale']):
     return trait_score
 
 
+def load_personas_to_hexaco_scores(model_name='Qwen2_5-7B-Instruct'):
+    hexaco_data = read_json(os.path.join(FACTOR_ANALYSIS_DATA_DIR, f"huggingface_sjt_answers_{model_name}.json"))
+    hexaco_df = pd.DataFrame(
+        [{"persona_id": key, "answers": hexaco_data[key]['answers'][0]} for key in hexaco_data.keys()])
+
+    hexaco_df = pd.DataFrame(hexaco_df['answers'].to_list(), columns=list(range(0, 100)), index=hexaco_df['persona_id'])
+
+    hexaco_trait_df = pd.DataFrame(hexaco_df.apply(lambda x: get_trait_scores(x), axis=1).to_list(),
+                                   index=hexaco_df.index, columns=trait_list)
+    return {
+        "persona_summary":hexaco_trait_df,
+        "hexaco_trait_df":  hexaco_trait_df,
+    }
+
 def load_personas_to_sjt_scores(model_name='Qwen2_5-7B-Instruct'):
     sjt_data = read_json(os.path.join(FACTOR_ANALYSIS_DATA_DIR, f"huggingface_sjt_answers_{model_name}.json"))
     sjt_answers_df = pd.DataFrame([{"persona_id": key, "answers": get_true_indices_v1(sjt_data[key])[1]} for key in sjt_data.keys()])
