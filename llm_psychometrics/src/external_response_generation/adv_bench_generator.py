@@ -118,12 +118,12 @@ class AdvBenchPromptSetGenerator(PromptSetGeneratorBase):
 class PersonaPromptRunner:
     prompt_generator: PromptSetGeneratorBase
     persona_dataset_id: str
-    persona_split: str = "restricted"
+    persona_config: str
     persona_revision: Optional[str] = None
 
     out_jsonl: Path = Path("outputs/advbench_persona_responses")
     hub_repo_id: str = "thoughtworks/psychometric_personas_responses"
-    hub_split_name: str = "advbench"
+    hub_split_name: str = "advbench_v2"
 
     model: str = "Qwen/Qwen2.5-7B-Instruct"
     max_tokens: int = 512
@@ -134,9 +134,6 @@ class PersonaPromptRunner:
     debug: bool = False
     limit_personas: int = 100
 
-    def stable_hash(self, text: str) -> str:
-        return self.prompt_generator.stable_hash(text)
-
     def _resolve_run_jsonl_path(self) -> Path:
         run_id = make_run_id()
         run_dir = self.out_jsonl
@@ -146,7 +143,7 @@ class PersonaPromptRunner:
     def load_personas(self) -> Dataset:
         ds = load_dataset(
             self.persona_dataset_id,
-            split=self.persona_split,
+            name=self.persona_config,
             revision=self.persona_revision,
         )
 
@@ -167,7 +164,7 @@ class PersonaPromptRunner:
         for persona in tqdm(persona_ds, desc="Indexing tasks", unit="persona"):
             uuid = persona["uuid"]
             persona_string = persona["persona_string"]
-            persona_hash = self.stable_hash(persona_string)
+            persona_hash = persona["persona_hash"]
             persona_details = dict(persona)
 
             for pr in prompt_rows:
@@ -235,20 +232,20 @@ class PersonaPromptRunner:
 
 
 def main():
-    debug = False
+    debug = True
 
     prompt_gen = AdvBenchPromptSetGenerator(
         source_dataset_id="walledai/AdvBench",
         source_split="train",
-        take_n=1600,
+        take_n=3200,
         debug=debug,
-        limit_personas=1600,
+        limit_personas=3200,
     )
 
     runner = PersonaPromptRunner(
         prompt_generator=prompt_gen,
         persona_dataset_id="thoughtworks/psychometric_personas",
-        persona_split="restricted",
+        persona_config="expanded",
         out_jsonl=Path("outputs/advbench_persona_responses"),
         hub_repo_id="thoughtworks/psychometric_personas_responses",
         hub_split_name="advbench",
@@ -258,7 +255,7 @@ def main():
         mp_batch_size=400,
         mp_workers=30,
         debug=debug,
-        limit_personas=1600,
+        limit_personas=3200,
     )
 
     mgr = VLLMServerManager()
