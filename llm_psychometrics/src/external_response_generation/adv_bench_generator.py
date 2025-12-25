@@ -254,9 +254,9 @@ def main():
         hub_split_name="advbench",
         model="Qwen/Qwen2.5-7B-Instruct",
         max_tokens=512,
-        temperature=0.7,
-        mp_batch_size=400,
-        mp_workers=30,
+        temperature=0,
+        mp_batch_size=800,
+        mp_workers=40,
         debug=debug,
         limit_personas=3200,
     )
