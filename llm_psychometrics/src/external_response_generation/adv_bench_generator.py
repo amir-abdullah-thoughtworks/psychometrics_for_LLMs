@@ -145,7 +145,7 @@ class PersonaPromptRunner:
             self.persona_dataset_id,
             name=self.persona_config,
             revision=self.persona_revision,
-        )
+        )['train']
 
         ds = ds.select(range(min(self.limit_personas, len(ds))))
         return ds
