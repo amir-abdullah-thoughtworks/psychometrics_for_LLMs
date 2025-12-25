@@ -2,14 +2,15 @@ from jinja2 import Template
 import os
 import sys
 import json
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from typing import List
 from datasets import load_dataset
 from huggingface_hub import login
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor
 import argparse
 sys.path.append("../")
-from src.utils_v0 import list_to_str, openai_api_call
+from src.utils_v0 import list_to_str, openai_api_call, anthropic_api_call
 from src.prompt_templates.sjt_llm_judge_templates import SJT_LLM_JUDGE_EVALUATION_WITH_SEEDS_TEMPLATE_STR, SJT_LLM_JUDGE_EVALUATION_WITHOUT_SEEDS_TEMPLATE_STR
 device = "cpu"
 
@@ -21,7 +22,7 @@ class WithSeedOutputFormat(BaseModel):
 class TraitAlignment(BaseModel):
     score: float
     justification: str
-    overlaps: list
+    overlaps: List[str]
     
 class HexacoTraits(BaseModel):
     honesty_humility: TraitAlignment
@@ -89,6 +90,8 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--sjt-source", type=str, default="huggingface",
                         help="Source of Persona (huggingface | local)")
+    parser.add_argument("--judge-model", type=str, default="openai",
+                        help="Judge Model Provider(openai | anthropic)")
     parser.add_argument("--hf-sjt-path", type=str, default="thoughtworks/psychometric_SJTs",
                         help="HF Path for SJTs")
     parser.add_argument("--local-sjt-path", type=str, default="../data/sjt_data/synthetic_generated_sjt_list_v8.1_temp_1point5_for_annotations.json",
@@ -109,7 +112,7 @@ def load_sjts(args):
         hf_sjt_dataset = load_dataset(args.hf_sjt_path)
         sjt_datasets_total = hf_sjt_dataset['train']
         total_sjt_df = sjt_datasets_total.to_pandas()
-        sampled_sjts = total_sjt_df.groupby("template_no").sample(n=args.n_sjtsample, random_state=42)
+        sampled_sjts = total_sjt_df.groupby("template_no").sample(n=args.n_sjtsample, random_state=43)
         sjt_datasets = sampled_sjts.to_dict("records")
         print(f"No of SJts: {len(sjt_datasets)}")
     elif args.sjt_source == "local":
@@ -128,21 +131,26 @@ SJT_LLM_JUDGE_EVALUATION_WITHOUT_SEEDS_TEMPLATE = Template(SJT_LLM_JUDGE_EVALUAT
 
 sjt_answer_default_order = ['honesty_humility_option', 'emotionality_option', 'extraversion_option', 'agreeableness_option', 'conscientiousness_option', 'openness_option']
 
-def sjt_with_seeds_evaluation(sjt_dict):
+def sjt_with_seeds_evaluation(sjt_dict, args):
     sjt = sjt_dict['corrected_sjt']
     config_dict = sjt_dict['config'].copy()
     config_dict['question'] = sjt['question']
     config_dict['answer_options'] = list_to_str([f"{key} : {sjt[key]}" for key in sjt_answer_default_order if  key in sjt and "_option" in key])
 
     sjt_evaluation_prompt = SJT_LLM_JUDGE_EVALUATION_WITH_SEEDS_TEMPLATE.render(config_dict)
-    openai_sjt_response = openai_api_call(prompt=sjt_evaluation_prompt, response_format=SjtLLMWithSeedsJudge ,
-                                          model="gpt-4.1", temperature=0, top_p=1, presence_penalty=0, frequency_penalty=0)
+    
+    if args.judge_model == "openai":
+        sjt_response = openai_api_call(prompt=sjt_evaluation_prompt, response_format=SjtLLMWithSeedsJudge ,
+                                            model="gpt-4.1", temperature=0, top_p=1, presence_penalty=0, frequency_penalty=0)
+    else:
+        sjt_response = anthropic_api_call(prompt=sjt_evaluation_prompt, response_format=SjtLLMWithSeedsJudge ,
+                                            model="claude-sonnet-4-5", temperature=0, top_p=1, presence_penalty=0, frequency_penalty=0)
 
-    response = openai_sjt_response.model_dump()
+    response = sjt_response.model_dump()
     # response['question_hash_id'] = sjt_dict['hash_id']
     return response
 
-def sjt_without_seeds_evaluation(sjt_dict):
+def sjt_without_seeds_evaluation(sjt_dict, args):
 
     sjt = sjt_dict['corrected_sjt']
     config_dict = {}
@@ -150,15 +158,19 @@ def sjt_without_seeds_evaluation(sjt_dict):
     config_dict['answer_options'] = list_to_str([sjt[key] for key in sjt_answer_default_order if "_option" in key])
 
     sjt_evaluation_prompt = SJT_LLM_JUDGE_EVALUATION_WITHOUT_SEEDS_TEMPLATE.render(config_dict)
-    openai_sjt_response = openai_api_call(prompt=sjt_evaluation_prompt, response_format=SjtLLMWithoutSeedsJudge ,
-                                          model="gpt-4.1", temperature=0, top_p=1, presence_penalty=0, frequency_penalty=0)
+    if args.judge_model == "openai":
+        sjt_response = openai_api_call(prompt=sjt_evaluation_prompt, response_format=SjtLLMWithoutSeedsJudge ,
+                                            model="gpt-4.1", temperature=0, top_p=1, presence_penalty=0, frequency_penalty=0)
+    else:
+        sjt_response = anthropic_api_call(prompt=sjt_evaluation_prompt, response_format=SjtLLMWithoutSeedsJudge ,
+                                            model="claude-sonnet-4-5", temperature=0, top_p=1, presence_penalty=0, frequency_penalty=0)
 
-    response = openai_sjt_response.model_dump()
+    response = sjt_response.model_dump()
     # response['question_hash_id'] = sjt_dict['hash_id']
 
     return response
 
-def sjt_llm_judge_evaluation(synthetic_sjt_list):
+def sjt_llm_judge_evaluation(synthetic_sjt_list, args):
 
     sjt_evaluation_result = {}
 
@@ -169,8 +181,8 @@ def sjt_llm_judge_evaluation(synthetic_sjt_list):
         # sjt_without_seeds_evaluation_response = sjt_without_seeds_evaluation(sjt_dict)
         
         with ThreadPoolExecutor(max_workers=2) as executor:
-            future1 = executor.submit(sjt_with_seeds_evaluation, sjt_dict)
-            future2 = executor.submit(sjt_without_seeds_evaluation, sjt_dict)
+            future1 = executor.submit(sjt_with_seeds_evaluation, sjt_dict, args)
+            future2 = executor.submit(sjt_without_seeds_evaluation, sjt_dict, args)
 
             # get results (waits for them to finish)
             sjt_with_seeds_evaluation_response = future1.result()
@@ -188,6 +200,8 @@ def sjt_llm_judge_evaluation(synthetic_sjt_list):
 if __name__ == "__main__":
     args = parse_args()
     
+    print(f"Using Judge from {args.judge_model}")
+    
     if args.hf_token:
         login(args.hf_token)
 
@@ -203,11 +217,11 @@ if __name__ == "__main__":
         
         print(f"Starting SJT evaluation for batch: {batch_idx}")
 
-        sjt_evaluation_result = sjt_llm_judge_evaluation(sjt_batch)
+        sjt_evaluation_result = sjt_llm_judge_evaluation(sjt_batch, args)
 
-        out_dir = "../data/sjt_llm_judge_evaluation"
+        out_dir = "../data/llm_judge_inter_rater_agreement"
         os.makedirs(out_dir, exist_ok=True)
-        out_file = os.path.join(out_dir, f"sjt_llmjudge_evaluation_result_temp1point5_v{batch_idx}_for_annotations.json")
+        out_file = os.path.join(out_dir, f"sjt_llmjudge_evaluation_result_openai_v{batch_idx}_for_annotations.json")
         write_to_json(sjt_evaluation_result, out_file)
         print(f"Results saved to {out_file}")
         

@@ -1,6 +1,7 @@
 import itertools
 import os
 from openai import OpenAI
+from anthropic import Anthropic
 import json
 from typing import List
 
@@ -118,6 +119,32 @@ def openai_api_call(prompt, response_format, persona_prompt="You are a helpful a
     )
     parsed = response.choices[0].message.content
     return response_format.model_validate_json(parsed)
+
+
+def anthropic_api_call(prompt, response_format, persona_prompt="You are a helpful assistant. Always respond with valid JSON. No explanations.", model="claude-sonnet-4-5",
+                    temperature=0.9, top_p=0.9, presence_penalty=0.4,
+                    frequency_penalty=0.3):
+
+    # Set your OpenAI API key
+    client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+
+    # Prepare your messages in OpenAI's chat template format
+    messages = [
+        # {"role": "system", "content": persona_prompt},
+        {"role": "user", "content": prompt}
+    ]
+
+    # Call the Chat API
+    response = client.beta.messages.parse(
+        model=model,
+        max_tokens=4096,
+        betas=["structured-outputs-2025-11-13"],
+        system=persona_prompt,
+        messages=messages,
+        output_format=response_format,
+    )
+    parsed = response.parsed_output
+    return response_format.model_validate(parsed)
 
 
 def generate_mcq_per_statement(statement, trait, persona_prompt="You are a helpful assistant. Always respond with valid JSON. No explanations.", n=10):
