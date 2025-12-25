@@ -9,10 +9,11 @@ import traceback
 from pathlib import Path
 
 from dataclasses import dataclass
-from typing import List, Optional, Literal, Tuple, Dict
+from typing import Any, Dict, List, Literal, Optional, Set, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from huggingface_hub import HfFolder
 
+import hashlib
 import pandas as pd
 import yaml
 from tqdm import tqdm
@@ -29,6 +30,8 @@ from typing import Set
 def _norm(s: Any) -> str:
     return " ".join(str(s or "").strip().lower().split())
 
+def stable_hash(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 def _load_existing_version_keys(version: str) -> Set[str]:
     """
@@ -119,7 +122,7 @@ class PersonaGenerator:
         rng_seed: Optional[int] = None,
     ):
         self.version = version
-        self.client = OpenAI(api_key=api_key)
+        self.client = OpenAI(api_key=api_key) if api_key else OpenAI()
         self.model = model
         self.temperature = temperature
         self.top_p = top_p
@@ -317,6 +320,80 @@ class PersonaGenerator:
         vec = emb_model.encode([combined], convert_to_numpy=False)[0]
         return list(map(float, vec))
 
+    @staticmethod
+    def persona_row_to_string(row: dict) -> str:
+        """
+        Convert a persona dict into a line-separated "persona_string".
+
+        - Uses a preferred key order (labels prettified).
+        - Injects presenting problems right after mood_affect.
+        - Supports BOTH:
+            * `presenting_problems: List[str]` (your current schema), and
+            * numbered keys ("1","2",...) from older datasets.
+        """
+        preferred_order = [
+            "name",
+            "age",
+            "sex",
+            "location",
+            "ethnic_background",
+            "marital_status",
+            "appearance",
+            "behavior",
+            "speech",
+            "mood_affect",
+            "educational_vocational_history",
+            "medical_developmental_history",
+            "family_history",
+            "thought_content",
+            "insight_judgment",
+            "cognition",
+            "emotional_behavioral_functioning",
+            "social_functioning",
+            "summary_of_psychological_profile",
+        ]
+
+        def pretty_label(k: str) -> str:
+            return k.replace("_", " ").strip()
+
+        def clean_value(v: Any) -> str:
+            s = str(v).strip()
+            return " ".join(s.split())
+
+        # --- presenting problems (new schema: list[str]) ---
+        presenting_lines: list[str] = []
+        probs = row.get("presenting_problems")
+
+        if isinstance(probs, list):
+            probs = [clean_value(p) for p in probs if p is not None and str(p).strip()]
+            if probs:
+                presenting_lines.append("presenting_problems:")
+                presenting_lines.extend([f"- {p}" for p in probs])
+
+        # --- presenting problems (back-compat: numbered keys) ---
+        if not presenting_lines:
+            presenting = []
+            for k, v in row.items():
+                if isinstance(k, str) and k.isdigit():
+                    if v is not None and str(v).strip():
+                        presenting.append((int(k), clean_value(v)))
+            presenting.sort(key=lambda x: x[0])
+            if presenting:
+                presenting_lines.append("presenting_problems:")
+                presenting_lines.extend([f"- {p[1]}" for p in presenting])
+
+        lines: list[str] = []
+        for k in preferred_order:
+            if k in row and row[k] is not None and str(row[k]).strip():
+                lines.append(f"{pretty_label(k)}: {clean_value(row[k])}")
+
+            # inject presenting problems right after mood_affect
+            if k == "mood_affect" and presenting_lines:
+                lines.extend(presenting_lines)
+
+        return "\n".join(lines)
+
+
     # -------- main generation (with retries) --------
     def generate_one(self, idx: int) -> Optional[BaseModel]:
         archetype_name, archetype_desc = self._pick_archetype_by_index(idx)
@@ -472,6 +549,10 @@ class PersonaGenerator:
                 out.memoir_summary = memoir_summary
                 d = out.model_dump()
                 d["uuid"] = row["uuid"]
+                persona_string = self.persona_row_to_string(d)
+                d["persona_string"] = persona_string
+                d["persona_hash"] = stable_hash(persona_string)
+
                 return d
             except Exception as e:
                 last_err = e
@@ -561,7 +642,7 @@ def run_batch(
     api_key: Optional[str] = None,
     base_seed: int = 1337,
     # HF settings
-    hf_repo_id: str = "thoughtworks/psychometric_personas",
+    hf_repo_id: str = "thoughtworks/psychometric_personas_temp",
     hf_token: Optional[str] = None,
     hf_private: bool = True,
     push_to_hub_flag: bool = True,
