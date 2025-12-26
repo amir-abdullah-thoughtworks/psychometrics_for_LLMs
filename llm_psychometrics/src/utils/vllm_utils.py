@@ -407,7 +407,8 @@ class VLLMServerManager:
             if cache_keys is None or len(cache_keys) != len(out):
                 raise ValueError("cache_keys must be provided and match prompts length when cache is enabled.")
             with Cache(cache_dir) as cache:
-                cache.set_many(dict(zip(cache_keys, out)))
+                for k, v in zip(cache_keys, out):
+                    cache[k] = v
 
         return out
 
@@ -455,8 +456,7 @@ class VLLMServerManager:
                 cached: dict[str, str] = {}
                 if cache_enabled and cache_dir:
                     with Cache(cache_dir) as cache:
-                        # get_many expects iterable of keys; returns dict of hits
-                        cached = cache.get_many(chunk_keys)
+                        cached = {k: cache[k] for k in chunk_keys if k in cache}
 
                 chunk_out: List[Optional[str]] = [None] * len(chunk)
 
