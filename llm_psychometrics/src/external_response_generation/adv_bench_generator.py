@@ -118,12 +118,12 @@ class AdvBenchPromptSetGenerator(PromptSetGeneratorBase):
 class PersonaPromptRunner:
     prompt_generator: PromptSetGeneratorBase
     persona_dataset_id: str
-    persona_split: str = "restricted"
+    persona_config: str
     persona_revision: Optional[str] = None
 
     out_jsonl: Path = Path("outputs/advbench_persona_responses")
     hub_repo_id: str = "thoughtworks/psychometric_personas_responses"
-    hub_split_name: str = "advbench"
+    hub_split_name: str = "advbench_v2"
 
     model: str = "Qwen/Qwen2.5-7B-Instruct"
     max_tokens: int = 512
@@ -134,9 +134,6 @@ class PersonaPromptRunner:
     debug: bool = False
     limit_personas: int = 100
 
-    def stable_hash(self, text: str) -> str:
-        return self.prompt_generator.stable_hash(text)
-
     def _resolve_run_jsonl_path(self) -> Path:
         run_id = make_run_id()
         run_dir = self.out_jsonl
@@ -146,9 +143,9 @@ class PersonaPromptRunner:
     def load_personas(self) -> Dataset:
         ds = load_dataset(
             self.persona_dataset_id,
-            split=self.persona_split,
+            name=self.persona_config,
             revision=self.persona_revision,
-        )
+        )['train']
 
         ds = ds.select(range(min(self.limit_personas, len(ds))))
         return ds
@@ -167,7 +164,7 @@ class PersonaPromptRunner:
         for persona in tqdm(persona_ds, desc="Indexing tasks", unit="persona"):
             uuid = persona["uuid"]
             persona_string = persona["persona_string"]
-            persona_hash = self.stable_hash(persona_string)
+            persona_hash = persona["persona_hash"]
             persona_details = dict(persona)
 
             for pr in prompt_rows:
@@ -191,13 +188,15 @@ class PersonaPromptRunner:
         if not tasks:
             return jsonl_path
 
-        prompts_text = [
+        persona_formatted_prompts = [
             self.prompt_generator.format_prompt(t["persona_string"], t["prompt_row"])
             for t in tasks
         ]
 
+        print(f"Sending {len(persona_formatted_prompts)} prompts to vllm")
+
         outputs = mgr.vllm_chat_batched(
-            prompts=prompts_text,
+            prompts=persona_formatted_prompts,
             model=self.model,
             max_tokens=self.max_tokens,
             temperature=self.temperature,
@@ -207,7 +206,7 @@ class PersonaPromptRunner:
 
         with jsonl_path.open("a", encoding="utf-8") as out_f:
             with tqdm(total=len(tasks), desc="Writing JSONL", unit="row") as pbar:
-                for t, completion in zip(tasks, outputs):
+                for t, persona_formatted_prompt, completion in zip(tasks, persona_formatted_prompts, outputs):
                     pr = t["prompt_row"]
                     record = {
                         "run_id": jsonl_path.stem,
@@ -221,6 +220,7 @@ class PersonaPromptRunner:
                         "source_fingerprint": self.prompt_generator.source_fingerprint,
                         "response": completion,
                         "model": self.model,
+                        "formatted_prompt": persona_formatted_prompt,
                         "persona_details": t["persona_details"],
                         **pr,
                     }
@@ -235,30 +235,30 @@ class PersonaPromptRunner:
 
 
 def main():
-    debug = False
+    debug = True
 
     prompt_gen = AdvBenchPromptSetGenerator(
         source_dataset_id="walledai/AdvBench",
         source_split="train",
-        take_n=1600,
+        take_n=3200,
         debug=debug,
-        limit_personas=1600,
+        limit_personas=3200,
     )
 
     runner = PersonaPromptRunner(
         prompt_generator=prompt_gen,
         persona_dataset_id="thoughtworks/psychometric_personas",
-        persona_split="restricted",
+        persona_config="expanded",
         out_jsonl=Path("outputs/advbench_persona_responses"),
         hub_repo_id="thoughtworks/psychometric_personas_responses",
         hub_split_name="advbench",
         model="Qwen/Qwen2.5-7B-Instruct",
         max_tokens=512,
-        temperature=0.7,
-        mp_batch_size=400,
-        mp_workers=30,
+        temperature=0,
+        mp_batch_size=800,
+        mp_workers=40,
         debug=debug,
-        limit_personas=1600,
+        limit_personas=3200,
     )
 
     mgr = VLLMServerManager()
