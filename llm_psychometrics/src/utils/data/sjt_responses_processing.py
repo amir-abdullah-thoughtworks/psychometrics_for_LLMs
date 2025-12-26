@@ -143,4 +143,3 @@ def load_personas_to_sjt_scores(model_name='Qwen2_5-7B-Instruct'):
         "indexed_df":  sjt_indexed_df,
         "answers_df": sjt_answers_df
     }
-        
