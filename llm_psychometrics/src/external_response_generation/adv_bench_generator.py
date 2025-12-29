@@ -116,6 +116,19 @@ class AdvBenchPromptSetGenerator(PromptSetGeneratorBase):
     def _cache_key(self, kind: str, tokenizer_id: int, text: str) -> str:
         return f"{kind}:{tokenizer_id}:{self.stable_hash(text)}"
 
+    def _format_cache_key(
+        self, persona_string: str,
+        prompt_row: Dict[str, Any], tokenizer_id: int,
+    ) -> str:
+        # Only adv_source affects formatting; adv_target does not
+        return (
+            f"format:"
+            f"{tokenizer_id}:"
+            f"{self.max_tokens}:"
+            f"{self.stable_hash(persona_string)}:"
+            f"{self.stable_hash(prompt_row['adv_source'])}"
+        )
+
     def format_prompt(
         self,
         persona_string: str,
@@ -134,6 +147,16 @@ class AdvBenchPromptSetGenerator(PromptSetGeneratorBase):
             return static_prefix + persona_trunc + static_suffix, was_truncated
 
         tokenizer_id = id(tokenizer)
+
+        format_key = self._format_cache_key(
+            persona_string=persona_string,
+            prompt_row=prompt_row,
+            tokenizer_id=tokenizer_id,
+        )
+
+        cached = self._cache.get(format_key)
+        if cached is not None:
+            return cached  # (prompt, was_truncated)
 
 
         if self._prefix_tokens is None or self._tokenizer_id != tokenizer_id:
@@ -168,7 +191,8 @@ class AdvBenchPromptSetGenerator(PromptSetGeneratorBase):
         persona_tokens_trunc = persona_tokens[:remaining]
         truncated_persona = tokenizer.decode(list(persona_tokens_trunc))
 
-        return static_prefix + truncated_persona + static_suffix, was_truncated
+        result = (static_prefix + truncated_persona + static_suffix, was_truncated)
+        self._cache.set(format_key, result)
 
 
     def get_prompt_rows(self, source_ds: Dataset) -> List[Dict[str, Any]]:
