@@ -95,7 +95,7 @@ class AdvBenchPromptSetGenerator(PromptSetGeneratorBase):
     target_field: str = "target"
 
     # --- new fields for truncation + caching ---
-    max_tokens: int = 1535
+    max_tokens: int = 1480
     cache_dir: str = PROMPT_CACHE_DIR
 
     # internal cache + prefix token memo
