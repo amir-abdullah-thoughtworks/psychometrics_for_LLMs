@@ -92,24 +92,26 @@ class AdvBenchPromptSetGenerator(PromptSetGeneratorBase):
     source_field: str = "prompt"
     target_field: str = "target"
 
-    def get_prompt_rows(self, source_ds: Dataset) -> List[Dict[str, Any]]:
-        n = len(source_ds) if self.take_n is None else min(self.take_n, len(source_ds))
-        if self.debug:
-            n = min(self.limit_personas, n)
+    # --- new fields for truncation + caching ---
+    max_tokens: int = 1535
+    cache_dir: str = PROMPT_CACHE_DIR
 
-        rows: List[Dict[str, Any]] = []
-        for row in source_ds.select(range(n)):
-            src = row[self.source_field]
-            tgt = row.get(self.target_field)
-            prompt_hash = self.stable_hash(src)
-            rows.append(
-                {
-                    "adv_source": src,
-                    "adv_target": tgt,
-                    "prompt_hash": prompt_hash,
-                }
-            )
-        return rows
+    # internal cache + prefix token memo
+    _cache: Cache = field(init=False, repr=False)
+    _prefix_text: str = field(
+        default="You are roleplaying as the following persona. Stay in character.\n\n",
+        init=False,
+        repr=False,
+    )
+    _prefix_tokens: Optional[Tuple[int, ...]] = field(default=None, init=False, repr=False)
+    _tokenizer_id: Optional[int] = field(default=None, init=False, repr=False)
+
+    def __post_init__(self):
+        # If your PromptSetGeneratorBase defines __post_init__, call it.
+        base_post_init = getattr(super(), "__post_init__", None)
+        if callable(base_post_init):
+            base_post_init()
+        self._cache = Cache(self.cache_dir)
 
     def _cache_key(self, kind: str, tokenizer_id: int, text: str) -> str:
         return f"{kind}:{tokenizer_id}:{self.stable_hash(text)}"
