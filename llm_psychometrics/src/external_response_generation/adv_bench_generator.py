@@ -15,6 +15,8 @@ from utils.vllm_utils import VLLMServerManager
 from diskcache import Cache
 import os
 
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 PROMPT_CACHE_DIR = os.path.abspath("./PROMPT_CACHE_DIR")
 
 
@@ -148,6 +150,7 @@ class AdvBenchPromptSetGenerator(PromptSetGeneratorBase):
 
         tokenizer_id = id(tokenizer)
 
+        """
         format_key = self._format_cache_key(
             persona_string=persona_string,
             prompt_row=prompt_row,
@@ -157,7 +160,7 @@ class AdvBenchPromptSetGenerator(PromptSetGeneratorBase):
         cached = self._cache.get(format_key)
         if cached is not None:
             return cached  # (prompt, was_truncated)
-
+        """
 
         if self._prefix_tokens is None or self._tokenizer_id != tokenizer_id:
             self._prefix_tokens = tuple(
@@ -192,7 +195,7 @@ class AdvBenchPromptSetGenerator(PromptSetGeneratorBase):
         truncated_persona = tokenizer.decode(list(persona_tokens_trunc))
 
         result = (static_prefix + truncated_persona + static_suffix, was_truncated)
-        self._cache.set(format_key, result)
+        # self._cache.set(format_key, result)
         return result
 
 
