@@ -193,6 +193,7 @@ class AdvBenchPromptSetGenerator(PromptSetGeneratorBase):
 
         result = (static_prefix + truncated_persona + static_suffix, was_truncated)
         self._cache.set(format_key, result)
+        return result
 
 
     def get_prompt_rows(self, source_ds: Dataset) -> List[Dict[str, Any]]:
