@@ -21,8 +21,6 @@ from src.utils.vllm_utils import VLLMServerManager
 from src.prompt_templates.hexaco_base_prompt_templates import hexaco_base_prompt_templates
 from src.prompt_templates.hexaco_persona_prompt_templates import hexaco_persona_prompt_templates
 
-import psutil
-
 vllm_client = OpenAI(
         base_url="http://127.0.0.1:8000/v1",
         api_key="-",
@@ -401,7 +399,8 @@ if __name__ == "__main__":
 
     # Save results
     model_name = args.model_name.replace(".", "_").split("/")[-1]
-    # out_dir = "../experiment_results/zero_compute_analysis_hexaco"
+
+    out_dir = "../experiment_results/zero_compute_analysis_hexaco"
     os.makedirs(out_dir, exist_ok=True)
     out_file = os.path.join(args.out_dir, f"{args.persona_source}_hexaco_answers_{model_name}.json")
     write_to_json(results, out_file)
