@@ -60,7 +60,7 @@ DEFAULT_CACHE_DIR = str(REPO_ROOT / ".cache_british_parliament_seeds")
 # ---------------------------
 
 DEFAULT_MODEL = "gpt-4o"
-DEFAULT_TEMPERATURE = 2.0
+DEFAULT_TEMPERATURE = 1.0
 DEFAULT_TOP_P = 0.98
 DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
 
@@ -314,6 +314,10 @@ Parties (include all of them with numeric values):
   {PARTIES}
 
 - rationale: 1–3 sentences explaining why the per-party prevalences look like that.
+  Rationale must be 2–3 plain-English sentences.
+  Avoid abstract nouns (e.g., “framework”, “orientation”, “platform”, “dynamic”).
+  Explain differences between parties concretely.
+
 
 Notes:
 - These are plausible priors, not polling.
@@ -327,7 +331,7 @@ def openai_expand_policy_debates_looped(
     model: str,
     seed_debates: List[Dict[str, Any]],
     *,
-    temperature: float = 2.0,
+    temperature: float = 1.0,
     top_p: float = 0.98,
     calls_pbar: Optional[tqdm] = None,
     spinner: bool = True,
@@ -447,7 +451,7 @@ def openai_expand_options_fill(
     min_items: int,
     sim_threshold: float = 0.88,
     max_rounds: int = 4,
-    oversample_factor: float = 2.0,
+    oversample_factor: float = 1.0,
     fill_prompt_fn: Callable[[str, str, int, List[str]], str],
     category_name: str,
     category_description: str,
@@ -886,7 +890,7 @@ def parse_args() -> Args:
     p.add_argument("--no-expand-traits", action="store_true", help="Do not expand AdditionalTraits.")
     p.add_argument("--no-expand-persona-core", action="store_true", help="Do not expand PersonaCore.")
     p.add_argument("--no-expand-policy-debates", action="store_true", help="Do not expand PolicyDebates.")
-    p.add_argument("--temperature", type=float, default=DEFAULT_TEMPERATURE, help="Temperature (default 2.0).")
+    p.add_argument("--temperature", type=float, default=DEFAULT_TEMPERATURE, help="Temperature (default 1.0).")
     p.add_argument("--top-p", type=float, default=DEFAULT_TOP_P, help="top_p (default 0.98).")
     p.add_argument("--embedding-model", default=DEFAULT_EMBEDDING_MODEL, help="Embedding model for semantic dedup.")
     ns = p.parse_args()
@@ -928,7 +932,7 @@ def main() -> None:
         cache=cache,
         guard=guard,
         model=args.model,
-        temperature=args.temperature,     # you wanted 2.0 everywhere; default is 2.0
+        temperature=args.temperature,     # you wanted 1.0 everywhere; default is 1.0
         top_p=args.top_p,                 # default 0.98
         embedding_model=args.embedding_model,
         use_openai=use_openai,

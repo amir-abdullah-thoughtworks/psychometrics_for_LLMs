@@ -165,7 +165,8 @@ class PersonaGenerator:
         self._arch_offset = self._rng.randrange(len(self.archetypes))
         self._mem_offset = self._rng.randrange(len(self.memoir_titles))
     
-        required = {"sex", "age", "city", "state", "first_name", "last_name", "education_level", "marital_status"}
+        required = {"sex", "age", "city", "state", "first_name", "last_name", "education_level",
+                    "marital_status","ethnic_background"}
         miss = required - set(self.df.columns)
         if miss:
             raise ValueError(f"Missing required columns in CSV: {sorted(miss)}")

@@ -153,7 +153,7 @@ class HexacoResponseRunner:
         parser.add_argument("--paraphrase", action="store_true", help="Use paraphrased HEXACO questions")
         parser.add_argument("--inverted-likert", action="store_true", help="Invert Likert scale")
         parser.add_argument("--no-refusal", action="store_true", help="Disallow refusal option")
-        parser.add_argument("--likert-shuffle", action="store_true", help="Shuffle likert scale per answer (iid)")
+        parser.add_argument("--likert-shuffle", action="store_false", help="Shuffle likert scale per answer (iid)")
 
         # batching (kept to match old interface; we still do one question per prompt)
         parser.add_argument("--batching", action="store_true")
