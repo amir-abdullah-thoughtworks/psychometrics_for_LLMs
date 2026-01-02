@@ -234,27 +234,19 @@ def _extract_regions(root: dict) -> List[Tuple[str, float, str]]:
 
 
 def _extract_parliamentary_styles(root: dict) -> List[str]:
-    # Common patterns: list, or {items:[{value:...},...]}
-    for key in ["ParliamentaryStyles", "parliamentary_styles"]:
-        raw = root.get(key)
-        if isinstance(raw, list):
-            vals = [str(x).strip() for x in raw if str(x).strip()]
-            if vals:
-                return vals
+    # Common patterns: list, or {items:[{value:...},...]}:
+    raw_block = root["ParliamentaryStyle"]  # must exist
+    raw_styles = raw_block["items"]  # must exist
 
-    ps = root.get("ParliamentaryStyle") or root.get("parliamentary_style") or {}
-    if isinstance(ps, dict) and isinstance(ps.get("items"), list):
-        vals = []
-        for it in ps["items"]:
-            if isinstance(it, dict) and it.get("value"):
-                vals.append(str(it["value"]).strip())
-            else:
-                vals.append(str(it).strip())
-        vals = [v for v in vals if v]
-        if vals:
-            return vals
+    if not isinstance(raw_styles, list) or not raw_styles:
+        raise ValueError("Parliamentary styles missing/empty in seeds YAML")
 
-    raise ValueError("Parliamentary styles missing/empty in seeds YAML")
+    parliamentary_styles: List[dict] = [
+        s if isinstance(s, dict) else {"value": str(s)}
+        for s in raw_styles
+    ]
+
+    return parliamentary_styles
 
 
 def _extract_media_dispositions(root: dict) -> List[str]:
