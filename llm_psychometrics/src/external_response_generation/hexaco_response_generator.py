@@ -52,7 +52,7 @@ ROOT_DIR = THIS_FILE.parents[3]  # hexaco_response_generator -> external_respons
 DATA_DIR = ROOT_DIR / "data"
 PSYCHOMETRIC_DIR = ROOT_DIR / "psychometric_tests"
 SRC_DIR = ROOT_DIR / "src"
-CONFIGS_DIR = SRC_DIR / "configs"
+CONFIGS_DIR = ROOT_DIR / "configs"
 
 # Ensure imports work no matter where script is run from
 if str(SRC_DIR) not in sys.path:
