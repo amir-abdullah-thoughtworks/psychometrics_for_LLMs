@@ -90,16 +90,31 @@ class Demographics:
 # Seed extraction helpers (robust to slight schema drift)
 # ----------------------------
 def _get_root_seed_obj(data: dict) -> dict:
-    # Most of your seeds use a named root; fall back to the file root if absent.
+    """
+    Many of our seed YAMLs wrap the real payload under a single top-level key, e.g.
+    BritishParliamentPersonaSeeds: {...}
+    """
+    # 1) Known wrappers
     for k in [
+        "BritishParliamentPersonaSeeds",
         "ParliamentarianPersonaSeeds",
         "ParliamentPersonaSeeds",
         "ParliamentarianSeeds",
         "ParliamentSeeds",
     ]:
-        if isinstance(data.get(k), dict):
-            return data[k]
+        v = data.get(k)
+        if isinstance(v, dict):
+            return v
+
+    # 2) If there's exactly one top-level dict key and its value is a dict, treat that as root
+    if isinstance(data, dict) and len(data) == 1:
+        only_val = next(iter(data.values()))
+        if isinstance(only_val, dict):
+            return only_val
+
+    # 3) Fall back
     return data
+
 
 def _extract_memoirs(root: dict) -> Tuple[List[str], Dict[str, str]]:
     """
