@@ -494,7 +494,7 @@ class HexacoResponseRunner:
                 # safe fallback
                 personas_iter = list(personas_iter)[:10]
 
-        print(f"Processing {len(personas_iter)} personas").
+        print(f"Processing {len(personas_iter)} personas")
 
         if self.args.likert_shuffle:
             print("Shuffling likert scale for every question (iid per answer)")
