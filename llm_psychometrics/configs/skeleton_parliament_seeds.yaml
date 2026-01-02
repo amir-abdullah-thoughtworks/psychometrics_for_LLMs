@@ -369,7 +369,7 @@ BritishParliamentPersonaSeeds:
   GeneratorConfig:
     explanation: "Parameters your Python script can load rather than hard-coding."
     model: "gpt-4o"
-    temperature: 2.0
+    temperature: 1.0
     top_p: 0.98
     embedding_model: "text-embedding-3-small"
     semantic_dedup:
