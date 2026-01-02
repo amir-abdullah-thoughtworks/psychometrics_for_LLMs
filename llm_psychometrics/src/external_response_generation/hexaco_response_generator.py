@@ -1,37 +1,24 @@
 """
 vLLM-only, class-based HEXACO response generator (single consolidated file).
 
-What this refactor does:
-- Removes OpenAI + transformers usage (vLLM only).
-- Does NOT start/boot/kill any vLLM server.
-- Uses an externally created VLLMServerManager passed from main().
-- Uses mgr.vllm_chat_batched(prompts=..., guided_choices=...) with per-prompt constraints.
-- Fresh Likert shuffle per answer when --likert-shuffle is enabled (iid per question).
-- Stores:
-  - persona_hash = SHA256(persona_string)
-  - raw_prompts (exact strings sent to vLLM)
-  - guided_choices (exact constraints per prompt)
-  - likert_orders (the exact likert option ordering used per prompt)
-  - answers
-  - metadata: paraphrase flag, likert mode, refusal allowed, model name
+Repo layout (given):
+root/
+  configs/
+  data/
+  src/
+    external_response_generation/
+      hexaco_response_generator/   <-- this file lives here
+  psychometric_tests/
 
-Assumptions:
-- VLLMServerManager.vllm_chat_batched signature is:
-    def vllm_chat_batched(
-        self,
-        prompts: List[str],
-        guided_choices=None,
-        model: str = "...",
-        max_tokens: int = 128,
-        temperature: float = 0.0,
-        batch_size: int = 100,
-        num_workers: int = 100,
-        max_retries: int = 3,
-        retry_backoff_s: float = 0.1,
-    )
-
-- It returns list[str] OR list[dict] with "text" fields (handled).
-
+This version:
+- Resolves paths relative to *this file* (not CWD).
+- Uses ROOT_DIR = 3 levels up from this file (hexaco_response_generator -> external_response_generation -> src -> root).
+- Loads from:
+    ROOT_DIR/configs/...
+    ROOT_DIR/data/...
+    ROOT_DIR/psychometric_tests/...
+- Keeps your existing imports, but makes them robust by inserting ROOT_DIR/src into sys.path
+  so `utils_v0`, `utils.vllm_utils`, `prompt_templates...` can be imported regardless of where you run from.
 """
 
 from __future__ import annotations
@@ -41,6 +28,8 @@ import hashlib
 import json
 import os
 import random
+import sys
+from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 import yaml
@@ -49,12 +38,28 @@ from jinja2 import Template
 from pydantic import BaseModel
 from tqdm import tqdm
 
-# Custom imports (keep relative paths consistent with your repo structure)
-from utils_v0 import inverse_likert
-from utils.vllm_utils import VLLMServerManager
-from prompt_templates.hexaco_base_prompt_templates import hexaco_base_prompt_templates
-from prompt_templates.hexaco_persona_prompt_templates import hexaco_persona_prompt_templates
+# =========================
+# Path resolution (relative to this file)
+# =========================
 
+THIS_FILE = Path(__file__).resolve()
+# this file is at: root/src/external_response_generation/hexaco_response_generator/<file>.py
+ROOT_DIR = THIS_FILE.parents[3]  # hexaco_response_generator -> external_response_generation -> src -> root
+
+CONFIGS_DIR = ROOT_DIR / "configs"
+DATA_DIR = ROOT_DIR / "data"
+PSYCHOMETRIC_DIR = ROOT_DIR / "psychometric_tests"
+SRC_DIR = ROOT_DIR / "src"
+
+# Ensure imports work no matter where script is run from
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+# Custom imports (these live under root/src)
+from utils_v0 import inverse_likert  # type: ignore
+from utils.vllm_utils import VLLMServerManager  # type: ignore
+from prompt_templates.hexaco_base_prompt_templates import hexaco_base_prompt_templates  # type: ignore
+from prompt_templates.hexaco_persona_prompt_templates import hexaco_persona_prompt_templates  # type: ignore
 
 NO_ANSWER = "Do not wish to answer"
 
@@ -62,7 +67,6 @@ NO_ANSWER = "Do not wish to answer"
 # =========================
 # Pydantic output schema
 # =========================
-
 class HexacoRunConfig(BaseModel):
     persona: str
     persona_hash: Optional[str]  # SHA256(persona_string), None for base_model
@@ -100,7 +104,6 @@ class HexacoExperimentResults(BaseModel):
 # =========================
 # Runner
 # =========================
-
 class HexacoResponseRunner:
     def __init__(self, args: argparse.Namespace, mgr: VLLMServerManager):
         self.args = args
@@ -155,7 +158,8 @@ class HexacoResponseRunner:
 
         parser.add_argument("--n-times", type=int, default=1)
 
-        parser.add_argument("--out-dir", type=str, default=".")
+        # Outdir default: repo-root/outputs (safe and consistent)
+        parser.add_argument("--out-dir", type=str, default=str(ROOT_DIR / "outputs"))
 
         # vLLM generation params
         parser.add_argument("--max-tokens", type=int, default=16)
@@ -181,19 +185,21 @@ class HexacoResponseRunner:
     # ----------------------------
     @staticmethod
     def _write_json(obj: Dict[str, Any], file_path: str) -> None:
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(obj, f, indent=2)
+        p = Path(file_path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        with p.open("w", encoding="utf-8") as f:
+            json.dump(obj, f, indent=2, ensure_ascii=False)
 
     @staticmethod
-    def _read_json(file_path: str) -> Any:
-        with open(file_path, "r", encoding="utf-8") as f:
+    def _read_json(file_path: Union[str, Path]) -> Any:
+        p = Path(file_path)
+        with p.open("r", encoding="utf-8") as f:
             return json.load(f)
 
     @staticmethod
     def _batch_list(lst: List[Any], n: int):
         for i in range(0, len(lst), n):
-            yield lst[i : i + n]
+            yield lst[i: i + n]
 
     # ----------------------------
     # Templates
@@ -214,9 +220,6 @@ class HexacoResponseRunner:
 
     @staticmethod
     def messages_to_prompt_text(messages: List[Dict[str, str]]) -> str:
-        """
-        Linearize messages to a single plain text prompt (stored for audit).
-        """
         lines: List[str] = []
         for m in messages:
             role = m.get("role", "user")
@@ -226,16 +229,20 @@ class HexacoResponseRunner:
         return "\n\n".join(lines)
 
     # ----------------------------
-    # Data loading
+    # Data loading (NOW PATH-ROBUST)
     # ----------------------------
     def load_questions_and_likert(self) -> Tuple[List[str], List[str]]:
-        with open("../configs/generation_config.yaml", "r", encoding="utf-8") as f:
+        gen_cfg_path = CONFIGS_DIR / "generation_config.yaml"
+        q_path = PSYCHOMETRIC_DIR / "hexaco_100_questions.yaml"
+        q_para_path = PSYCHOMETRIC_DIR / "paraphrased_hexaco_100_questions.yaml"
+
+        with gen_cfg_path.open("r", encoding="utf-8") as f:
             generation_config = yaml.safe_load(f)
 
-        with open("../psychometric_tests/hexaco_100_questions.yaml", "r", encoding="utf-8") as f:
+        with q_path.open("r", encoding="utf-8") as f:
             question_list = yaml.safe_load(f)
 
-        with open("../psychometric_tests/paraphrased_hexaco_100_questions.yaml", "r", encoding="utf-8") as f:
+        with q_para_path.open("r", encoding="utf-8") as f:
             paraphrased_question_list = yaml.safe_load(f)
 
         # Likert scale
@@ -258,7 +265,6 @@ class HexacoResponseRunner:
         else:
             print("Using Normal Questions")
 
-        # Ensure it's a list[str]; YAML might load as list already, but be safe.
         if not isinstance(question_list, list):
             raise ValueError("Expected question_list to be a list loaded from YAML.")
         if not isinstance(likert_scale, list):
@@ -274,12 +280,17 @@ class HexacoResponseRunner:
             hf_persona_dataset = load_dataset(self.args.hf_persona_path, name=hf_config)
 
             persona_datasets_total = hf_persona_dataset["train"]
-            print(f"Loaded {len(persona_datasets_total)} Personas from {self.args.hf_persona_path} and config {hf_config}")
+            print(
+                f"Loaded {len(persona_datasets_total)} Personas from {self.args.hf_persona_path} and config {hf_config}"
+            )
             return persona_datasets_total
 
         if self.args.persona_source == "personallm_paper":
             print("Using Persona LLM Paper Personas")
-            persona_datasets_total = self._read_json("../data/persona_llm_paper_seed_combinations.json")
+            # NOW: root-relative path
+            paper_json = DATA_DIR / "persona_llm_paper_seed_combinations.json"
+            persona_datasets_total = self._read_json(paper_json)
+
             random.seed(42)
             persona_datasets = random.sample(persona_datasets_total, self.args.n_personasample)
             print(f"No of Personas: {len(persona_datasets)}")
@@ -290,7 +301,9 @@ class HexacoResponseRunner:
 
         # local YAML personas
         print("Using Local Personas")
-        with open("../configs/personas_v2.yaml", "r", encoding="utf-8") as f:
+        # NOW: root-relative path
+        local_yaml = CONFIGS_DIR / "personas_v2.yaml"
+        with local_yaml.open("r", encoding="utf-8") as f:
             local_personas = yaml.safe_load(f)
 
         job_title = "law_enforcement"
@@ -313,12 +326,6 @@ class HexacoResponseRunner:
 
     @staticmethod
     def _normalize_answer(text: str, options: List[str]) -> str:
-        """
-        Guided decoding should already constrain outputs, but be defensive:
-        - exact match
-        - case-insensitive match
-        - otherwise return stripped text
-        """
         t = (text or "").strip()
         if t in options:
             return t
@@ -356,18 +363,11 @@ class HexacoResponseRunner:
         persona_str: Optional[str],
         likert_shuffle: bool,
     ) -> Tuple[List[str], List[List[str]], List[List[str]]]:
-        """
-        Returns:
-          prompts_text: list[str]
-          guided_choices_list: list[list[str]]  (one set of allowed outputs per prompt)
-          likert_orders_list: list[list[str]]   (the exact likert ordering shown per prompt)
-        """
         prompts_text: List[str] = []
         guided_choices_list: List[List[str]] = []
         likert_orders_list: List[List[str]] = []
 
         for q in question_batch:
-            # Fresh iid shuffle PER ANSWER (on a copy)
             likert = base_likert_scale[:]  # copy
             if likert_shuffle:
                 random.shuffle(likert)
@@ -381,8 +381,8 @@ class HexacoResponseRunner:
             prompt = self.messages_to_prompt_text(messages)
 
             prompts_text.append(prompt)
-            guided_choices_list.append(likert)     # constrain decoding to what's shown
-            likert_orders_list.append(likert)      # store ordering for audit
+            guided_choices_list.append(likert)
+            likert_orders_list.append(likert)
 
         return prompts_text, guided_choices_list, likert_orders_list
 
@@ -400,10 +400,9 @@ class HexacoResponseRunner:
 
         results: Dict[str, HexacoRunResult] = {}
 
-        # Select template + persona list
         if persona_datasets is None:
             print("Running HEXACO on Base Model without Personas")
-            personas_iter = [{"uuid": "base_model", "persona_string": ""}]
+            personas_iter = [{"uuid": "base_model", "persona_string": "", "persona_hash": None}]
             hexaco_template = self.base_hexaco_template
         else:
             print("Running HEXACO with Personas")
@@ -428,7 +427,7 @@ class HexacoResponseRunner:
         for persona in tqdm(personas_iter, desc="Personas"):
             persona_str = persona["persona_string"]
             persona_id = persona.get("uuid", "base_model")
-            persona_hash = None if persona_id == "base_model" else persona["persona_hash"]
+            persona_hash = None if persona_id == "base_model" else persona.get("persona_hash")
 
             repeated_answers: List[List[str]] = []
             repeated_raw_prompts: List[List[str]] = []
@@ -441,7 +440,7 @@ class HexacoResponseRunner:
                 all_likert_orders: List[List[str]] = []
 
                 for q_batch in tqdm(self._batch_list(question_list, self.args.batch_size), desc="Batches"):
-                    prompts_text, guided_choices_list_of_lists, likert_orders_list_of_lists = self.build_prompts_for_questions(
+                    prompts_text, guided_choices_list, likert_orders_list = self.build_prompts_for_questions(
                         hexaco_template=hexaco_template,
                         question_batch=q_batch,
                         base_likert_scale=base_likert_scale,
@@ -449,8 +448,8 @@ class HexacoResponseRunner:
                         likert_shuffle=self.args.likert_shuffle,
                     )
                     all_prompts.extend(prompts_text)
-                    all_guided.extend(guided_choices_list_of_lists)
-                    all_likert_orders.extend(likert_orders_list_of_lists)
+                    all_guided.extend(guided_choices_list)
+                    all_likert_orders.extend(likert_orders_list)
 
                 print(f"Passing {len(all_prompts)} prompts and {len(all_guided)} guided choices.")
                 raw_texts = self.vllm_generate_batched(all_prompts, guided_choices=all_guided)
@@ -480,6 +479,7 @@ class HexacoResponseRunner:
     # Orchestrate
     # ----------------------------
     def run(self) -> str:
+        print(f"Repo root: {ROOT_DIR}")
         print(f"Model Used: {self.model}")
         print(f"Writing Output in: {self.args.out_dir}")
 
@@ -494,16 +494,15 @@ class HexacoResponseRunner:
         )
 
         model_name_safe = self.model.replace(".", "_").split("/")[-1]
-        out_file = os.path.join(self.args.out_dir, f"{self.args.persona_source}_hexaco_answers_{model_name_safe}.json")
-        self._write_json(results.to_jsonable(), out_file)
+        out_file = Path(self.args.out_dir) / f"{self.args.persona_source}_hexaco_answers_{model_name_safe}.json"
+        self._write_json(results.to_jsonable(), str(out_file))
         print(f"Results saved to {out_file}")
-        return out_file
+        return str(out_file)
 
 
 # =========================
 # Main (manager created here; does NOT start server)
 # =========================
-
 def main():
     args = HexacoResponseRunner.parse_args()
 
