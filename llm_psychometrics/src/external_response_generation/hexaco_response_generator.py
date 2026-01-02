@@ -193,7 +193,7 @@ class HexacoResponseRunner:
 
         parser.add_argument(
             "--hub-repo", type=str,
-            default="thoughts/psychometric_test_responses",
+            default="thoughtworks/psychometric_test_responses",
             help="HF dataset repo to push to.",
         )
 
@@ -539,7 +539,6 @@ class HexacoResponseRunner:
                     all_guided.extend(guided_choices_list)
                     all_likert_orders.extend(likert_orders_list)
 
-                print(f"Passing {len(all_prompts)} prompts and {len(all_guided)} guided choices.")
                 raw_texts = self.vllm_generate_batched(all_prompts, guided_choices=all_guided)
                 answers = [self._normalize_answer(t, opts) for t, opts in zip(raw_texts, all_guided)]
 
