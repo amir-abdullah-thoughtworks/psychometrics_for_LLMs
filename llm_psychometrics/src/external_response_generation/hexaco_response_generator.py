@@ -37,7 +37,7 @@ from datasets import Dataset, load_dataset, DatasetDict
 from datetime import datetime, timezone
 import json
 from jinja2 import Template
-from pydantic import BaseModel
+from pydantic import BaseModel, RootModel
 from tqdm import tqdm
 
 # =========================
@@ -93,14 +93,14 @@ class HexacoRunResult(BaseModel):
     answers: List[List[str]]
 
 
-class HexacoExperimentResults(BaseModel):
+class HexacoExperimentResults(RootModel[Dict[str, HexacoRunResult]]):
     """
     persona_uuid (or 'base_model') -> HexacoRunResult
     """
-    __root__: Dict[str, HexacoRunResult]
-
     def to_jsonable(self) -> Dict[str, Any]:
-        return {k: v.model_dump() for k, v in self.__root__.items()}
+        # RootModel stores data in .root
+        return {k: v.model_dump() for k, v in self.root.items()}
+
 
 
 # =========================
@@ -389,7 +389,7 @@ class HexacoResponseRunner:
         rows: List[Dict[str, Any]] = []
         now_iso = datetime.now(timezone.utc).isoformat()
 
-        for persona_id, run_result in results.__root__.items():
+        for persona_id, run_result in results.root.items():
             cfg = run_result.config
 
             rows.append(
@@ -560,7 +560,7 @@ class HexacoResponseRunner:
             )
             results[persona_id] = HexacoRunResult(config=cfg, answers=repeated_answers)
 
-        return HexacoExperimentResults(__root__=results)
+        return HexacoExperimentResults(results)
 
     # ----------------------------
     # Orchestrate
