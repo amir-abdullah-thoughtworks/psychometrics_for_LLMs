@@ -101,32 +101,46 @@ def _get_root_seed_obj(data: dict) -> dict:
             return data[k]
     return data
 
-
 def _extract_memoirs(root: dict) -> Tuple[List[str], Dict[str, str]]:
     """
-    Supports either:
-      - MemoirSeeds: [title,...] + MemoirSummaries: {title: summary,...}
-      - MemoirSeeds: [{title, summary}, ...] (or Memoirs / CanonicalTexts variants)
+    Supports:
+      A) MemoirSeeds: [title,...] + MemoirSummaries: {title: summary,...}
+      B) Memoirs / CanonicalTexts / MemoirSeeds: [{title, summary}, ...]
+      C) CanonicalTexts:
+            titles: [title,...]
+         (titles-only; summaries empty)
     """
-    # style A: separate lists
+    # ---- C) CanonicalTexts.titles (your current schema) ----
+    ct = root.get("CanonicalTexts") or root.get("canonical_texts")
+    if isinstance(ct, dict):
+        titles = ct.get("titles") or ct.get("Titles")
+        if isinstance(titles, list) and titles:
+            t = [str(x).strip() for x in titles if str(x).strip()]
+            if t:
+                return t, {}  # titles-only: no summaries
+
+    # ---- A) separate titles + summaries ----
     titles = root.get("MemoirSeeds") or root.get("memoir_seeds")
     summaries = root.get("MemoirSummaries") or root.get("memoir_summaries")
-
-    if isinstance(titles, list) and isinstance(summaries, dict):
+    if isinstance(titles, list) and titles:
         t = [str(x).strip() for x in titles if str(x).strip()]
-        s = {str(k).strip(): str(v).strip() for k, v in summaries.items()}
+        s = {}
+        if isinstance(summaries, dict):
+            s = {str(k).strip(): str(v).strip() for k, v in summaries.items()}
         if t:
-            # If summaries missing, we can still proceed (but narrative grounding weaker)
             return t, s
 
-    # style B: list of dicts
+    # ---- B) list of dicts ----
     for key in ["Memoirs", "memoirs", "CanonicalTexts", "canonical_texts", "MemoirSeeds"]:
         raw = root.get(key)
+        if isinstance(raw, dict):
+            # Some schemas might have CanonicalTexts.items: [{title, summary}, ...]
+            raw = raw.get("items") or raw.get("texts") or raw.get("entries")
         if isinstance(raw, list) and raw and isinstance(raw[0], dict):
             t: List[str] = []
             s: Dict[str, str] = {}
             for m in raw:
-                title = str(m.get("title", "")).strip()
+                title = str(m.get("title", "")).strip() or str(m.get("name", "")).strip()
                 summ = str(m.get("summary", "")).strip()
                 if title:
                     t.append(title)
@@ -135,7 +149,10 @@ def _extract_memoirs(root: dict) -> Tuple[List[str], Dict[str, str]]:
             if t:
                 return t, s
 
-    raise ValueError("Could not find memoir seeds in YAML (expected MemoirSeeds + MemoirSummaries or list of {title,summary}).")
+    raise ValueError(
+        "Could not find canonical/memoir titles in YAML. "
+        "Expected CanonicalTexts.titles (titles-only), or MemoirSeeds, or list of {title,summary}."
+    )
 
 
 def _extract_party_priors(root: dict) -> Dict[str, float]:
@@ -795,7 +812,10 @@ class ParliamentarianPersonaGenerator:
 
             # Grounding (excluded from persona_string)
             memoir=(Literal[memoir_title], ...),
-            memoir_summary=(str, Field(..., description="Copy the selected memoir summary exactly as provided.")),
+            memoir_summary=(str, Field(
+                ...,
+                description="Copy the selected memoir summary exactly as provided. If empty, output an empty string."
+            )),
             memoir_narrative=(str, Field(
                 ...,
                 description=(
@@ -893,6 +913,7 @@ class ParliamentarianPersonaGenerator:
             "• Keep everything consistent with the memoir narrative voice.\n"
             "• Do not mention 'archetype', 'memoir', 'canonical text', or generation instructions.\n"
             "• Presenting problems must be concise phrases, not diagnoses.\n"
+            "• If the canonical summary is empty, infer voice/cadence from the title alone (do not invent a 'summary' field).\n"
         )
 
         user_msg = (
@@ -912,9 +933,9 @@ class ParliamentarianPersonaGenerator:
             f"- Additional traits (grounding only): {additional_traits}\n\n"
             "Speech targets (use these EXACTLY; do not invent issues/stances):\n"
             f"{json.dumps(speech_targets, ensure_ascii=False)}\n\n"
-            "Canonical memoir selection (grounding only):\n"
-            f"- memoir title: {memoir_title}\n"
-            f"- memoir summary: {memoir_summary}\n"
+            "Canonical text selection (grounding only):\n"
+            f"- title: {memoir_title}\n"
+            f"- summary (may be empty): {memoir_summary}\n"
         )
 
         last_err: Optional[Exception] = None
