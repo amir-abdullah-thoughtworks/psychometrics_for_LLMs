@@ -444,10 +444,17 @@ class ParliamentarianPersonaGenerator:
         self._mem_offset = self._rng.randrange(len(self.memoir_titles))
 
         # ---- archetypes (grounding) ----
-        raw_archetypes = root.get("archetypes") or root.get("Archetypes") or []
+        raw_block = root["Archetypes"]  # must exist
+        raw_archetypes = raw_block["items"]  # must exist
+
         if not isinstance(raw_archetypes, list) or not raw_archetypes:
             raise ValueError("Archetypes missing/empty in seeds YAML")
-        self.archetypes: List[dict] = [a if isinstance(a, dict) else {"name": str(a)} for a in raw_archetypes]
+
+        self.archetypes: List[dict] = [
+            a if isinstance(a, dict) else {"name": str(a), "description": ""}
+            for a in raw_archetypes
+        ]
+
         self._arch_offset = self._rng.randrange(len(self.archetypes))
 
         # ---- party priors ----
@@ -522,18 +529,53 @@ class ParliamentarianPersonaGenerator:
         return title, self.memoir_summaries.get(title, "")
 
     def _compose_archetype_description(self, a: dict) -> str:
-        parts = []
-        if a.get("core_trait"):
-            parts.append(f"Core trait: {a['core_trait']}.")
-        if a.get("focus"):
-            parts.append(f"Focus: {a['focus']}.")
-        if a.get("strengths"):
-            s = a["strengths"]
-            parts.append("Strengths: " + ("; ".join(s) if isinstance(s, list) else str(s)) + ".")
-        if a.get("challenges"):
-            c = a["challenges"]
-            parts.append("Challenges: " + ("; ".join(c) if isinstance(c, list) else str(c)) + ".")
-        return " ".join(parts).strip() or f"Archetype: {a.get('name','(unspecified)')}."
+        """
+        Expected archetype schema (from seeds YAML):
+          - name: str
+          - description: str
+          - signature_tells: list[str] (optional)
+          - strengths: list[str] (optional)
+          - pitfalls: list[str] (optional)
+
+        Returns a compact, prompt-ready description string.
+        """
+
+        def _fmt_list(label: str, xs) -> str:
+            if not xs:
+                return ""
+            if isinstance(xs, list):
+                xs = [str(x).strip() for x in xs if str(x).strip()]
+                if not xs:
+                    return ""
+                return f"{label}: " + "; ".join(xs) + "."
+            # fallback if YAML is malformed (string/dict)
+            s = str(xs).strip()
+            return f"{label}: {s}." if s else ""
+
+        name = (a.get("name") or "").strip()
+        desc = (a.get("description") or "").strip()
+
+        parts: list[str] = []
+        if name:
+            parts.append(f"Archetype: {name}.")
+        if desc:
+            parts.append(desc if desc.endswith((".", "!", "?")) else desc + ".")
+
+        sig = _fmt_list("Signature tells", a.get("signature_tells"))
+        if sig:
+            parts.append(sig)
+
+        strengths = _fmt_list("Strengths", a.get("strengths"))
+        if strengths:
+            parts.append(strengths)
+
+        pitfalls = _fmt_list("Pitfalls", a.get("pitfalls"))
+        if pitfalls:
+            parts.append(pitfalls)
+
+        out = " ".join(parts).strip()
+        return out or "Archetype: (unspecified)."
+
 
     def _pick_archetype_by_index(self, idx: int) -> Tuple[str, str]:
         a = self.archetypes[(self._arch_offset + idx) % len(self.archetypes)]
