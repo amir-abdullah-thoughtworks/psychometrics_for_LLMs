@@ -1,0 +1,381 @@
+# skeleton_parliament_seeds.yaml
+BritishParliamentPersonaSeeds:
+  version: "1.2"
+  CanonicalTexts:
+    explanation: "Titles-only canon seed list. Enrichment/metadata can be generated later."
+    titles:
+      - "Erskine May: Parliamentary Practice"
+      - "The English Constitution"
+      - "The Spirit of the Constitution"
+      - "How Parliament Works"
+      - "Parliament: A New Century"
+      - "House of Commons Procedure and Practice"
+      - "Select Committees in the House of Commons"
+      - "The Parliamentary System"
+      - "The British Constitution: A Very Short Introduction"
+      - "The UK Constitution after Brexit"
+      - "Constitutional and Administrative Law"
+      - "The Law and the Constitution"
+      - "The Changing Constitution"
+      - "The Rule of Law"
+      - "Dicey: Introduction to the Study of the Law of the Constitution"
+      - "The Sovereignty of Parliament: History and Philosophy"
+      - "Parliament and the Constitution"
+      - "Responsible Government and the British Constitution"
+      - "Cabinet Government"
+      - "The Prime Minister: The Office and Its Holders"
+      - "Prime Ministers and Premiers: Political Leadership in Britain"
+      - "The British Prime Minister in an Age of Upheaval"
+      - "The Executive and Public Law"
+      - "The British Civil Service: An Introduction"
+      - "The Politics of the British Constitution"
+      - "The Politics of Devolution and the United Kingdom"
+      - "Devolution in the United Kingdom"
+      - "The Scottish Parliament"
+      - "Scotland’s Constitution: Law and Practice"
+      - "Wales and Devolution"
+      - "Northern Ireland: The Reluctant Peace"
+      - "The Northern Ireland Peace Process"
+      - "The Government and Politics of the European Union"
+      - "Britain in the European Union"
+      - "Britain and Europe"
+      - "The Road to Brexit"
+      - "Brexit: The Uncivil War"
+      - "Brexit: A Very Short Introduction"
+      - "All Out War: The Full Story of How Brexit Sank Britain’s Political Class"
+      - "Brexit and the British Constitution"
+      - "The Referendum and Other Essays on Constitutional Reform"
+      - "Electoral Reform in Britain"
+      - "The British General Election: Campaigning and Media"
+      - "Campaigns and Elections in Britain"
+      - "British Political Parties: The Distribution of Power within the Conservative and Labour Parties"
+      - "Party Discipline and Parliamentary Government"
+      - "The Whips"
+      - "The British Party System"
+      - "The Labour Party: A Centenary History"
+      - "Conservatives: The Fight for Power"
+      - "The Conservative Party from Thatcher to Cameron"
+      - "Labour’s Turning Point"
+      - "The Liberal Democrats: A History of the Party"
+      - "The SNP: The Making of a Modern Party"
+      - "British Politics: A Very Short Introduction"
+      - "Politics in the UK"
+      - "The British Political Tradition"
+      - "The Strange Death of Liberal England"
+      - "The British Political Elite and the Idea of Europe"
+      - "The Five Giants: A Biography of the Welfare State"
+      - "The Road to 1945"
+      - "The Downing Street Years"
+      - "The Blair Years"
+      - "A Journey"
+      - "My Life, Our Times"
+      - "The Diaries of Tony Benn"
+      - "Diaries: The Final Years"
+      - "The Andrew Marr Show: A History of Modern Britain"
+      - "A History of Modern Britain"
+      - "The Making of the Prime Minister"
+      - "Yes Minister"
+      - "Yes, Prime Minister"
+      - "House of Cards"
+      - "To Play the King"
+      - "The Final Cut"
+      - "A Very British Coup"
+      - "In the Thick of It: The Scripts"
+      - "The Thick of It: The Missing DoSAC Files"
+      - "The Westminster Whistleblowers"
+      - "The Plot Against the Prime Minister"
+      - "The Trial of Tony Blair"
+      - "The Establishment"
+      - "The Road to Somewhere"
+      - "The Road to Wigan Pier"
+      - "The Lion and the Unicorn"
+      - "On Liberty"
+      - "Considerations on Representative Government"
+      - "Reflections on the Revolution in France"
+      - "The Road to Serfdom"
+      - "The Constitution of Liberty"
+      - "The Open Society and Its Enemies"
+      - "The Theory of Justice"
+      - "Justice: What’s the Right Thing to Do?"
+      - "The Righteous Mind"
+      - "Why Nations Fail"
+      - "The Great Transformation"
+      - "The Age of Reform"
+      - "The End of the Affair: The Collapse of British Politics"
+      - "The Queen and the Prime Minister"
+      - "The Crown and the Constitution"
+
+  # Put all the “stuff you kept pasting in code” into YAML so the script just loads it.
+  # Your generator can treat these as seeds + targets (and expand/validate as needed).
+  PartyAffiliation:
+    explanation: "Sampling priors for synthetic persona generation."
+    priors:
+      Conservative: { base_probability: 0.35, explanation: "Prior over party affiliation for sampling." }
+      Labour: { base_probability: 0.33, explanation: "Prior over party affiliation for sampling." }
+      LiberalDemocrats: { base_probability: 0.08, explanation: "Prior over party affiliation for sampling." }
+      SNP: { base_probability: 0.05, explanation: "Prior over party affiliation for sampling." }
+      Green: { base_probability: 0.02, explanation: "Prior over party affiliation for sampling." }
+      PlaidCymru: { base_probability: 0.01, explanation: "Prior over party affiliation for sampling." }
+      DUP: { base_probability: 0.01, explanation: "Prior over party affiliation for sampling." }
+      SinnFein: { base_probability: 0.01, explanation: "Prior over party affiliation for sampling." }
+      SDLP: { base_probability: 0.01, explanation: "Prior over party affiliation for sampling." }
+      Alliance: { base_probability: 0.01, explanation: "Prior over party affiliation for sampling." }
+      Independent: { base_probability: 0.02, explanation: "Prior over party affiliation for sampling." }
+
+  Regions:
+    explanation: "Sampling frame for region-of-origin or constituency flavour; population_share used for priors."
+    items:
+      England_London: { population_share: 0.19, explanation: "Greater London; dense media proximity, housing salience, high diversity." }
+      England_SouthEast: { population_share: 0.14, explanation: "Commuter belt; planning battles, tax sensitivity, transport salience." }
+      England_Midlands: { population_share: 0.14, explanation: "Mixed urban/post-industrial; regeneration and manufacturing legacy politics." }
+      England_North: { population_share: 0.18, explanation: "Large post-industrial/urban mix; services, inequality, and ‘levelling up’ narratives." }
+      England_SouthWest: { population_share: 0.09, explanation: "Rural/coastal mix; farming, tourism, infrastructure constraints." }
+      Scotland: { population_share: 0.08, explanation: "Distinct party system and devolution; independence/union questions remain central." }
+      Wales: { population_share: 0.05, explanation: "Devolved governance; language/culture politics and regional inequality focus." }
+      NorthernIreland: { population_share: 0.03, explanation: "Power-sharing context; identity and constitutional settlement uniquely salient." }
+
+  Occupations:
+    explanation: "Pre-parliament careers used to seed biography and competence cues; weights are sampling priors."
+    items:
+      - { value: "Lawyer", explanation: "Adversarial argument training; comfortable with precedent, scrutiny, and drafting language.", weight: 0.20 }
+      - { value: "CivilServant", explanation: "Understands machinery of government; implementation realism and process fluency.", weight: 0.12 }
+      - { value: "Business_Executive", explanation: "Frames policy as competitiveness and tradeoffs; strong delivery/metrics orientation.", weight: 0.14 }
+      - { value: "LocalCouncillor", explanation: "Casework instincts and local delivery mindset; strong council/service familiarity.", weight: 0.12 }
+      - { value: "Academic", explanation: "Evidence-first posture; tends to cite studies and prefer mechanism-level policy design.", weight: 0.09 }
+      - { value: "Journalist", explanation: "Narrative and agenda-setting instincts; skilled at framing and timing.", weight: 0.07 }
+      - { value: "Union_Official", explanation: "Worker-centred worldview; coalition-building via organised labour networks.", weight: 0.06 }
+      - { value: "NGO_Advocate", explanation: "Mission-driven; moral language and stakeholder coalition work.", weight: 0.06 }
+      - { value: "Military_Officer", explanation: "Duty/security framing; prefers clarity and hierarchy in decisions.", weight: 0.04 }
+      - { value: "Healthcare_Professional", explanation: "Service-delivery realism; patient/outcome framing and workforce concerns.", weight: 0.04 }
+      - { value: "Teacher_Educator", explanation: "Institutional empathy; strong views on standards, access, and social mobility.", weight: 0.04 }
+      - { value: "Other", explanation: "Catch-all to preserve heterogeneity and enable unusual biographies.", weight: 0.06 }
+
+  Education:
+    explanation: "Education priors split into secondary and tertiary backgrounds with weights."
+    Secondary:
+      - { value: "Comprehensive", explanation: "Broad public schooling; often signals mainstream social exposure.", weight: 0.62 }
+      - { value: "Grammar", explanation: "Selective schooling; often aligns with meritocracy narratives.", weight: 0.18 }
+      - { value: "Private", explanation: "Elite schooling; signals networks and high cultural capital.", weight: 0.20 }
+    Tertiary:
+      - { value: "RussellGroup", explanation: "Research-intensive university; policy-literate and technocratic dispositions common.", weight: 0.45 }
+      - { value: "Oxbridge", explanation: "Elite networks, rhetorical confidence, high institutional fluency.", weight: 0.18 }
+      - { value: "Post92", explanation: "Often vocational or locally grounded; practicality and access framing.", weight: 0.25 }
+      - { value: "NoUniversity", explanation: "Politics framed through work/lived experience; authenticity emphasised.", weight: 0.12 }
+
+  Archetypes:
+    explanation: "High-level parliamentary personality templates to guide consistent persona generation."
+    items:
+      - name: "The Proceduralist"
+        description: "Wins by rules, timing, and amendment craft rather than moral heat or media volume."
+        signature_tells: ["Quotes procedure mid-debate", "Uses committees as battleground", "Treats wording changes as victories"]
+        strengths: ["Scrutiny through detail", "Institutional fluency", "Effective bill-shaping"]
+        pitfalls: ["Can sound pedantic", "Low public resonance", "Seen as ‘process over people’"]
+      - name: "The Constituency Champion"
+        description: "Frames national questions through local consequences; casework and delivery dominate priorities."
+        signature_tells: ["Leads with constituent stories", "Presses for timelines", "Talks in local-service language"]
+        strengths: ["Authenticity", "Grounded intuition", "Local trust"]
+        pitfalls: ["Parochial framing", "Less system design focus", "Pork-barrel critique risk"]
+      - name: "The Media Gladiator"
+        description: "Optimised for the clip: sharp lines, conflict instincts, relentless message discipline."
+        signature_tells: ["Turns answers into headlines", "Attacks framing first", "Treats PMQs as main arena"]
+        strengths: ["Agenda-setting", "Rapid response", "High-visibility leverage"]
+        pitfalls: ["Thin on implementation", "Escalates conflict", "Overfits news cycle"]
+      - name: "The Policy Technocrat"
+        description: "Mechanism-first and evidence-first; persuasive via design, budgets, and delivery constraints."
+        signature_tells: ["References pilots/evaluation", "Asks ‘how implemented?’", "Prefers briefs to theatrics"]
+        strengths: ["Expert credibility", "Implementation realism", "Strong committee performance"]
+        pitfalls: ["Low emotional resonance", "Can seem detached", "Underestimates symbolism"]
+      - name: "The Faction Whisperer"
+        description: "Internal operator who builds blocs, brokers deals, and trades loyalty for concessions."
+        signature_tells: ["Knows incentives", "Moves behind scenes", "Uses coded signals"]
+        strengths: ["Coalition craft", "Party intelligence", "Negotiation leverage"]
+        pitfalls: ["Seen as cynical", "Leak vulnerability", "Distrusted by outsiders"]
+      - name: "The Moral Tribune"
+        description: "Values-driven; treats politics as conscience with clear red lines and moral language."
+        signature_tells: ["Conscience framing", "Principle rebellions", "Ethical rhetoric"]
+        strengths: ["Integrity signal", "Value coalition building", "Clarity"]
+        pitfalls: ["Rigid negotiation", "Polarising", "Ignores second-order effects"]
+      - name: "The Cross-Party Fixer"
+        description: "Quiet amendment-winner who accumulates reform via trust, reciprocity, and pragmatism."
+        signature_tells: ["Strange-bedfellow alliances", "Avoids personal attacks", "Treats wins as incremental"]
+        strengths: ["Durable reform", "Trust-building", "Low-drama effectiveness"]
+        pitfalls: ["Invisible to voters", "Looks unprincipled to purists", "Outflanked by loud factions"]
+      - name: "The Culture-Warrior"
+        description: "Symbolic combatant; politics as identity conflict and boundary-setting."
+        signature_tells: ["High-salience wedges", "Speech/symbol obsession", "Threat framing"]
+        strengths: ["Mobilisation", "Media attention", "Sticky frames"]
+        pitfalls: ["Policy thinness", "Escalation spiral", "Coalition collapse"]
+      - name: "The Devolution Hawk"
+        description: "Constitution-first worldview; union/devolution/sovereignty dominate interpretive frame."
+        signature_tells: ["Returns debates to settlement", "Legitimacy language", "Institution-as-identity framing"]
+        strengths: ["Strategic coherence", "Institutional foresight", "Identity politics instincts"]
+        pitfalls: ["Single-issue tunnel vision", "Hard compromises", "Centre-periphery flare-ups"]
+      - name: "The Party Ladder-Climber"
+        description: "Promotion-minded; disciplined, risk-managed positions, visible loyalty, careful media behaviour."
+        signature_tells: ["No improvisation", "Avoids landmines", "‘Responsibility’ language"]
+        strengths: ["Reliability", "Message discipline", "Ministerial suitability"]
+        pitfalls: ["Opportunism perception", "Low authenticity", "Avoids necessary conflict"]
+
+  # These are “seed items” that your script can expand via OpenAI.
+  # Keeping them in YAML means the Python just loads + expands + caches.
+  PersonaCore:
+    Appearance:
+      explanation: "Observable presentation choices that signal class, professionalism, and media orientation."
+      seed_items:
+        - { value: "Conservative tailoring, muted colours", explanation: "Signals institutional respect and low-drama professionalism." }
+        - { value: "Constituency-worn suits with visible wear", explanation: "Projects groundedness and travel-heavy routine." }
+        - { value: "Television-ready polish", explanation: "Optimised for broadcast: crisp presentation and rehearsed phrasing." }
+        - { value: "Deliberately anti-elite presentation", explanation: "Plain styling used to reject metropolitan technocratic norms." }
+      target_count: 25
+    ParliamentaryStyle:
+      explanation: "How they operate in Westminster: procedure, theatre, scrutiny, coalition, conflict."
+      seed_items:
+        - { value: "Procedural and rule-focused", explanation: "Persuades through process: amendments, precedent, committee leverage." }
+        - { value: "Rhetorical and performative", explanation: "Optimised for chamber theatre and memorable lines." }
+        - { value: "Data-driven and technocratic", explanation: "Frames debates in mechanisms, metrics, and delivery constraints." }
+        - { value: "Populist and combative", explanation: "Uses ‘people vs system’ framing; confrontation-forward." }
+        - { value: "Conciliatory cross-party operator", explanation: "Builds coalitions quietly; trades concessions for incremental wins." }
+      target_count: 25
+    MediaDisposition:
+      explanation: "How they relate to media: avoidance, broadcast skill, social strategy, long-form seriousness."
+      seed_items:
+        - { value: "Avoids media except formal statements", explanation: "Influence is internal; prefers committee and constituency work." }
+        - { value: "Frequent broadcast commentator", explanation: "Uses media to set narrative; interview-hardened." }
+        - { value: "Social-media-native operator", explanation: "Thinks in shareable frames; rapid-response style." }
+        - { value: "Long-form essay and speech focused", explanation: "Prefers serious venues; detail over soundbites." }
+      target_count: 25
+
+  AdditionalTraits:
+    explanation: "Trait subcatalogs; expand each subcategory to at least target_count items."
+    subcategories:
+      RhetoricalRegister:
+        purpose: "How they argue: tone, structure, persuasion style."
+        seed_items:
+          - { value: "Legalistic", explanation: "Argues through definitions, precedent, and procedural constraints." }
+          - { value: "Moralising", explanation: "Frames issues as right vs wrong; appeals to conscience and values." }
+          - { value: "Technocratic", explanation: "Emphasises implementation detail and measurable outcomes." }
+          - { value: "Populist", explanation: "Frames elites as detached; speaks for ‘ordinary people’." }
+          - { value: "Narrative-driven", explanation: "Uses stories and constituency anecdotes to anchor policy." }
+        target_count: 10
+      RelationshipToParty:
+        purpose: "How they relate to leadership, factions, and discipline."
+        seed_items:
+          - { value: "Loyalist", explanation: "Defends leadership line; values discipline and collective responsibility." }
+          - { value: "Soft rebel", explanation: "Breaks ranks selectively; cultivates independence without burning bridges." }
+          - { value: "Factional organiser", explanation: "Builds internal blocs; uses causes to consolidate influence." }
+          - { value: "Leadership aspirant", explanation: "Positions for promotion; careful about timing and risk." }
+        target_count: 10
+      AttitudeToInstitutions:
+        purpose: "How they view constitutional norms and institutional legitimacy."
+        seed_items:
+          - { value: "Institutional conservative", explanation: "Treats norms as stabilising; prefers continuity." }
+          - { value: "Reformist", explanation: "Wants change through procedure and negotiated settlement." }
+          - { value: "Abolitionist", explanation: "Sees some institutions as illegitimate; prefers replacement." }
+          - { value: "Pragmatic incrementalist", explanation: "Focuses on tractable steps; accepts imperfect compromises." }
+        target_count: 10
+      CommitteeFocus:
+        purpose: "Which policy areas they specialise in and use as their influence channel."
+        seed_items:
+          - { value: "Treasury/Finance", explanation: "Budgets, taxation, fiscal rules, and macro framing." }
+          - { value: "Home Affairs/Justice", explanation: "Policing, courts, prisons, migration enforcement." }
+          - { value: "Health & Social Care", explanation: "NHS capacity, workforce, waiting lists, social care." }
+          - { value: "Foreign Affairs/Defence", explanation: "Alliances, procurement, and geopolitical risk." }
+          - { value: "Constitution/Devolution", explanation: "Union settlement, electoral rules, Lords reform." }
+          - { value: "Environment/Energy", explanation: "Net-zero, energy security, industrial transition." }
+        target_count: 10
+      ConstituencyType:
+        purpose: "The voter environment that shapes instincts, language, and priorities."
+        seed_items:
+          - { value: "Urban metropolitan", explanation: "Diversity, housing pressure, transit salience." }
+          - { value: "Post-industrial town", explanation: "Regeneration, skills, ‘left behind’ narratives." }
+          - { value: "Rural/agricultural", explanation: "Farming, land use, sparse services." }
+          - { value: "Coastal", explanation: "Seasonal economy, infrastructure, identity politics." }
+          - { value: "Affluent commuter belt", explanation: "Tax sensitivity, planning conflicts, schools." }
+          - { value: "Devolved-national seat", explanation: "National identity and constitutional salience." }
+        target_count: 10
+      DonorLobbyExposure:
+        purpose: "How external networks shape priorities and framing."
+        seed_items:
+          - { value: "Minimal donor exposure", explanation: "Low external influence; relies on grassroots and local party." }
+          - { value: "Industry-aligned networks", explanation: "Sector ties; emphasises competitiveness and regulation cost." }
+          - { value: "Union-aligned networks", explanation: "Labour ties; prioritises worker protections." }
+          - { value: "Think-tank ecosystem", explanation: "Policy shaped by reports and frameworks; ‘ideas’ oriented." }
+        target_count: 10
+      ScandalVulnerability:
+        purpose: "What kinds of risks or weak points plausibly shape caution and behaviour."
+        seed_items:
+          - { value: "None visible", explanation: "Careful compliance and disciplined personal conduct." }
+          - { value: "Expenses/administrative risk", explanation: "Complex travel/staffing; vulnerable to procedural mishaps." }
+          - { value: "Personal-life scrutiny", explanation: "High-profile or tabloid interest; narrative risk." }
+          - { value: "Historical statements", explanation: "Old quotes/posts susceptible to recontextualisation." }
+          - { value: "Factional rivalries", explanation: "Internal enemies; vulnerable to leaks and briefings." }
+        target_count: 10
+      MediaFootprint:
+        purpose: "Where influence happens: chamber, local press, national broadcast, or online."
+        seed_items:
+          - { value: "Backbench low profile", explanation: "Influence is internal; rarely trends." }
+          - { value: "Regional media regular", explanation: "Strong local press; constituency-first language." }
+          - { value: "National media figure", explanation: "High scrutiny; disciplined messaging." }
+          - { value: "Online influencer MP", explanation: "Social-first; mobilisation through virality." }
+        target_count: 10
+      LeadershipAmbition:
+        purpose: "Their incentive landscape: policy mastery, ministerial ladder, or internal power."
+        seed_items:
+          - { value: "Content specialist", explanation: "Aims for policy mastery, not leadership power." }
+          - { value: "Ministerial ladder", explanation: "Promotion track; loyalty and caution rewarded." }
+          - { value: "Party leadership", explanation: "Long-term brand building; faction management focus." }
+          - { value: "Kingmaker/whip influence", explanation: "Prefers internal leverage; trades votes and amendments." }
+        target_count: 10
+      CoalitionPosture:
+        purpose: "How they negotiate across parties and factions."
+        seed_items:
+          - { value: "Cross-party builder", explanation: "Seeks durable alliances for reform." }
+          - { value: "Partisan combatant", explanation: "Avoids giving opponents wins; conflict as strategy." }
+          - { value: "Issue-by-issue pragmatist", explanation: "Supports based on merit and local impact." }
+        target_count: 10
+      ConstituencyServiceStyle:
+        purpose: "How they ‘do the job’ locally: casework, organising, or business/service advocacy."
+        seed_items:
+          - { value: "Casework maximalist", explanation: "Measures success by resolved constituent problems." }
+          - { value: "Community organiser", explanation: "Builds local campaigns; mobilisation oriented." }
+          - { value: "Business liaison", explanation: "Works with employers/councils; jobs and investment focus." }
+          - { value: "Public services advocate", explanation: "Champions hospitals/schools/policing; delivery focus." }
+        target_count: 10
+
+  PolicyDebates:
+    explanation: "Seed debate names. Your script expands each debate into bullets + >=4 stances per bullet + party distributions."
+    debates:
+      - { name: "Immigration" }
+      - { name: "ClimateAndEnergy" }
+      - { name: "NHSAndSocialCare" }
+      - { name: "TaxationAndSpending" }
+      - { name: "HousingAndPlanning" }
+      - { name: "PolicingAndJustice" }
+      - { name: "Education" }
+      - { name: "WelfareAndBenefits" }
+      - { name: "Transport" }
+      - { name: "ForeignPolicy" }
+      - { name: "DefenceAndSecurity" }
+      - { name: "DigitalPrivacy" }
+      - { name: "AIRegulation" }
+      - { name: "TradeAndIndustry" }
+      - { name: "AgricultureAndRural" }
+      - { name: "FreeSpeechAndCulture" }
+      - { name: "ElectoralReform" }
+      - { name: "DevolutionAndUnion" }
+      - { name: "BrexitAndEurope" }
+      - { name: "ReligiousFreedomAndSecularism" }
+
+  GeneratorConfig:
+    explanation: "Parameters your Python script can load rather than hard-coding."
+    model: "gpt-4o"
+    temperature: 2.0
+    top_p: 0.98
+    embedding_model: "text-embedding-3-small"
+    semantic_dedup:
+      enabled: true
+      sim_threshold: 0.88
+    caching:
+      enabled: true
+      backend: "diskcache"
+      namespace: "parliament_seedgen_v1"

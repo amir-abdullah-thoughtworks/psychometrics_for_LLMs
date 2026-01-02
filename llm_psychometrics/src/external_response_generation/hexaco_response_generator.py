@@ -50,10 +50,10 @@ from pydantic import BaseModel
 from tqdm import tqdm
 
 # Custom imports (keep relative paths consistent with your repo structure)
-from src.utils_v0 import inverse_likert
-from src.utils.vllm_utils import VLLMServerManager
-from src.prompt_templates.hexaco_base_prompt_templates import hexaco_base_prompt_templates
-from src.prompt_templates.hexaco_persona_prompt_templates import hexaco_persona_prompt_templates
+from utils_v0 import inverse_likert
+from utils.vllm_utils import VLLMServerManager
+from prompt_templates.hexaco_base_prompt_templates import hexaco_base_prompt_templates
+from prompt_templates.hexaco_persona_prompt_templates import hexaco_persona_prompt_templates
 
 
 NO_ANSWER = "Do not wish to answer"
@@ -140,6 +140,7 @@ class HexacoResponseRunner:
             help="Source of Persona (huggingface | base_model | personallm_paper | local)",
         )
         parser.add_argument("--hf-persona-path", type=str, default="thoughtworks/psychometric_personas")
+        parser.add_argument("--hf-persona-config", type=str, default="expanded")
         parser.add_argument("--n-personasample", type=int, default=1)
 
         # question generation options
@@ -269,15 +270,12 @@ class HexacoResponseRunner:
         if self.args.persona_source == "huggingface":
             print("Using Huggingface Personas")
             print(f"Loading Personas from {self.args.hf_persona_path}")
-            hf_persona_dataset = load_dataset(self.args.hf_persona_path)
-            persona_datasets_total = hf_persona_dataset["restricted"]
-            total_persona_df = persona_datasets_total.to_pandas()
-            sampled_personas = total_persona_df.groupby("archetype").sample(
-                n=self.args.n_personasample, random_state=42
-            )
-            persona_datasets = Dataset.from_pandas(sampled_personas)
-            print(f"No of Personas: {len(persona_datasets)}")
-            return persona_datasets
+            hf_config = self.args.hf_persona_config
+            hf_persona_dataset = load_dataset(self.args.hf_persona_path, name=hf_config)
+
+            persona_datasets_total = hf_persona_dataset["train"]
+            print(f"Loaded {len(persona_datasets_total)} Personas from {self.args.hf_persona_path} and config {hf_config}")
+            return persona_datasets_total
 
         if self.args.persona_source == "personallm_paper":
             print("Using Persona LLM Paper Personas")
@@ -428,9 +426,9 @@ class HexacoResponseRunner:
             likert_mode = "normal"
 
         for persona in tqdm(personas_iter, desc="Personas"):
-            persona_str = persona.get("persona_string", "")
+            persona_str = persona["persona_string"]
             persona_id = persona.get("uuid", "base_model")
-            persona_hash = None if persona_id == "base_model" else self.stable_hash(persona_str)
+            persona_hash = None if persona_id == "base_model" else persona["persona_hash"]
 
             repeated_answers: List[List[str]] = []
             repeated_raw_prompts: List[List[str]] = []
@@ -443,7 +441,7 @@ class HexacoResponseRunner:
                 all_likert_orders: List[List[str]] = []
 
                 for q_batch in tqdm(self._batch_list(question_list, self.args.batch_size), desc="Batches"):
-                    prompts_text, guided_choices_list, likert_orders_list = self.build_prompts_for_questions(
+                    prompts_text, guided_choices_list_of_lists, likert_orders_list_of_lists = self.build_prompts_for_questions(
                         hexaco_template=hexaco_template,
                         question_batch=q_batch,
                         base_likert_scale=base_likert_scale,
@@ -451,9 +449,10 @@ class HexacoResponseRunner:
                         likert_shuffle=self.args.likert_shuffle,
                     )
                     all_prompts.extend(prompts_text)
-                    all_guided.extend(guided_choices_list)
-                    all_likert_orders.extend(likert_orders_list)
+                    all_guided.extend(guided_choices_list_of_lists)
+                    all_likert_orders.extend(likert_orders_list_of_lists)
 
+                print(f"Passing {len(all_prompts)} prompts and {len(all_guided)} guided choices.")
                 raw_texts = self.vllm_generate_batched(all_prompts, guided_choices=all_guided)
                 answers = [self._normalize_answer(t, opts) for t, opts in zip(raw_texts, all_guided)]
 
