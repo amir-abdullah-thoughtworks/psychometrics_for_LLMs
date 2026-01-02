@@ -696,8 +696,8 @@ class ParliamentarianPersonaGenerator:
             "cognition",
             "emotional_behavioral_functioning",
             "social_functioning",
-            "summary_of_psychological_profile",
             "additional_traits",
+            "summary_of_psychological_profile",
         ]
 
         def clean_value(v: Any) -> str:
