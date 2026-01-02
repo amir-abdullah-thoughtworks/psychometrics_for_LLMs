@@ -33,7 +33,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 import yaml
-from datasets import Dataset, load_dataset
+from datasets import Dataset, load_dataset, DatasetDict
+from datetime import datetime, timezone
+import json
 from jinja2 import Template
 from pydantic import BaseModel
 from tqdm import tqdm
@@ -177,6 +179,27 @@ class HexacoResponseRunner:
         parser.add_argument("--vllm-host", type=str, default="127.0.0.1")
         parser.add_argument("--vllm-port", type=int, default=8000)
         parser.add_argument("--vllm-timeout-s", type=int, default=180)
+
+        parser.add_argument(
+            "--debug", action=argparse.BooleanOptionalAction,
+            default=True, help="Debug mode (default True): only run/push first 10 personas.",
+        )
+
+        parser.add_argument(
+            "--push-to-hub", action=argparse.BooleanOptionalAction,
+            default=True, help="Push results to Hugging Face Hub (default True).",
+        )
+
+        parser.add_argument(
+            "--hub-repo", type=str,
+            default="thoughts/psychometric_test_responses",
+            help="HF dataset repo to push to.",
+        )
+
+        parser.add_argument(
+            "--hub-split", type=str,
+            default="hexaco", help="Split name to push under.",
+        )
 
         return parser.parse_args()
 
@@ -352,6 +375,55 @@ class HexacoResponseRunner:
         )
         return self._extract_texts(outputs)
 
+    def push_results_to_hub(
+            self,
+            results: HexacoExperimentResults,
+            repo_id: str,
+            split_name: str = "hexaco",
+    ) -> None:
+        """
+        Push to HF datasets hub under the provided split name.
+        One row per persona, storing config + answers + audit fields.
+        """
+        # Convert the structured results dict into row-wise dataset
+        rows: List[Dict[str, Any]] = []
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        for persona_id, run_result in results.__root__.items():
+            cfg = run_result.config
+
+            rows.append(
+                {
+                    "persona_id": persona_id,
+                    "persona_hash": cfg.persona_hash,
+                    "model_name": cfg.model_name,
+                    "paraphrase": cfg.paraphrase,
+                    "likert_scale_mode": cfg.likert_scale_mode,
+                    "refusal_allowed": cfg.refusal_allowed,
+                    "n_times": len(run_result.answers),
+                    "n_questions": (len(run_result.answers[0]) if run_result.answers else 0),
+                    # Audit / reproducibility payloads (nested lists are OK in HF datasets)
+                    "answers": run_result.answers,
+                    "raw_prompts": cfg.raw_prompts,
+                    "guided_choices": cfg.guided_choices,
+                    "likert_orders": cfg.likert_orders,
+                    # minimal metadata
+                    "created_at_utc": now_iso,
+                    "persona_source": self.args.persona_source,
+                    "hf_persona_path": getattr(self.args, "hf_persona_path", None),
+                    "hf_persona_config": getattr(self.args, "hf_persona_config", None),
+                    "debug": bool(self.args.debug),
+                }
+            )
+
+        ds = Dataset.from_list(rows)
+        dsd = DatasetDict({split_name: ds})
+
+        # This will create/update the dataset repo and overwrite that split content.
+        # Requires HF auth via huggingface-cli login or HF_TOKEN env var.
+        dsd.push_to_hub(repo_id)
+        print(f"Pushed {len(rows)} rows to HF dataset {repo_id} split '{split_name}'")
+
     # ----------------------------
     # Prompt building (fresh Likert shuffle per answer)
     # ----------------------------
@@ -409,6 +481,21 @@ class HexacoResponseRunner:
             personas_iter = persona_datasets
             hexaco_template = self.persona_hexaco_template
 
+        if self.args.debug:
+            print("[DEBUG] Limiting to first 10 personas for generation + push.")
+            # persona_datasets could be a HF Dataset or list of dicts
+            try:
+                # HF Dataset supports select
+                if hasattr(personas_iter, "select"):
+                    personas_iter = personas_iter.select(range(min(10, len(personas_iter))))
+                else:
+                    personas_iter = list(personas_iter)[:10]
+            except Exception:
+                # safe fallback
+                personas_iter = list(personas_iter)[:10]
+
+        print(f"Processing {len(personas_iter)} personas").
+
         if self.args.likert_shuffle:
             print("Shuffling likert scale for every question (iid per answer)")
         else:
@@ -427,7 +514,7 @@ class HexacoResponseRunner:
         for persona in tqdm(personas_iter, desc="Personas"):
             persona_str = persona["persona_string"]
             persona_id = persona.get("uuid", "base_model")
-            persona_hash = None if persona_id == "base_model" else persona.get("persona_hash")
+            persona_hash = None if persona_id == "base_model" else persona["persona_hash"]
 
             repeated_answers: List[List[str]] = []
             repeated_raw_prompts: List[List[str]] = []
@@ -497,6 +584,14 @@ class HexacoResponseRunner:
         out_file = Path(self.args.out_dir) / f"{self.args.persona_source}_hexaco_answers_{model_name_safe}.json"
         self._write_json(results.to_jsonable(), str(out_file))
         print(f"Results saved to {out_file}")
+
+        if getattr(self.args, "push_to_hub", True):
+            self.push_results_to_hub(
+                results=results,
+                repo_id=self.args.hub_repo,
+                split_name=self.args.hub_split,
+            )
+
         return str(out_file)
 
 
