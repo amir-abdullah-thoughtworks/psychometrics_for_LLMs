@@ -448,118 +448,118 @@ class VLLMServerManager:
         return out
 
 
-def vllm_chat_batched(
-    self,
-    prompts: List[str],
-    guided_choices: Optional[Union[List[str], List[Optional[List[str]]]]] = None,
-    model: str = "Qwen/Qwen2.5-7B-Instruct",
-    max_tokens: int = 128,
-    temperature: float = 0.0,
-    batch_size: int = 100,
-    num_workers: int = 100,
-    max_retries: int = 3,
-    retry_backoff_s: float = 0.1,
-    chunk_max_retries: int = 2,
-    chunk_retry_backoff_s: float = 0.5,
-    cache_dir: Optional[str] = ".vllm_cache/diskcache",
-    cache_enabled: bool = True,
-) -> List[str]:
-    outputs: List[str] = []
+    def vllm_chat_batched(
+        self,
+        prompts: List[str],
+        guided_choices: Optional[Union[List[str], List[Optional[List[str]]]]] = None,
+        model: str = "Qwen/Qwen2.5-7B-Instruct",
+        max_tokens: int = 128,
+        temperature: float = 0.0,
+        batch_size: int = 100,
+        num_workers: int = 100,
+        max_retries: int = 3,
+        retry_backoff_s: float = 0.1,
+        chunk_max_retries: int = 2,
+        chunk_retry_backoff_s: float = 0.5,
+        cache_dir: Optional[str] = ".vllm_cache/diskcache",
+        cache_enabled: bool = True,
+    ) -> List[str]:
+        outputs: List[str] = []
 
-    total = len(prompts)
-    cache_hits_total = 0
+        total = len(prompts)
+        cache_hits_total = 0
 
-    # Normalize to per-prompt guidance (crucial fix)
-    per_prompt_guidance: List[List[str]] = self._normalize_guided_choices(prompts, guided_choices)
+        # Normalize to per-prompt guidance (crucial fix)
+        per_prompt_guidance: List[List[str]] = self._normalize_guided_choices(prompts, guided_choices)
 
-    with tqdm(total=total, desc="vLLM completions", unit="req") as pbar:
-        for i in range(0, total, batch_size):
-            chunk = prompts[i: i + batch_size]
-            chunk_guidance = per_prompt_guidance[i: i + batch_size]
+        with tqdm(total=total, desc="vLLM completions", unit="req") as pbar:
+            for i in range(0, total, batch_size):
+                chunk = prompts[i: i + batch_size]
+                chunk_guidance = per_prompt_guidance[i: i + batch_size]
 
-            # Build keys for this chunk (now correctly per-prompt)
-            chunk_keys = [
-                self._cache_key(
-                    prompt=p,
-                    model=model,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    guided_choices=gc,
-                )
-                for p, gc in zip(chunk, chunk_guidance)
-            ]
+                # Build keys for this chunk (now correctly per-prompt)
+                chunk_keys = [
+                    self._cache_key(
+                        prompt=p,
+                        model=model,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                        guided_choices=gc,
+                    )
+                    for p, gc in zip(chunk, chunk_guidance)
+                ]
 
-            # Read cache first
-            cached: dict[str, str] = {}
-            if cache_enabled and cache_dir:
-                with Cache(cache_dir) as cache:
-                    cached = {k: cache[k] for k in chunk_keys if k in cache}
+                # Read cache first
+                cached: dict[str, str] = {}
+                if cache_enabled and cache_dir:
+                    with Cache(cache_dir) as cache:
+                        cached = {k: cache[k] for k in chunk_keys if k in cache}
 
-            chunk_out: List[Optional[str]] = [None] * len(chunk)
+                chunk_out: List[Optional[str]] = [None] * len(chunk)
 
-            miss_prompts: List[str] = []
-            miss_keys: List[str] = []
-            miss_positions: List[int] = []
-            miss_guidance: List[List[str]] = []
+                miss_prompts: List[str] = []
+                miss_keys: List[str] = []
+                miss_positions: List[int] = []
+                miss_guidance: List[List[str]] = []
 
-            for j, (k, p, gc) in enumerate(zip(chunk_keys, chunk, chunk_guidance)):
-                if k in cached:
-                    chunk_out[j] = cached[k]
-                    cache_hits_total += 1
+                for j, (k, p, gc) in enumerate(zip(chunk_keys, chunk, chunk_guidance)):
+                    if k in cached:
+                        chunk_out[j] = cached[k]
+                        cache_hits_total += 1
+                    else:
+                        miss_positions.append(j)
+                        miss_prompts.append(p)
+                        miss_keys.append(k)
+                        miss_guidance.append(gc)
+
+                # Fetch misses
+                if miss_prompts:
+                    last_err: Optional[Exception] = None
+                    for attempt in range(chunk_max_retries + 1):
+                        try:
+                            miss_out = self._mp_chat_chunk(
+                                prompts=miss_prompts,
+                                model=model,
+                                max_tokens=max_tokens,
+                                temperature=temperature,
+                                num_workers=num_workers,
+                                max_retries=max_retries,
+                                retry_backoff_s=retry_backoff_s,
+                                pbar=None,
+                                guided_choices=miss_guidance,  # ✅ per-prompt, actually used
+                                cache_dir=(cache_dir if (cache_enabled and cache_dir) else None),
+                                cache_keys=miss_keys,
+                            )
+
+                            for pos, text in zip(miss_positions, miss_out):
+                                chunk_out[pos] = text
+
+                            pbar.update(len(chunk))
+                            last_err = None
+                            break
+                        except RuntimeError as e:
+                            last_err = e
+                            if attempt >= chunk_max_retries:
+                                raise
+                            time.sleep(chunk_retry_backoff_s * (2 ** attempt))
+
+                    if last_err is not None:
+                        raise last_err
                 else:
-                    miss_positions.append(j)
-                    miss_prompts.append(p)
-                    miss_keys.append(k)
-                    miss_guidance.append(gc)
+                    # all hits
+                    pbar.update(len(chunk))
 
-            # Fetch misses
-            if miss_prompts:
-                last_err: Optional[Exception] = None
-                for attempt in range(chunk_max_retries + 1):
-                    try:
-                        miss_out = self._mp_chat_chunk(
-                            prompts=miss_prompts,
-                            model=model,
-                            max_tokens=max_tokens,
-                            temperature=temperature,
-                            num_workers=num_workers,
-                            max_retries=max_retries,
-                            retry_backoff_s=retry_backoff_s,
-                            pbar=None,
-                            guided_choices=miss_guidance,  # ✅ per-prompt, actually used
-                            cache_dir=(cache_dir if (cache_enabled and cache_dir) else None),
-                            cache_keys=miss_keys,
-                        )
+                missing = [idx for idx, r in enumerate(chunk_out) if r is None]
+                if missing:
+                    raise RuntimeError(f"Internal error: missing chunk outputs at positions {missing[:10]}")
 
-                        for pos, text in zip(miss_positions, miss_out):
-                            chunk_out[pos] = text
+                outputs.extend([r for r in chunk_out if r is not None])
 
-                        pbar.update(len(chunk))
-                        last_err = None
-                        break
-                    except RuntimeError as e:
-                        last_err = e
-                        if attempt >= chunk_max_retries:
-                            raise
-                        time.sleep(chunk_retry_backoff_s * (2 ** attempt))
+        if cache_enabled and cache_dir:
+            hits = cache_hits_total
+            print(f"[vllm_chat_batched] Cache hits: {hits}/{total} ({(100.0 * hits / max(1, total)):.1f}%)")
 
-                if last_err is not None:
-                    raise last_err
-            else:
-                # all hits
-                pbar.update(len(chunk))
-
-            missing = [idx for idx, r in enumerate(chunk_out) if r is None]
-            if missing:
-                raise RuntimeError(f"Internal error: missing chunk outputs at positions {missing[:10]}")
-
-            outputs.extend([r for r in chunk_out if r is not None])
-
-    if cache_enabled and cache_dir:
-        hits = cache_hits_total
-        print(f"[vllm_chat_batched] Cache hits: {hits}/{total} ({(100.0 * hits / max(1, total)):.1f}%)")
-
-    return outputs
+        return outputs
 
 
 def _mp_chat_one_worker(
