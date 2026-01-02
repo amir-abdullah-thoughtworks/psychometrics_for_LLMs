@@ -20,6 +20,12 @@ from pydantic import Field, create_model
 from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
+import traceback
+from datetime import datetime
+from threading import Lock
+
+_ERROR_LOG_PATH = Path("errors.log")
+_ERROR_LOG_LOCK = Lock()
 
 # ----------------------------
 # Paths (repo-relative defaults)
@@ -34,12 +40,15 @@ DEFAULT_DEMOGRAPHICS_CSV = REPO_ROOT / "data" / "demographics" / "balanced_us_po
 # ----------------------------
 # Utils
 # ----------------------------
-def _norm(s: Any) -> str:
-    return " ".join(str(s or "").strip().lower().split())
-
-
 def stable_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _safe_float(x: Any, default: float = 0.0) -> float:
+    try:
+        return float(x)
+    except Exception:
+        return default
 
 
 def _weighted_choice(rng: random.Random, items: List[Any], weights: List[float]) -> Any:
@@ -59,18 +68,26 @@ def _weighted_choice(rng: random.Random, items: List[Any], weights: List[float])
     return items[-1]
 
 
-def _safe_float(x: Any, default: float = 0.0) -> float:
-    try:
-        return float(x)
-    except Exception:
-        return default
-
-
 def _words_at_most(text: str, max_words: int) -> str:
     w = text.split()
     if len(w) <= max_words:
         return text.strip()
     return " ".join(w[:max_words]).strip()
+
+
+def log_worker_error(*, idx: int, df_idx: int, exc: Exception, context: Optional[str] = None):
+    ts = datetime.utcnow().isoformat()
+    header = f"\n{'=' * 80}\n[{ts}] idx={idx} df_idx={df_idx}"
+    if context:
+        header += f" context={context}"
+    header += "\n"
+
+    tb = traceback.format_exc()
+    with _ERROR_LOG_LOCK:
+        with _ERROR_LOG_PATH.open("a", encoding="utf-8") as f:
+            f.write(header)
+            f.write(str(exc) + "\n")
+            f.write(tb)
 
 
 # ----------------------------
@@ -87,326 +104,184 @@ class Demographics:
 
 
 # ----------------------------
-# Seed extraction helpers (robust to slight schema drift)
+# STRICT extraction for AdditionalTraits (schema-exact)
 # ----------------------------
-def _get_root_seed_obj(data: dict) -> dict:
-    """
-    Many of our seed YAMLs wrap the real payload under a single top-level key, e.g.
-    BritishParliamentPersonaSeeds: {...}
-    """
-    # 1) Known wrappers
-    for k in [
-        "BritishParliamentPersonaSeeds",
-        "ParliamentarianPersonaSeeds",
-        "ParliamentPersonaSeeds",
-        "ParliamentarianSeeds",
-        "ParliamentSeeds",
-    ]:
-        v = data.get(k)
-        if isinstance(v, dict):
-            return v
-
-    # 2) If there's exactly one top-level dict key and its value is a dict, treat that as root
-    if isinstance(data, dict) and len(data) == 1:
-        only_val = next(iter(data.values()))
-        if isinstance(only_val, dict):
-            return only_val
-
-    # 3) Fall back
-    return data
+_ADDITIONAL_TRAITS_ORDER: List[str] = [
+    "RhetoricalRegister",
+    "RelationshipToParty",
+    "AttitudeToInstitutions",
+    "CommitteeFocus",
+    "ConstituencyType",
+    "DonorLobbyExposure",
+    "ScandalVulnerability",
+    "MediaFootprint",
+    "LeadershipAmbition",
+    "CoalitionPosture",
+    "ConstituencyServiceStyle",
+]
 
 
-def _extract_memoirs(root: dict) -> Tuple[List[str], Dict[str, str]]:
-    """
-    Supports:
-      A) MemoirSeeds: [title,...] + MemoirSummaries: {title: summary,...}
-      B) Memoirs / CanonicalTexts / MemoirSeeds: [{title, summary}, ...]
-      C) CanonicalTexts:
-            titles: [title,...]
-         (titles-only; summaries empty)
-    """
-    # ---- C) CanonicalTexts.titles (your current schema) ----
-    ct = root.get("CanonicalTexts") or root.get("canonical_texts")
-    if isinstance(ct, dict):
-        titles = ct.get("titles") or ct.get("Titles")
-        if isinstance(titles, list) and titles:
-            t = [str(x).strip() for x in titles if str(x).strip()]
-            if t:
-                return t, {}  # titles-only: no summaries
+# ----------------------------
+# Other seed extraction helpers (kept as-is; not fully schema-locked)
+# ----------------------------
+def load_root(seeds_yaml: str) -> dict:
+    with open(seeds_yaml, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
 
-    # ---- A) separate titles + summaries ----
-    titles = root.get("MemoirSeeds") or root.get("memoir_seeds")
-    summaries = root.get("MemoirSummaries") or root.get("memoir_summaries")
-    if isinstance(titles, list) and titles:
-        t = [str(x).strip() for x in titles if str(x).strip()]
-        s = {}
-        if isinstance(summaries, dict):
-            s = {str(k).strip(): str(v).strip() for k, v in summaries.items()}
-        if t:
-            return t, s
+    if not isinstance(data, dict):
+        raise ValueError("Seed YAML must be a dict")
 
-    # ---- B) list of dicts ----
-    for key in ["Memoirs", "memoirs", "CanonicalTexts", "canonical_texts", "MemoirSeeds"]:
-        raw = root.get(key)
-        if isinstance(raw, dict):
-            # Some schemas might have CanonicalTexts.items: [{title, summary}, ...]
-            raw = raw.get("items") or raw.get("texts") or raw.get("entries")
-        if isinstance(raw, list) and raw and isinstance(raw[0], dict):
-            t: List[str] = []
-            s: Dict[str, str] = {}
-            for m in raw:
-                title = str(m.get("title", "")).strip() or str(m.get("name", "")).strip()
-                summ = str(m.get("summary", "")).strip()
-                if title:
-                    t.append(title)
-                    if summ:
-                        s[title] = summ
-            if t:
-                return t, s
+    if "BritishParliamentPersonaSeeds" not in data:
+        raise ValueError("Top-level key 'BritishParliamentPersonaSeeds' missing")
 
-    raise ValueError(
-        "Could not find canonical/memoir titles in YAML. "
-        "Expected CanonicalTexts.titles (titles-only), or MemoirSeeds, or list of {title,summary}."
-    )
+    root = data["BritishParliamentPersonaSeeds"]
+    if not isinstance(root, dict):
+        raise ValueError("BritishParliamentPersonaSeeds must be a dict")
+
+    return root
 
 
-def _extract_party_priors(root: dict) -> Dict[str, float]:
-    pa = root.get("PartyAffiliation") or root.get("party_affiliation") or {}
-    priors = pa.get("priors") if isinstance(pa, dict) else None
+
+def extract_canonical_texts(root: dict) -> tuple[list[str], dict[str, str]]:
+    ct = root["CanonicalTexts"]
+
+    if not isinstance(ct, dict):
+        raise ValueError("CanonicalTexts must be a dict")
+
+    titles = ct["titles"]
+    if not isinstance(titles, list) or not titles:
+        raise ValueError("CanonicalTexts.titles must be a non-empty list")
+
+    titles = [str(t).strip() for t in titles]
+    if any(not t for t in titles):
+        raise ValueError("CanonicalTexts.titles contains empty entries")
+
+    summaries: dict[str, str] = {}
+
+    # items are OPTIONAL but schema-valid
+    items = ct.get("items", [])
+    if items:
+        if not isinstance(items, list):
+            raise ValueError("CanonicalTexts.items must be a list")
+        for it in items:
+            if not isinstance(it, dict):
+                raise ValueError("CanonicalTexts.items elements must be dicts")
+            title = it["title"]
+            summary = it["summary"]
+            if title and summary:
+                summaries[str(title)] = str(summary)
+
+    return titles, summaries
+
+
+def extract_party_priors(root: dict) -> dict[str, float]:
+    pa = root["PartyAffiliation"]
+    priors = pa["priors"]
+
     if not isinstance(priors, dict) or not priors:
-        raise ValueError("PartyAffiliation.priors missing/empty in seeds YAML")
+        raise ValueError("PartyAffiliation.priors must be a non-empty dict")
 
-    out: Dict[str, float] = {}
-    for party, meta in priors.items():
-        if isinstance(meta, dict) and "base_probability" in meta:
-            out[str(party)] = _safe_float(meta["base_probability"], 0.0)
-        else:
-            out[str(party)] = _safe_float(meta, 0.0)
+    out: dict[str, float] = {}
+    for party, block in priors.items():
+        if not isinstance(block, dict):
+            raise ValueError(f"PartyAffiliation.priors.{party} must be dict")
+        out[party] = float(block["base_probability"])
 
-    out = {k: v for k, v in out.items() if k and v >= 0}
-    if not out:
-        raise ValueError("No usable party base_probability values found")
     return out
 
 
-def _extract_weighted_items(section: Any, value_key: str = "value") -> List[Tuple[str, float, str]]:
-    """
-    Expects:
-      section: {items: [{value, weight, explanation?}, ...]} or [{value, weight, explanation?}, ...]
-    Returns: [(value, weight, explanation), ...]
-    """
-    items = None
-    if isinstance(section, dict):
-        items = section.get("items")
-    elif isinstance(section, list):
-        items = section
-
-    if not isinstance(items, list) or not items:
-        return []
-
-    out: List[Tuple[str, float, str]] = []
-    for it in items:
-        if not isinstance(it, dict):
-            continue
-        v = str(it.get(value_key, "")).strip()
-        w = _safe_float(it.get("weight", 0.0), 0.0)
-        e = str(it.get("explanation", "")).strip()
-        if v:
-            out.append((v, w, e))
+def extract_regions(root: dict) -> list[tuple[str, float, str]]:
+    reg = root["Regions"]
+    items = reg["items"]
+    out = []
+    for region, meta in items.items():
+        out.append(
+            (region, float(meta["population_share"]), str(meta["explanation"]),)
+        )
     return out
 
-
-def _extract_regions(root: dict) -> List[Tuple[str, float, str]]:
-    reg = root.get("Regions") or root.get("regions") or {}
-    items = reg.get("items") if isinstance(reg, dict) else None
-    if not isinstance(items, dict) or not items:
-        raise ValueError("Regions.items missing/empty in seeds YAML")
-    out: List[Tuple[str, float, str]] = []
-    for region_key, meta in items.items():
-        if not isinstance(meta, dict):
-            continue
-        share = _safe_float(meta.get("population_share", 0.0), 0.0)
-        expl = str(meta.get("explanation", "")).strip()
-        out.append((str(region_key), share, expl))
-    if not out:
-        raise ValueError("No usable region entries found")
-    return out
-
-
-def _extract_parliamentary_styles(root: dict) -> List[str]:
-    # Common patterns: list, or {items:[{value:...},...]}:
-    raw_block = root["ParliamentaryStyle"]  # must exist
-    raw_styles = raw_block["items"]  # must exist
-
-    if not isinstance(raw_styles, list) or not raw_styles:
-        raise ValueError("Parliamentary styles missing/empty in seeds YAML")
-
-    parliamentary_styles: List[dict] = [
-        s if isinstance(s, dict) else {"value": str(s)}
-        for s in raw_styles
+def extract_occupations(root: dict) -> list[tuple[str, float, str]]:
+    items = root["Occupations"]["items"]
+    return [
+        (it["value"], float(it["weight"]), it["explanation"])
+        for it in items
     ]
 
-    return parliamentary_styles
+def extract_education(root: dict):
+    edu = root["Education"]
+    secondary = [
+        (it["value"], float(it["weight"]), it["explanation"])
+        for it in edu["Secondary"]
+    ]
+    tertiary = [
+        (it["value"], float(it["weight"]), it["explanation"])
+        for it in edu["Tertiary"]
+    ]
+    return secondary, tertiary
 
+def extract_archetypes(root: dict) -> list[dict]:
+    items = root["Archetypes"]["items"]
+    for a in items:
+        for k in ("name", "description", "signature_tells", "strengths", "pitfalls"):
+            if k not in a:
+                raise ValueError(f"Archetype missing key: {k}")
+    return items
 
-def _extract_media_dispositions(root: dict) -> List[str]:
-    md = root.get("MediaDisposition") or root.get("media_disposition") or {}
-    if isinstance(md, dict) and isinstance(md.get("items"), list):
-        vals = []
-        for it in md["items"]:
-            if isinstance(it, dict) and it.get("value"):
-                vals.append(str(it["value"]).strip())
-            else:
-                vals.append(str(it).strip())
-        vals = [v for v in vals if v]
-        if vals:
-            return vals
-    if isinstance(md, list):
-        vals = [str(x).strip() for x in md if str(x).strip()]
-        if vals:
-            return vals
-    # fallback
-    return ["Media-shy", "Selective", "Media-savvy", "Performative", "Policy-focused"]
+def extract_additional_traits(root: dict) -> dict[str, list[tuple[str, str]]]:
+    at = root["AdditionalTraits"]
 
+    if set(at.keys()) != set(_ADDITIONAL_TRAITS_ORDER):
+        raise ValueError("AdditionalTraits keys do not match schema exactly")
 
-def _extract_additional_traits_and_rhetorical_register(root: dict) -> Tuple[Dict[str, List[str]], List[str]]:
-    """
-    AdditionalTraits is usually:
-      AdditionalTraits:
-        RhetoricalRegister: {items:[{value, weight?},...]}
-        SomeOtherTrait:     {items:[...]}
-    We:
-      - pull RhetoricalRegister out as a top-level persona field options
-      - keep all other traits as additional_traits dict(trait_name -> [options])
-    """
-    raw = root.get("AdditionalTraits") or root.get("additional_traits") or {}
-    if not isinstance(raw, dict):
-        return {}, []
-
-    additional: Dict[str, List[str]] = {}
-    rhetorical: List[str] = []
-
-    for trait_name, trait_section in raw.items():
-        # allow list directly or {items:[...]}
-        items = trait_section.get("items") if isinstance(trait_section, dict) else trait_section
+    out: dict[str, list[tuple[str, str]]] = {}
+    for name in _ADDITIONAL_TRAITS_ORDER:
+        items = at[name]["items"]
         if not isinstance(items, list) or not items:
-            continue
-
-        opts: List[str] = []
+            raise ValueError(f"AdditionalTraits.{name}.items missing/empty")
+        pairs: list[tuple[str, str]] = []
         for it in items:
-            if isinstance(it, dict) and "value" in it:
-                opts.append(str(it["value"]).strip())
-            else:
-                opts.append(str(it).strip())
-        opts = [o for o in opts if o]
-        if not opts:
-            continue
-
-        if _norm(trait_name) == "rhetoricalregister":
-            rhetorical = opts
-        else:
-            additional[str(trait_name)] = opts
-
-    return additional, rhetorical
-
-
-def _extract_policy_items(root: dict) -> List[dict]:
-    """
-    Your described structure:
-
-      PolicyDebates:
-        debates: [{name: Immigration}, ...]
-      (somewhere else)
-      items:
-        - name: Immigration
-          stances:
-            - bullet: ...
-              id: ...
-              party_distribution: {Conservative: 0.85, ...}
-
-    We try:
-      1) if root has a dict with key 'items' that looks like this, use it
-      2) else scan root values for any dict that has an 'items' list matching the pattern
-      3) else scan root for any top-level 'items' list matching the pattern
-    """
-    def looks_like_policy_items(items: Any) -> bool:
-        if not isinstance(items, list) or not items:
-            return False
-        ex = items[0]
-        if not isinstance(ex, dict):
-            return False
-        if "name" not in ex or "stances" not in ex:
-            return False
-        st = ex.get("stances")
-        if not isinstance(st, list) or not st:
-            return False
-        st0 = st[0]
-        return isinstance(st0, dict) and ("id" in st0) and ("party_distribution" in st0)
-
-    # direct at root
-    if looks_like_policy_items(root.get("items")):
-        return root["items"]
-
-    # common container keys
-    for key in ["PolicyDebatesExpanded", "PolicyDebatesItems", "PolicyDebateItems", "PolicyDebatesFull"]:
-        sec = root.get(key)
-        if isinstance(sec, dict) and looks_like_policy_items(sec.get("items")):
-            return sec["items"]
-        if looks_like_policy_items(sec):
-            return sec  # if stored directly as list
-
-    # scan root values
-    for _, v in root.items():
-        if isinstance(v, dict) and looks_like_policy_items(v.get("items")):
-            return v["items"]
-        if looks_like_policy_items(v):
-            return v
-
-    raise ValueError("Could not find expanded PolicyDebates items list in seeds YAML (list of {name, stances:[{id,party_distribution},...]}).")
-
-
-def _build_policy_lookup(policy_items: List[dict]) -> Dict[str, List[dict]]:
-    """
-    Returns: issue_name -> list of stance dicts (each must include id, bullet, description, party_distribution)
-    """
-    out: Dict[str, List[dict]] = {}
-    for issue in policy_items:
-        if not isinstance(issue, dict):
-            continue
-        name = str(issue.get("name", "")).strip()
-        stances = issue.get("stances")
-        if not name or not isinstance(stances, list) or not stances:
-            continue
-        good: List[dict] = []
-        for st in stances:
-            if not isinstance(st, dict):
-                continue
-            sid = str(st.get("id", "")).strip()
-            if not sid:
-                continue
-            pdist = st.get("party_distribution")
-            if not isinstance(pdist, dict):
-                continue
-            good.append(st)
-        if good:
-            out[name] = good
-    if not out:
-        raise ValueError("Policy debates parsed, but no usable stance entries found.")
+            if not isinstance(it, dict):
+                raise ValueError(f"AdditionalTraits.{name}.items must be list[dict]")
+            v = str(it.get("value", "")).strip()
+            e = str(it.get("explanation", "")).strip()
+            if not v:
+                raise ValueError(f"AdditionalTraits.{name}.items has empty value")
+            if not e:
+                raise ValueError(f"AdditionalTraits.{name}.items has empty explanation")
+            pairs.append((v, e))
+        out[name] = pairs
     return out
 
+def extract_persona_core(root: dict):
+    pc = root["PersonaCore"]
+
+    def extract_block(name: str):
+        items = pc[name]["items"]
+        return [(it["value"], it.get("explanation", ""), it.get("weight")) for it in items]
+
+    appearance = extract_block("Appearance")
+    parliamentary_style = extract_block("ParliamentaryStyle")
+    media_disposition = extract_block("MediaDisposition")
+
+    return appearance, parliamentary_style, media_disposition
+
+def extract_policy_debates(root: dict) -> dict[str, list[dict]]:
+    items = root["PolicyDebates"]["items"]
+
+    out = {}
+    for issue in items:
+        name = issue["name"]
+        stances = issue["stances"]
+        out[name] = stances
+    return out
+
+def extract_generator_config(root: dict) -> dict:
+    return root["GeneratorConfig"]
 
 # ----------------------------
 # Persona Generator
 # ----------------------------
 class ParliamentarianPersonaGenerator:
-    """
-    Pydantic-structured generation (like police generator), but with:
-      - Demographics "cheated" from police_officers.csv (age>=30)
-      - Policy stances per issue sampled using party priors, stored as dict issue -> list[stance_id]
-      - Speech covers 3 randomly selected issues, grounded in memoir voice + parliamentary_style + rhetorical_register
-      - persona_string excludes ONLY: memoir (canonical title), memoir_summary, memoir_narrative, archetype, archetype_description
-    """
-
     def __init__(
         self,
         seeds_yaml: str,
@@ -425,74 +300,55 @@ class ParliamentarianPersonaGenerator:
         self.top_p = top_p
         self.base_seed = int(rng_seed)
         self._rng = random.Random(self.base_seed)
+        root = load_root(seeds_yaml)
 
-        # ---- load seeds ----
-        with open(seeds_yaml, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
-        root = _get_root_seed_obj(data)
+        self.version = root["version"]
 
-        # ---- memoirs ----
-        self.memoir_titles, self.memoir_summaries = _extract_memoirs(root)
+        self.memoir_titles, self.memoir_summaries = extract_canonical_texts(root)
+        self.party_priors = extract_party_priors(root)
+        self.regions = extract_regions(root)
+        self.occupations = extract_occupations(root)
+        self.educ_secondary, self.educ_tertiary = extract_education(root)
+        self.archetypes = extract_archetypes(root)
+
         self._mem_offset = self._rng.randrange(len(self.memoir_titles))
-
-        # ---- archetypes (grounding) ----
-        raw_block = root["Archetypes"]  # must exist
-        raw_archetypes = raw_block["items"]  # must exist
-
-        if not isinstance(raw_archetypes, list) or not raw_archetypes:
-            raise ValueError("Archetypes missing/empty in seeds YAML")
-
-        self.archetypes: List[dict] = [
-            a if isinstance(a, dict) else {"name": str(a), "description": ""}
-            for a in raw_archetypes
-        ]
-
         self._arch_offset = self._rng.randrange(len(self.archetypes))
 
-        # ---- party priors ----
-        self.party_priors = _extract_party_priors(root)
+        (
+            self.appearance_items,
+            self.parliamentary_styles,
+            self.media_dispositions,
+        ) = extract_persona_core(root)
 
-        # ---- occupations / education / regions ----
-        occ = root.get("Occupations") or root.get("occupations") or {}
-        self.occupations = _extract_weighted_items(occ, value_key="value")
-        if not self.occupations:
-            raise ValueError("Occupations.items missing/empty in seeds YAML")
+        print("DEBUG parliamentary_styles sample:", self.parliamentary_styles[:3])
+        print("DEBUG types:", [type(x) for x in self.parliamentary_styles[:3]])
 
-        edu = root.get("Education") or root.get("education") or {}
-        self.educ_secondary = _extract_weighted_items(edu.get("Secondary", []), value_key="value")
-        self.educ_tertiary = _extract_weighted_items(edu.get("Tertiary", edu.get("University", [])), value_key="value")
-        if not self.educ_secondary and not self.educ_tertiary:
-            raise ValueError("Education.Secondary and Education.Tertiary both missing/empty in seeds YAML")
+        self.additional_trait_options = extract_additional_traits(root)
+        self.policy_lookup = extract_policy_debates(root)
 
-        self.regions = _extract_regions(root)
+        clinical = root.get("ClinicalFewShots", {})
+        if not isinstance(clinical, dict):
+            raise ValueError("ClinicalFewShots must be a dict")
 
-        # ---- styles / categories ----
-        self.parliamentary_styles = _extract_parliamentary_styles(root)
-        self.appearance_categories: Dict[str, List[str]] = root.get("AppearanceCategories") or root.get("appearance_categories") or {}
-        self.behavior_categories: Dict[str, List[str]] = root.get("BehaviorCategories") or root.get("behavior_categories") or {}
-        if not self.appearance_categories or not self.behavior_categories:
-            raise ValueError("AppearanceCategories/BehaviorCategories missing/empty in seeds YAML")
+        def _req_list(name: str) -> List[str]:
+            xs = clinical.get(name)
+            if not isinstance(xs, list) or not xs:
+                raise ValueError(f"ClinicalFewShots.{name} must be a non-empty list")
+            return [str(x).strip() for x in xs if str(x).strip()]
 
-        self.media_dispositions = _extract_media_dispositions(root)
+        self.fewshot_presenting_problems = _req_list("presenting_problems")
+        self.fewshot_thought_content = _req_list("thought_content")
+        self.fewshot_insight_judgment = _req_list("insight_judgment")
+        self.fewshot_cognition = _req_list("cognition")
 
-        # ---- additional traits + rhetorical register (top level) ----
-        self.additional_traits, self.rhetorical_register_options = _extract_additional_traits_and_rhetorical_register(root)
-        if not self.rhetorical_register_options:
-            # hard fail per your requirement (top-level field, used in speech)
-            raise ValueError("AdditionalTraits.RhetoricalRegister missing/empty in seeds YAML")
+        self.generator_config = extract_generator_config(root)
 
-        # ---- policy debates ----
-        # We only need the expanded stance blocks to sample stances per issue.
-        policy_items = _extract_policy_items(root)
-        self.policy_lookup = _build_policy_lookup(policy_items)
-
-        # ---- demographics CSV ----
+        # demographics CSV
         df = pd.read_csv(demographics_csv)
         required = {"uuid", "sex", "age", "first_name", "last_name", "marital_status", "ethnic_background"}
         miss = required - set(df.columns)
         if miss:
             raise ValueError(f"Missing required columns in demographics CSV: {sorted(miss)}")
-
         df = df.dropna(subset=list(required)).copy()
         df["age"] = df["age"].astype(int)
         df = df[df["age"] >= 30].reset_index(drop=True)
@@ -521,18 +377,7 @@ class ParliamentarianPersonaGenerator:
         return title, self.memoir_summaries.get(title, "")
 
     def _compose_archetype_description(self, a: dict) -> str:
-        """
-        Expected archetype schema (from seeds YAML):
-          - name: str
-          - description: str
-          - signature_tells: list[str] (optional)
-          - strengths: list[str] (optional)
-          - pitfalls: list[str] (optional)
-
-        Returns a compact, prompt-ready description string.
-        """
-
-        def _fmt_list(label: str, xs) -> str:
+        def fmt(label: str, xs) -> str:
             if not xs:
                 return ""
             if isinstance(xs, list):
@@ -540,34 +385,27 @@ class ParliamentarianPersonaGenerator:
                 if not xs:
                     return ""
                 return f"{label}: " + "; ".join(xs) + "."
-            # fallback if YAML is malformed (string/dict)
             s = str(xs).strip()
             return f"{label}: {s}." if s else ""
 
         name = (a.get("name") or "").strip()
         desc = (a.get("description") or "").strip()
-
-        parts: list[str] = []
+        parts: List[str] = []
         if name:
             parts.append(f"Archetype: {name}.")
         if desc:
             parts.append(desc if desc.endswith((".", "!", "?")) else desc + ".")
-
-        sig = _fmt_list("Signature tells", a.get("signature_tells"))
-        if sig:
-            parts.append(sig)
-
-        strengths = _fmt_list("Strengths", a.get("strengths"))
-        if strengths:
-            parts.append(strengths)
-
-        pitfalls = _fmt_list("Pitfalls", a.get("pitfalls"))
-        if pitfalls:
-            parts.append(pitfalls)
-
+        s1 = fmt("signature_tells", a.get("signature_tells"))
+        if s1:
+            parts.append(s1)
+        s2 = fmt("strengths", a.get("strengths"))
+        if s2:
+            parts.append(s2)
+        s3 = fmt("pitfalls", a.get("pitfalls"))
+        if s3:
+            parts.append(s3)
         out = " ".join(parts).strip()
         return out or "Archetype: (unspecified)."
-
 
     def _pick_archetype_by_index(self, idx: int) -> Tuple[str, str]:
         a = self.archetypes[(self._arch_offset + idx) % len(self.archetypes)]
@@ -590,22 +428,18 @@ class ParliamentarianPersonaGenerator:
 
     def _pick_education_by_index(self, idx: int) -> Tuple[str, str, str, str]:
         rng = random.Random(self.base_seed + 107 * idx)
-
         sec_val, sec_exp = "", ""
         ter_val, ter_exp = "", ""
-
         if self.educ_secondary:
             s_vals = [v for (v, _, _) in self.educ_secondary]
             s_wts = [w for (_, w, _) in self.educ_secondary]
             si = int(_weighted_choice(rng, list(range(len(s_vals))), s_wts))
             sec_val, sec_exp = s_vals[si], self.educ_secondary[si][2]
-
         if self.educ_tertiary:
             t_vals = [v for (v, _, _) in self.educ_tertiary]
             t_wts = [w for (_, w, _) in self.educ_tertiary]
             ti = int(_weighted_choice(rng, list(range(len(t_vals))), t_wts))
             ter_val, ter_exp = t_vals[ti], self.educ_tertiary[ti][2]
-
         return sec_val, sec_exp, ter_val, ter_exp
 
     def _pick_region_by_index(self, idx: int) -> Tuple[str, str]:
@@ -619,49 +453,38 @@ class ParliamentarianPersonaGenerator:
         rng = random.Random(self.base_seed + 113 * idx)
         return rng.choice(self.parliamentary_styles)
 
-    def _pick_rhetorical_register_by_index(self, idx: int) -> str:
-        rng = random.Random(self.base_seed + 141 * idx)
-        return rng.choice(self.rhetorical_register_options)
-
-    def _pick_appearance_random(self, idx: int) -> Tuple[str, List[str]]:
-        rng = random.Random(self.base_seed + 127 * idx)
-        cat = rng.choice(list(self.appearance_categories.keys()))
-        seeds = self.appearance_categories.get(cat, []) or []
-        k = min(5, len(seeds))
-        examples = rng.sample(seeds, k) if k else []
-        return cat, examples
-
-    def _pick_behavior_random(self, idx: int) -> Tuple[str, List[str]]:
-        rng = random.Random(self.base_seed + 131 * idx)
-        cat = rng.choice(list(self.behavior_categories.keys()))
-        seeds = self.behavior_categories.get(cat, []) or []
-        k = min(5, len(seeds))
-        examples = rng.sample(seeds, k) if k else []
-        return cat, examples
-
     def _pick_media_disposition_by_index(self, idx: int) -> str:
         rng = random.Random(self.base_seed + 137 * idx)
         return rng.choice(self.media_dispositions)
 
-    def _pick_additional_traits_by_index(self, idx: int) -> Dict[str, str]:
+    # ✅ LAW: pick ONE value for EACH AdditionalTraits key, promoted to top-level fields
+    def _pick_additional_traits_top_level_by_index(self, idx: int) -> Dict[str, Dict[str, str]]:
         rng = random.Random(self.base_seed + 139 * idx)
-        out: Dict[str, str] = {}
-        for trait, opts in (self.additional_traits or {}).items():
-            if opts:
-                out[trait] = rng.choice(opts)
+        out: Dict[str, Dict[str, str]] = {}
+        for trait_name in _ADDITIONAL_TRAITS_ORDER:
+            pairs = self.additional_trait_options[trait_name]  # list[(value, explanation)]
+            value, explanation = rng.choice(pairs)
+            out[trait_name] = {"value": value, "explanation": explanation}
         return out
+
+    def _pick_appearance_by_index(self, idx: int) -> Tuple[str, List[str]]:
+        rng = random.Random(self.base_seed + 127 * idx)
+
+        vals = [v for (v, _, _) in self.appearance_items]
+        if not vals:
+            raise ValueError("PersonaCore.Appearance.items yielded no values")
+
+        chosen_value = rng.choice(vals)
+        examples = rng.sample(vals, k=min(5, len(vals)))
+        return chosen_value, examples
+
 
     # ----------------------------
     # Policy stance sampling (per issue, ONE stance, party-weighted)
     # ----------------------------
     def _pick_policy_stances_by_party(self, idx: int, party: str) -> Dict[str, List[str]]:
-        """
-        For each issue: choose exactly ONE stance proportional to party_distribution[party].
-        Store dict[issue_name -> list[stance_id]] (list singleton for your requested type).
-        """
         rng = random.Random(self.base_seed + 149 * idx)
         out: Dict[str, List[str]] = {}
-
         for issue_name, stances in self.policy_lookup.items():
             stance_ids: List[str] = []
             weights: List[float] = []
@@ -672,11 +495,9 @@ class ParliamentarianPersonaGenerator:
                 if sid:
                     stance_ids.append(sid)
                     weights.append(w)
-
             if stance_ids:
                 chosen = str(_weighted_choice(rng, stance_ids, weights))
                 out[issue_name] = [chosen]
-
         return out
 
     def _pick_speech_issues(self, idx: int, policy_stances: Dict[str, List[str]], k: int = 3) -> List[str]:
@@ -687,11 +508,6 @@ class ParliamentarianPersonaGenerator:
         return rng.sample(issues, k)
 
     def _speech_targets_payload(self, speech_issues: List[str], policy_stances: Dict[str, List[str]]) -> Dict[str, List[dict]]:
-        """
-        Provide enough info for the model to write a coherent speech:
-          issue -> [{stance_id, bullet, description}]
-        (We only include the one selected stance per issue.)
-        """
         out: Dict[str, List[dict]] = {}
         for issue in speech_issues:
             chosen_ids = set(policy_stances.get(issue, []) or [])
@@ -717,19 +533,17 @@ class ParliamentarianPersonaGenerator:
     # Persona string formatting
     # ----------------------------
     def persona_row_to_string(self, row: Dict[str, Any]) -> str:
-        """
-        Line-separated key-value pairs.
-        Excludes grounding fields only:
-          memoir, memoir_summary, memoir_narrative, archetype, archetype_description
-        """
         exclude = {
             "memoir",
             "memoir_summary",
             "memoir_narrative",
+            "version",
+            "uuid",
             "archetype",
             "archetype_description",
         }
 
+        # Put AdditionalTraits promoted keys in schema order, top-level
         preferred_order = [
             "version",
             "uuid",
@@ -744,15 +558,14 @@ class ParliamentarianPersonaGenerator:
             "education_tertiary",
             "region",
             "parliamentary_style",
-            "rhetorical_register",
+            # promoted AdditionalTraits
+            *_ADDITIONAL_TRAITS_ORDER,
             "appearance_category",
-            "behavior_category",
             "media_disposition",
             "policy_stances",
             "speech_issues",
             "speech",
             "appearance",
-            "behavior",
             "educational_vocational_history",
             "medical_developmental_history",
             "family_history",
@@ -762,7 +575,6 @@ class ParliamentarianPersonaGenerator:
             "cognition",
             "emotional_behavioral_functioning",
             "social_functioning",
-            "additional_traits",
             "summary_of_psychological_profile",
         ]
 
@@ -783,7 +595,6 @@ class ParliamentarianPersonaGenerator:
             if v is None:
                 continue
 
-            # Pretty formatting for presenting_problems list
             if k == "presenting_problems" and isinstance(v, list):
                 v2 = [clean_value(x) for x in v if x is not None and str(x).strip()]
                 if v2:
@@ -791,10 +602,14 @@ class ParliamentarianPersonaGenerator:
                     lines.extend([f"- {x}" for x in v2])
                 continue
 
-            s = clean_value(v)
-            if not s:
+            if k in _ADDITIONAL_TRAITS_ORDER and isinstance(v, dict):
+                lines.append(f"{k}.value: {v.get('value', '')}")
+                lines.append(f"{k}.explanation: {v.get('explanation', '')}")
                 continue
-            lines.append(f"{k}: {s}")
+
+            s = clean_value(v)
+            if s:
+                lines.append(f"{k}: {s}")
 
         extras = sorted([k for k in row.keys() if k not in set(preferred_order) and k not in exclude])
         for k in extras:
@@ -802,170 +617,233 @@ class ParliamentarianPersonaGenerator:
             if v is None:
                 continue
             s = clean_value(v)
-            if not s:
-                continue
-            lines.append(f"{k}: {s}")
+            if s:
+                lines.append(f"{k}: {s}")
 
         return "\n".join(lines)
 
     # ----------------------------
     # Generation
     # ----------------------------
-    def generate_one(self, idx: int, df_idx: int) -> Optional[dict]:
-        dem = self._pick_demographics_by_df_index(df_idx)
 
-        memoir_title, memoir_summary = self._pick_memoir_by_index(idx)
-        archetype_name, archetype_desc = self._pick_archetype_by_index(idx)
 
-        party = self._pick_party_by_index(idx)
-        occupation, occupation_expl = self._pick_occupation_by_index(idx)
-        edu_sec, edu_sec_expl, edu_ter, edu_ter_expl = self._pick_education_by_index(idx)
-        region, region_expl = self._pick_region_by_index(idx)
-        parliamentary_style = self._pick_parliamentary_style_by_index(idx)
-        rhetorical_register = self._pick_rhetorical_register_by_index(idx)
-        appearance_cat, appearance_examples = self._pick_appearance_random(idx)
-        behavior_cat, behavior_examples = self._pick_behavior_random(idx)
-        media_disp = self._pick_media_disposition_by_index(idx)
-        additional_traits = self._pick_additional_traits_by_index(idx)
+def generate_one(self, idx: int, df_idx: int) -> Optional[dict]:
+    dem = self._pick_demographics_by_df_index(df_idx)
 
-        # policy stances across ALL issues (stored as dict issue -> [stance_id])
-        policy_stances = self._pick_policy_stances_by_party(idx, party)
+    memoir_title, memoir_summary = self._pick_memoir_by_index(idx)
+    archetype_name, archetype_desc = self._pick_archetype_by_index(idx)
 
-        # speech issues: pick 3 issues from the already-chosen stances
-        speech_issues = self._pick_speech_issues(idx, policy_stances, k=3)
-        speech_targets = self._speech_targets_payload(speech_issues, policy_stances)
+    party = self._pick_party_by_index(idx)
+    occupation, occupation_expl = self._pick_occupation_by_index(idx)
+    edu_sec, edu_sec_expl, edu_ter, edu_ter_expl = self._pick_education_by_index(idx)
+    region, region_expl = self._pick_region_by_index(idx)
+    parliamentary_style = self._pick_parliamentary_style_by_index(idx)
+    media_disp = self._pick_media_disposition_by_index(idx)
 
-        # ----------------------------
-        # Pydantic schema (LLM generates ONLY the narrative/text fields + must echo fixed literals)
-        # ----------------------------
-        SeededParliamentarianPersonaSchema = create_model(  # type: ignore[assignment]
-            "SeededParliamentarianPersonaSchema",
-            version=(Literal[self.version], ...),
-            uuid=(Literal[dem.uuid], ...),
-            name=(Literal[dem.name], ...),
-            age=(Literal[dem.age], ...),
-            sex=(Literal[dem.sex], ...),
-            marital_status=(Literal[dem.marital_status], ...),
-            ethnic_background=(Literal[dem.ethnic_background], ...),
+    # appearance chosen values
+    appearance_value, appearance_examples = self._pick_appearance_by_index(idx)
 
-            party_affiliation=(Literal[party], ...),
-            occupation=(Literal[occupation], ...),
-            education_secondary=(Literal[edu_sec], ...),
-            education_tertiary=(Literal[edu_ter], ...),
-            region=(Literal[region], ...),
-            parliamentary_style=(Literal[parliamentary_style], ...),
-            rhetorical_register=(Literal[rhetorical_register], ...),
-            appearance_category=(Literal[appearance_cat], ...),
-            behavior_category=(Literal[behavior_cat], ...),
-            media_disposition=(Literal[media_disp], ...),
+    # ✅ AdditionalTraits: each is a dict {value, explanation}
+    trait_values = self._pick_additional_traits_top_level_by_index(idx)
 
-            # Grounding (excluded from persona_string)
-            memoir=(Literal[memoir_title], ...),
-            memoir_summary=(str, Field(
-                ...,
-                description="Copy the selected memoir summary exactly as provided. If empty, output an empty string."
-            )),
-            memoir_narrative=(str, Field(
-                ...,
-                description=(
-                    "Write ~200 words as a short memoir-like narrative in the voice and cadence suggested by the selected memoir. "
-                    "Ground all later details in this narrative. Do not mention 'memoir' or 'canonical text'."
-                ),
-            )),
-            archetype=(Literal[archetype_name], ...),
-            archetype_description=(str, Field(
-                ...,
-                description="Copy the provided archetype description exactly; grounding only.",
-            )),
+    # policy stances across ALL issues (stored as dict issue -> [stance_id])
+    policy_stances = self._pick_policy_stances_by_party(idx, party)
 
-            # Appearance + behavior (memoir voice)
-            appearance=(str, Field(
-                ...,
-                description=(
-                    "2–3 specialized sentences about the person's appearance, faithful to the memoir narrative voice. "
-                    "Use the selected appearance category as the anchor; stay concrete."
-                ),
-            )),
-            behavior=(str, Field(
-                ...,
-                description=(
-                    "2–3 specialized sentences about the person's behavior/mannerisms, faithful to the memoir narrative voice. "
-                    "Use the selected behavior category as the anchor; stay concrete."
-                ),
-            )),
+    # speech issues: pick 3 issues from the already-chosen stances
+    speech_issues = self._pick_speech_issues(idx, policy_stances, k=3)
+    speech_targets = self._speech_targets_payload(speech_issues, policy_stances)
 
-            # Psychological grounding (INCLUDED in persona_string)
-            educational_vocational_history=(str, Field(
-                ...,
-                description="30–50 words. Align with education and occupation and party; show training/trajectory effects.",
-            )),
-            medical_developmental_history=(str, Field(
-                ...,
-                description="30–50 words. Health/development context relevant to the narrative; only what’s needed.",
-            )),
-            family_history=(str, Field(
-                ...,
-                description="30–50 words. Relational dynamics consistent with narrative, ethnic background, and marital status.",
-            )),
-            presenting_problems=(List[str], Field(
-                ...,
-                description=(
-                    "3–6 concise mental-health problem phrases describing THE PARLIAMENTARIAN. "
-                    "Natural phrasing, not diagnoses, not generic political tropes. "
-                    "Not all problems should be work/politics-related."
-                ),
-            )),
-            thought_content=(str, Field(
-                ...,
-                description="25–45 words. What tends to occupy the person’s mind, drawn from the narrative; natural phrasing.",
-            )),
-            insight_judgment=(str, Field(
-                ...,
-                description="25–45 words. Practical decision-making and self-understanding suggested by the narrative.",
-            )),
-            cognition=(str, Field(
-                ...,
-                description="25–45 words. Observable thinking/recall/problem-solving implied by the narrative.",
-            )),
-            emotional_behavioral_functioning=(str, Field(
-                ...,
-                description="35–55 words. How they handle pressure and difficult feelings; show behavior, avoid labels.",
-            )),
-            social_functioning=(str, Field(
-                ...,
-                description="35–55 words. Patterns in closeness, trust, and participation with others; concrete cues.",
-            )),
-            summary_of_psychological_profile=(str, Field(
-                ...,
-                description=(
-                    "75–105 words. Integrative summary using narrative + histories + functioning + problems, "
-                    "implicitly framed by the archetype description (grounding). Do not explicitly name the archetype."
-                ),
-            )),
+    # ----------------------------
+    # Few-shot examples for clinical fields (3 per field)
+    # Assumes you loaded these lists from YAML into:
+    #   self.fewshot_presenting_problems: List[str]  (each is a single phrase)
+    #   self.fewshot_thought_content: List[str]      (25–45 words)
+    #   self.fewshot_insight_judgment: List[str]     (25–45 words)
+    #   self.fewshot_cognition: List[str]            (25–45 words)
+    # ----------------------------
+    rng_fs = random.Random(self.base_seed + 1009 * idx)
 
-            # Speech (<=250 words) about the 3 selected issues/stances
-            speech=(str, Field(
-                ...,
-                description=(
-                    "Write a short speech (<=250 words) as the parliamentarian. "
-                    "Use BOTH the parliamentary_style and rhetorical_register to set the tenor, cadence, and rhetorical devices. "
-                    "Ground it in the memoir narrative voice. Cover ONLY the provided issues and their provided stances; "
-                    "do not invent new issues or contradict the stance descriptions."
-                ),
-            )),
+    def pick_n(pool: List[str], n=3) -> List[str]:
+        pool = [str(x).strip() for x in (pool or []) if str(x).strip()]
+        if len(pool) <= n:
+            return pool
+        return rng_fs.sample(pool, n)
+
+    fs_presenting = pick_n(getattr(self, "fewshot_presenting_problems", []))
+    fs_thought = pick_n(getattr(self, "fewshot_thought_content", []))
+    fs_insight = pick_n(getattr(self, "fewshot_insight_judgment", []))
+    fs_cog = pick_n(getattr(self, "fewshot_cognition", []))
+
+    # ----------------------------
+    # Build dynamic Pydantic trait fields (top-level Literals)
+    # Each trait becomes an object with {value, explanation} both literal
+    # ----------------------------
+    trait_fields: Dict[str, tuple[Any, Any]] = {}
+    for trait_name in _ADDITIONAL_TRAITS_ORDER:
+        chosen = trait_values[trait_name]
+        val = str(chosen["value"])
+        expl = str(chosen["explanation"])
+
+        TraitModel = create_model(  # type: ignore[misc]
+            f"{trait_name}Choice_{idx}",
+            value=(Literal[val], ...),
+            explanation=(Literal[expl], ...),
         )
+        trait_fields[trait_name] = (TraitModel, ...)
 
-        system_msg = (
-            "You are generating a synthetic British parliamentarian persona.\n"
-            "Rules:\n"
-            "• You MUST follow the fixed literal fields exactly.\n"
-            "• Keep everything consistent with the memoir narrative voice.\n"
-            "• Do not mention 'archetype', 'memoir', 'canonical text', or generation instructions.\n"
-            "• Presenting problems must be concise phrases, not diagnoses.\n"
-            "• If the canonical summary is empty, infer voice/cadence from the title alone (do not invent a 'summary' field).\n"
-        )
+    SeededParliamentarianPersonaSchema = create_model(  # type: ignore[assignment]
+        f"SeededParliamentarianPersonaSchema_{idx}",
+        version=(Literal[self.version], ...),
+        uuid=(Literal[dem.uuid], ...),
+        name=(Literal[dem.name], ...),
+        age=(Literal[dem.age], ...),
+        sex=(Literal[dem.sex], ...),
+        marital_status=(Literal[dem.marital_status], ...),
+        ethnic_background=(Literal[dem.ethnic_background], ...),
 
-        user_msg = (
+        party_affiliation=(Literal[party], ...),
+        occupation=(Literal[occupation], ...),
+        education_secondary=(Literal[edu_sec], ...),
+        education_tertiary=(Literal[edu_ter], ...),
+        region=(Literal[region], ...),
+        parliamentary_style=(Literal[parliamentary_style], ...),
+
+        appearance_category=(Literal[appearance_value], ...),
+        media_disposition=(Literal[media_disp], ...),
+
+        # ✅ promoted AdditionalTraits fields at top-level
+        **trait_fields,
+
+        # Grounding (excluded from persona_string)
+        memoir=(Literal[memoir_title], ...),
+        memoir_summary=(str, Field(
+            ...,
+            description="Copy the selected memoir summary exactly as provided. If empty, output an empty string."
+        )),
+        memoir_narrative=(str, Field(
+            ...,
+            description=(
+                "Write ~200 words as a short memoir-like narrative in the voice and cadence suggested by the selected memoir. "
+                "Ground all later details in this narrative. Do not mention 'memoir' or 'canonical text'."
+            ),
+        )),
+        archetype=(Literal[archetype_name], ...),
+        archetype_description=(str, Field(
+            ...,
+            description="Copy the provided archetype description exactly; grounding only.",
+        )),
+
+        appearance=(str, Field(
+            ...,
+            description=(
+                "2–3 specialized sentences about the person's appearance, faithful to the memoir narrative voice. "
+                "Anchor it in the fixed appearance_category value; stay concrete."
+            ),
+        )),
+
+        educational_vocational_history=(str, Field(
+            ...,
+            description="30–50 words. Align with education and occupation and party; show training/trajectory effects.",
+        )),
+        medical_developmental_history=(str, Field(
+            ...,
+            description="30–50 words. Health/development context relevant to the narrative; only what’s needed.",
+        )),
+        family_history=(str, Field(
+            ...,
+            description="30–50 words. Relational dynamics consistent with narrative, ethnic background, and marital status.",
+        )),
+
+        # ✅ Now free-generated, but with 3 few-shot examples included in the prompt
+        presenting_problems=(List[str], Field(
+            ...,
+            description=(
+                "Return 3–6 concise clinical presenting problems phrases describing the parliamentarian. "
+                "Use clinical/medical language (can include diagnostic formulations). "
+                "Avoid generic politics tropes; not all problems should be work/politics-related."
+            ),
+        )),
+        thought_content=(str, Field(
+            ...,
+            description=(
+                "25–45 words. Write like a clinician documenting thought content (MSE style): themes, ruminations, "
+                "preoccupations, intrusions, cognitive style. Clinical/medical focus."
+            ),
+        )),
+        insight_judgment=(str, Field(
+            ...,
+            description=(
+                "25–45 words. Clinical assessment of insight and judgment: awareness, attribution, decision-making, "
+                "stress effects, risk. Use professional tone."
+            ),
+        )),
+        cognition=(str, Field(
+            ...,
+            description=(
+                "25–45 words. Clinical cognition/MSE style: attention, memory, executive function, processing speed, "
+                "cognitive flexibility; specify if variable under stress."
+            ),
+        )),
+
+        emotional_behavioral_functioning=(str, Field(
+            ...,
+            description="35–55 words. How they handle pressure and difficult feelings; show behavior, avoid labels unless clinically warranted.",
+        )),
+        social_functioning=(str, Field(
+            ...,
+            description="35–55 words. Patterns in closeness, trust, and participation with others; concrete cues.",
+        )),
+        political_relations=(str, Field(
+            ...,
+            description="55–75 words. How they conduct themselves with other parliamentarians and constituents. Keep cohesive with their other description.",
+        )),
+        summary_of_psychological_profile=(str, Field(
+            ...,
+            description=(
+                "150–250 words. Integrative clinical summary using narrative + histories + functioning + problems. "
+                "Professional tone; may include diagnostic impressions. Do not explicitly name the archetype."
+            ),
+        )),
+
+        speech=(str, Field(
+            ...,
+            description=(
+                "Write a short speech (<=250 words) as the parliamentarian. "
+                "Use BOTH the parliamentary_style and the top-level RhetoricalRegister.value to set the tenor and rhetorical devices. "
+                "Ground it in the memoir narrative voice. Cover ONLY the provided issues and their provided stances; "
+                "do not invent new issues or contradict the stance descriptions."
+            ),
+        )),
+    )
+
+    rhetorical_register_value = trait_values["RhetoricalRegister"]["value"]
+    rhetorical_register_expl = trait_values["RhetoricalRegister"]["explanation"]
+
+    system_msg = (
+        "You are generating a synthetic British parliamentarian persona.\n"
+        "Rules:\n"
+        "• You MUST follow the fixed literal fields exactly.\n"
+        "• Keep everything consistent with the memoir narrative voice.\n"
+        "• Do not mention 'archetype', 'memoir', 'canonical text', or generation instructions.\n"
+        "• For clinical fields, write as a psychologist/clinician would document an assessment; professional tone.\n"
+        "• If the canonical summary is empty, infer voice/cadence from the title alone.\n"
+    )
+
+    def _fmt_fewshot_block(title: str, examples: List[Any]) -> str:
+        if not examples:
+            return f"{title}: (none)\n"
+        lines = [f"{title}:"]
+        for i, ex in enumerate(examples, 1):
+            if isinstance(ex, list):
+                # presenting_problems might be a list of phrases; render as YAML-ish list
+                lines.append(f"  Example {i}:")
+                for p in ex:
+                    lines.append(f"    - {p}")
+            else:
+                lines.append(f"  Example {i}: {str(ex).strip()}")
+        return "\n".join(lines) + "\n"
+
+    user_msg = (
             "Fixed seeds you must respect:\n"
             f"- Party affiliation: {party}\n"
             f"- Occupation (pre-parliament): {occupation} (hint: {occupation_expl})\n"
@@ -973,63 +851,66 @@ class ParliamentarianPersonaGenerator:
             f"- Education tertiary: {edu_ter} (hint: {edu_ter_expl})\n"
             f"- Region: {region} (hint: {region_expl})\n"
             f"- Parliamentary style: {parliamentary_style}\n"
-            f"- Rhetorical register: {rhetorical_register}\n"
-            f"- Appearance category: {appearance_cat}\n"
-            f"  Examples: {appearance_examples}\n"
-            f"- Behavior category: {behavior_cat}\n"
-            f"  Examples: {behavior_examples}\n"
+            f"- RhetoricalRegister (top-level): {rhetorical_register_value}\n"
+            f"  RhetoricalRegisterExplanation: {rhetorical_register_expl}\n"
+            f"- appearance_category: {appearance_value}\n"
+            f"  Appearance Examples: {appearance_examples}\n"
             f"- Media disposition: {media_disp}\n"
-            f"- Additional traits (grounding only): {additional_traits}\n\n"
+            f"- AdditionalTraits (ALL top-level fixed fields): {json.dumps(trait_values, ensure_ascii=False)}\n\n"
             "Speech targets (use these EXACTLY; do not invent issues/stances):\n"
             f"{json.dumps(speech_targets, ensure_ascii=False)}\n\n"
             "Canonical text selection (grounding only):\n"
             f"- title: {memoir_title}\n"
-            f"- summary (may be empty): {memoir_summary}\n"
-        )
+            f"- summary (may be empty): {memoir_summary}\n\n"
+            "Clinical style few-shot examples (match style, not content; do not copy verbatim unless it fits):\n"
+            + _fmt_fewshot_block("presenting_problems examples", [[x] for x in fs_presenting])
+            + _fmt_fewshot_block("thought_content examples", fs_thought)
+            + _fmt_fewshot_block("insight_judgment examples", fs_insight)
+            + _fmt_fewshot_block("cognition examples", fs_cog)
+    )
 
-        last_err: Optional[Exception] = None
-        for attempt in range(3):
-            try:
-                resp = self.client.responses.parse(
-                    model=self.model,
-                    input=[
-                        {"role": "system", "content": system_msg},
-                        {"role": "user", "content": user_msg},
-                    ],
-                    temperature=self.temperature,
-                    top_p=self.top_p,
-                    text_format=SeededParliamentarianPersonaSchema,
-                )
-                out = resp.output_parsed
+    last_err: Optional[Exception] = None
+    for attempt in range(3):
+        try:
+            resp = self.client.responses.parse(
+                model=self.model,
+                input=[
+                    {"role": "system", "content": system_msg},
+                    {"role": "user", "content": user_msg},
+                ],
+                temperature=self.temperature,
+                top_p=self.top_p,
+                text_format=SeededParliamentarianPersonaSchema,
+            )
+            out = resp.output_parsed
 
-                # enforce exact grounding strings (copy as provided)
-                out.memoir_summary = memoir_summary
-                out.archetype_description = archetype_desc
+            # enforce exact grounding strings
+            out.memoir_summary = memoir_summary
+            out.archetype_description = archetype_desc
 
-                d = out.model_dump()
+            d = out.model_dump()
 
-                # Add deterministic fields as explicit persona columns
-                d["policy_stances"] = policy_stances  # dict[issue -> [stance_id]]
-                d["speech_issues"] = speech_issues
-                d["additional_traits"] = additional_traits
+            # deterministic columns
+            d["policy_stances"] = policy_stances
+            d["speech_issues"] = speech_issues
 
-                # make persona_string/hash (excluding only the grounding fields)
-                persona_str = self.persona_row_to_string(d)
-                d["persona_string"] = persona_str
-                d["persona_hash"] = stable_hash(persona_str)
+            # persona_string/hash
+            persona_str = self.persona_row_to_string(d)
+            d["persona_string"] = persona_str
+            d["persona_hash"] = stable_hash(persona_str)
 
-                # word-limit hardening (just in case)
-                d["memoir_narrative"] = _words_at_most(str(d.get("memoir_narrative", "")).strip(), 210)
-                d["speech"] = _words_at_most(str(d.get("speech", "")).strip(), 260)
+            # word-limit hardening
+            d["memoir_narrative"] = _words_at_most(str(d.get("memoir_narrative", "")).strip(), 210)
+            d["speech"] = _words_at_most(str(d.get("speech", "")).strip(), 260)
 
-                return d
+            return d
 
-            except Exception as e:
-                last_err = e
-                time.sleep((0.5 * (2 ** attempt)) + random.random() * 0.25)
+        except Exception as e:
+            last_err = e
+            time.sleep((0.5 * (2 ** attempt)) + random.random() * 0.25)
 
-        print(f"[warn] generation skipped idx={idx} df_idx={df_idx}: {last_err}")
-        return None
+    print(f"[warn] generation skipped idx={idx} df_idx={df_idx}: {last_err}")
+    return None
 
 
 # ----------------------------
@@ -1060,7 +941,7 @@ def _worker_one(
         )
         return gen.generate_one(idx=idx, df_idx=df_idx)
     except Exception as e:
-        print(f"[warn] worker failed idx={idx} df_idx={df_idx}: {e}")
+        log_worker_error(idx=idx, df_idx=df_idx, exc=e, context="worker_generate_one")
         return None
 
 
@@ -1083,8 +964,8 @@ def push_personas_to_hub(
         HfFolder.save_token(hf_token)
 
     df_new = pd.DataFrame([dict(r) for r in records])
+    print(df_new["parliamentary_style"].map(type).value_counts().head(10))
 
-    # Load existing config train split, if any
     try:
         ds_existing = load_dataset(repo_id, name=config_name, split="train", token=hf_token)
         df_existing = ds_existing.to_pandas()
@@ -1093,7 +974,10 @@ def push_personas_to_hub(
 
     df_merged = pd.concat([df_existing, df_new], ignore_index=True)
 
-    # Dedup by uuid (requested)
+    bad = df_merged[df_merged["parliamentary_style"].map(lambda x: not isinstance(x, str))]
+    print(bad[["uuid", "name", "parliamentary_style"]].head(8))
+    print(bad["parliamentary_style"].map(type).value_counts())
+
     if "uuid" in df_merged.columns:
         df_merged = df_merged.drop_duplicates(subset=["uuid"]).reset_index(drop=True)
     else:
@@ -1121,41 +1005,16 @@ def push_personas_to_hub(
 # ----------------------------
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--seeds-yaml",
-        type=str,
-        default=str(DEFAULT_SEEDS_YAML),
-        help="Path to parliament seeds YAML",
-    )
-    parser.add_argument(
-        "--demographics-csv",
-        type=str,
-        default=str(DEFAULT_DEMOGRAPHICS_CSV),
-        help="Path to CSV used for demographic cheating (uuid/sex/age/name/marital/ethnic).",
-    )
-    parser.add_argument(
-        "--repo-id",
-        type=str,
-        default="thoughtworks/parliamentary_personas",
-        help="HF repo id to push to",
-    )
-    parser.add_argument(
-        "--version",
-        type=str,
-        default="v1",
-        help="HF dataset config name (bump to create a new config)",
-    )
-    parser.add_argument(
-        "--num-personas",
-        type=int,
-        default=2000,
-        help="If not debug: sample at most this many personas (seed=42).",
-    )
+    parser.add_argument("--seeds-yaml", type=str, default=str(DEFAULT_SEEDS_YAML))
+    parser.add_argument("--demographics-csv", type=str, default=str(DEFAULT_DEMOGRAPHICS_CSV))
+    parser.add_argument("--repo-id", type=str, default="thoughtworks/parliamentary_personas")
+    parser.add_argument("--version", type=str, default="v1")
+    parser.add_argument("--num-personas", type=int, default=2000)
     parser.add_argument(
         "--debug",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="Debug mode: pushes only 20 rows (default: true). Use --no-debug to disable.",
+        help="Debug mode: pushes only 8 rows (default: true). Use --no-debug to disable.",
     )
     parser.add_argument("--model", type=str, default="gpt-4o-mini")
     parser.add_argument("--temperature", type=float, default=1.5)
@@ -1166,21 +1025,20 @@ def main():
     parser.add_argument("--openai-api-key", type=str, default=None)
     args = parser.parse_args()
 
-    # Load demographics upfront to choose indices (deterministic sampling)
     df = pd.read_csv(args.demographics_csv)
     required = {"uuid", "sex", "age", "first_name", "last_name", "marital_status", "ethnic_background"}
     miss = required - set(df.columns)
     if miss:
         raise ValueError(f"Missing required columns in demographics CSV: {sorted(miss)}")
+
     df = df.dropna(subset=list(required)).copy()
     df["age"] = df["age"].astype(int)
     df = df[df["age"] >= 30].reset_index(drop=True)
     if df.empty:
         raise ValueError("No valid rows after enforcing required columns and age>=30")
 
-    # Determine which df indices to generate
     if args.debug:
-        n = min(20, len(df))
+        n = min(8, len(df))
         chosen_df_indices = list(range(n))
     else:
         rng = random.Random(42)
@@ -1196,13 +1054,20 @@ def main():
     with ProcessPoolExecutor(max_workers=args.workers) as ex:
         futs = [
             ex.submit(
-                _worker_one,job,
-                args.seeds_yaml, args.demographics_csv,
-                args.version, args.model,
-                args.temperature, args.top_p, api_key, 42,  # base_seed fixed as requested
+                _worker_one,
+                job,
+                args.seeds_yaml,
+                args.demographics_csv,
+                args.version,
+                args.model,
+                args.temperature,
+                args.top_p,
+                api_key,
+                42,
             )
             for job in jobs
         ]
+
         for fut in tqdm(as_completed(futs), total=len(futs), desc="Generating personas"):
             r = fut.result()
             if r:

@@ -205,7 +205,7 @@ BritishParliamentPersonaSeeds:
       - brexit_soft
     - title: Constitutional and Administrative Law
       author: Hilaire Barnett
-      year: null
+      year: 1.0
       category: ConstitutionalLaw
       summary: This authoritative textbook offers an in-depth analysis of UK constitutional
         principles, including the rule of law and the role of public bodies.
@@ -224,7 +224,7 @@ BritishParliamentPersonaSeeds:
       - remain
     - title: The Changing Constitution
       author: Jeffrey Jowell, Dawn Oliver, Colm O'Cinneide
-      year: null
+      year: 1.0
       category: ConstitutionalLaw
       summary: A leading text on the evolution of the UK constitution, examining legal
         and institutional changes in response to political pressures.
@@ -262,7 +262,7 @@ BritishParliamentPersonaSeeds:
       - constitutionalist
     - title: Parliament and the Constitution
       author: Vernon Bogdanor
-      year: null
+      year: 1.0
       category: ConstitutionalLaw
       summary: This insightful analysis examines the interconnection between Parliament
         and the British constitutional framework, highlighting evolving democratic
@@ -273,7 +273,7 @@ BritishParliamentPersonaSeeds:
       - remain
     - title: Responsible Government and the British Constitution
       author: Byron Criddle
-      year: null
+      year: 1.0
       category: ConstitutionalLaw
       summary: An in-depth exploration of the constitutional framework underlying
         responsible government in the UK, analyzing historical evolution and contemporary
@@ -304,7 +304,7 @@ BritishParliamentPersonaSeeds:
       - remain
     - title: 'Prime Ministers and Premiers: Political Leadership in Britain'
       author: John Benyon and Jane Johnstone
-      year: null
+      year: 1.0
       category: PoliticalBiography
       summary: An in-depth analysis of British political leadership, comparing the
         roles and influence of prime ministers and first ministers.
@@ -334,7 +334,7 @@ BritishParliamentPersonaSeeds:
       - remain
     - title: 'The British Civil Service: An Introduction'
       author: Terry Stanyar
-      year: null
+      year: 1.0
       category: ConstitutionalLaw
       summary: An insightful examination of the British Civil Service, shedding light
         on its structure, role, and impact on governance.
@@ -352,8 +352,8 @@ BritishParliamentPersonaSeeds:
       - unionist
       - remain
     - title: The Politics of Devolution and the United Kingdom
-      author: . null
-      year: null
+      author: . 1.0
+      year: 1.0
       category: DevolutionAndUnion
       summary: This analysis explores how devolution has shaped the structure and
         identity of the United Kingdom, examining its implications for unity and regional
@@ -434,7 +434,7 @@ BritishParliamentPersonaSeeds:
       - remain
     - title: Britain in the European Union
       author: Trevor C. Salmon
-      year: null
+      year: 1.0
       category: BrexitAndEurope
       summary: An analysis of Britain's involvement with the European Union, exploring
         the political and economic dimensions and impacts on British sovereignty.
@@ -444,7 +444,7 @@ BritishParliamentPersonaSeeds:
       - remain
     - title: Britain and Europe
       author: Andrew Gamble
-      year: null
+      year: 1.0
       category: BrexitAndEurope
       summary: Andrew Gamble examines the intricate relationship between Britain and
         Europe, providing insights into historical contexts and contemporary political
@@ -475,7 +475,7 @@ BritishParliamentPersonaSeeds:
       - brexit_hard
     - title: 'Brexit: A Very Short Introduction'
       author: Ken Judge and Edward Weidl
-      year: null
+      year: 1.0
       category: BrexitAndEurope
       summary: A succinct overview exploring the complex economic and political implications
         of Brexit, shedding light on the motivations, challenges, and future potential
@@ -518,7 +518,7 @@ BritishParliamentPersonaSeeds:
     - title: Electoral Reform in Britain
       author: ': Essays in history and politics edited by Andrew Taylor and Dorothy
         Cullingsworth'
-      year: null
+      year: 1.0
       category: ParliamentaryHistory
       summary: A comprehensive analysis of the political forces behind electoral reform
         efforts in the UK, providing insight into historical contexts and modern implications.
@@ -527,7 +527,7 @@ BritishParliamentPersonaSeeds:
       - federalist
     - title: 'The British General Election: Campaigning and Media'
       author: Denis Kavanagh and David Butler
-      year: null
+      year: 1.0
       category: CampaigningAndSpin
       summary: This book analyzes the dynamics of campaigning and media influence
         in British general elections, offering an insightful look into the machinery
@@ -550,7 +550,7 @@ BritishParliamentPersonaSeeds:
     - title: 'British Political Parties: The Distribution of Power within the Conservative
         and Labour Parties'
       author: Grant Jordan
-      year: null
+      year: 1.0
       category: ParliamentaryHistory
       summary: This analysis dissects how power dynamics shape strategies and ideologies
         within the Conservative and Labour Parties, providing insights into their
@@ -561,7 +561,7 @@ BritishParliamentPersonaSeeds:
       - unionist
     - title: Party Discipline and Parliamentary Government
       author: Gérard Boismenu, Harold J. Jansen
-      year: null
+      year: 1.0
       category: ParliamentaryHistory
       summary: A scholarly analysis examining how party discipline shapes legislative
         procedures and influences the effectiveness of parliamentary government.
@@ -571,7 +571,7 @@ BritishParliamentPersonaSeeds:
       - remain
     - title: The Whips
       author: Jess Phillips
-      year: null
+      year: 1.0
       category: PoliticalFiction
       summary: An intriguing exploration into the inner workings and complexities
         of the UK Whips' Office, bringing the dark arts of political management into
@@ -656,7 +656,7 @@ BritishParliamentPersonaSeeds:
       - remain
     - title: 'British Politics: A Very Short Introduction'
       author: Anthony Wright
-      year: null
+      year: 1.0
       category: PoliticalPhilosophy
       summary: This accessible introduction delves into the core themes, debates,
         and institutions that define British politics today, perfect for understanding
@@ -766,7 +766,7 @@ BritishParliamentPersonaSeeds:
       - remain
     - title: The Diaries of Tony Benn
       author: Tony Benn
-      year: null
+      year: 1.0
       category: PoliticalMemoir
       summary: Revealing insights into the political career and personal life of Tony
         Benn, showcasing his evolution as a stalwart of the British left.
@@ -787,7 +787,7 @@ BritishParliamentPersonaSeeds:
       - brexit_hard
     - title: 'The Andrew Marr Show: A History of Modern Britain'
       author: Andrew Marr
-      year: null
+      year: 1.0
       category: PoliticalJournalism
       summary: An engaging exploration of Britain's recent past through Andrew Marr's
         distinctive journalistic perspective, shedding light on political, social,
@@ -859,7 +859,7 @@ BritishParliamentPersonaSeeds:
       - unionist
     - title: The Final Cut
       author: Michael Dobbs
-      year: null
+      year: 1.0
       category: PoliticalFiction
       summary: In this sharp political satire, power plays unfold within the inner
         circles of British government as characters wrestle for dominance. Ambition
@@ -901,7 +901,7 @@ BritishParliamentPersonaSeeds:
       - remain
     - title: The Westminster Whistleblowers
       author: Unknown
-      year: null
+      year: 1.0
       category: PoliticalFiction
       summary: A gripping tale that dives into the world of political secrets and
         backdoor dealings at the heart of UK government.
@@ -1104,7 +1104,7 @@ BritishParliamentPersonaSeeds:
       - remain
     - title: The Queen and the Prime Minister
       author: James Bennett
-      year: null
+      year: 1.0
       category: PoliticalBiography
       summary: This insightful exploration examines the dynamic relationships between
         British Prime Ministers and the Queen, shedding light on political nuances
@@ -1427,89 +1427,89 @@ BritishParliamentPersonaSeeds:
       items:
       - value: Conservative tailoring, muted colours
         explanation: Signals institutional respect and low-drama professionalism.
-        weight: null
+        weight: 1.0
       - value: Constituency-worn suits with visible wear
         explanation: Projects groundedness and travel-heavy routine.
-        weight: null
+        weight: 1.0
       - value: Television-ready polish
         explanation: 'Optimised for broadcast: crisp presentation and rehearsed phrasing.'
-        weight: null
+        weight: 1.0
       - value: Deliberately anti-elite presentation
         explanation: Plain styling used to reject metropolitan technocratic norms.
-        weight: null
+        weight: 1.0
       - value: Classic Bespoke Tailoring
         explanation: High-quality, custom-made suits that emphasize precision and
           luxury, typically signaling affluence and elite status.
-        weight: null
+        weight: 1.0
       - value: Trendy Minimalist Wear
         explanation: Simple and modern attire focusing on clean lines and subtle designs,
           signaling sophistication and forward-thinking taste.
-        weight: null
+        weight: 1.0
       - value: Bohemian Eclecticism
         explanation: A mix of textures, layers, and vintage elements that showcase
           creativity and openness to diverse cultural influences.
-        weight: null
+        weight: 1.0
       - value: Academic Distinction
         explanation: Outfits featuring elements like elbow-patch blazers and eyeglasses,
           typically associating with an intellectual, scholarly environment.
-        weight: null
+        weight: 1.0
       - value: Utility-driven Simplicity
         explanation: Function-oriented, unembellished clothes conveying practicality
           and approachability, often devoid of ostentatious features.
-        weight: null
+        weight: 1.0
       - value: Patrician Demeanor
         explanation: Outfits that highlight luxury through materials like cashmere
           or silk, aligning with a classical, establishment background.
-        weight: null
+        weight: 1.0
       - value: Aristocratic Insignia
         explanation: Usage of family or heraldic crests as accessories, underlining
           noble or traditional status.
-        weight: null
+        weight: 1.0
       - value: Eco-conscious Fabrics
         explanation: Wardrobe choices focus on sustainably made or recycled materials,
           projecting environmental consciousness and modern responsibility.
-        weight: null
+        weight: 1.0
       - value: Militant Tailoring
         explanation: Military-inspired cuts and materials indicating orderliness and
           strong authoritative aura, often mirrored in structured clothing forms.
-        weight: null
+        weight: 1.0
       - value: Artistic Flourishes
         explanation: Vivid prints and abstract shapes dominating personal style, demonstrating
           a bold, artistic orientation often suggesting visionary traits.
-        weight: null
+        weight: 1.0
       - value: Punk-inspired Rebellion
         explanation: Element selections like ripped fabrics or statement slogans designed
           to challenge norms and embody an outsider mindset.
-        weight: null
+        weight: 1.0
       - value: Vibrant Textile Mix
         explanation: Bright, energetic hues and multi-fabric composites indicative
           of vibrant personality and receptiveness to diverse cultures.
-        weight: null
+        weight: 1.0
       - value: Heritage Vintage,
         explanation: Drawn heavily from older fashion eras, this look underpins enduring
           values or a yearning for nostalgic authenticity.
-        weight: null
+        weight: 1.0
       - value: Ceremonial Pinning
         explanation: Brooches or ceremonial pins signifying titles or office responsibilities,
           exuding state ceremonialist ethos.
-        weight: null
+        weight: 1.0
       - value: Internationally Edgy
         explanation: Elements are sourced globally or reflect intercultural exchange
           trends that stand as icons of cosmopolitan ideology.
-        weight: null
+        weight: 1.0
       - value: Agrarian Resonance
         explanation: Styling seems resemblant or inspiration from pastoral wear like
           quilted coats, hitting tones with rural-linked awareness or grounding with
           working traditions.
-        weight: null
+        weight: 1.0
       - value: High-Street Hypernova
         explanation: Cutting edge designs spotted commonly in international store
           chains manifesting trends welcomed by both high-street tastemakers.
-        weight: null
+        weight: 1.0
       - value: Robust Functional Outfitting
         explanation: Practical, hard-wearing clothing prioritised for durability and
           function, projecting seriousness, reliability, and minimal concern for fashion.
-        weight: null
+        weight: 1.0
       - value: Luxe Minimalism
         explanation: Features streamlined garments made from high-quality, opulent
           fabrics, signifying subtle affluence and modern aesthetic flair.
@@ -1523,204 +1523,176 @@ BritishParliamentPersonaSeeds:
     ParliamentaryStyle:
       items:
       - value: Procedural and rule-focused
-        explanation: 'Persuades through process: amendments, precedent, committee
-          leverage.'
-        weight: null
+        explanation: 'Persuades through process: amendments, precedent, committee leverage.'
+        weight: 1.0
       - value: Rhetorical and performative
         explanation: Optimised for chamber theatre and memorable lines.
-        weight: null
+        weight: 1.0
       - value: Data-driven and technocratic
         explanation: Frames debates in mechanisms, metrics, and delivery constraints.
-        weight: null
+        weight: 1.0
       - value: Populist and combative
         explanation: Uses ‘people vs system’ framing; confrontation-forward.
-        weight: null
+        weight: 1.0
       - value: Conciliatory cross-party operator
-        explanation: Builds coalitions quietly; trades concessions for incremental
-          wins.
-        weight: null
+        explanation: Builds coalitions quietly; trades concessions for incremental wins.
+        weight: 1.0
       - value: Policy Advocate
-        explanation: Focuses on advancing long-term legislative agendas, using debates
-          and amendments to shape policy direction rather than short-term media wins.
+        explanation: Focuses on advancing long-term legislative agendas, using debates and amendments to shape policy direction rather than short-term media wins.
         weight: 1.0
       - value: Backbencher Riser
-        explanation: Focuses on gaining visibility through supporting niche issues
-          or debates that may advance them in the parliamentary ladder.
+        explanation: Focuses on gaining visibility through supporting niche issues or debates that may advance them in the parliamentary ladder.
         weight: 1.0
       - value: Question Time Gladiator
-        explanation: Known for using Prime Minister’s Questions to challenge the opposition
-          rigorously, often seizing the opportunity to showcase knowledge.
+        explanation: Known for using Prime Minister’s Questions to challenge the opposition rigorously, often seizing the opportunity to showcase knowledge.
         weight: 1.0
       - value: Whip's Confidant
-        explanation: Key behind-the-scenes operator, aiding the party whip in maintaining
-          discipline, communicating internal messages discreetly to ensure votes go
-          smoothly.
+        explanation: Key behind-the-scenes operator, aiding the party whip in maintaining discipline, communicating internal messages discreetly to ensure votes go smoothly.
         weight: 1.0
       - value: Committees Scholar
-        explanation: Participates rigorously in parliamentary committees, expertly
-          dissecting proposals and scrutinizing the intricacies of legislative processes.
+        explanation: Participates rigorously in parliamentary committees, expertly dissecting proposals and scrutinizing the intricacies of legislative processes.
         weight: 1.0
       - value: The Traditionalist
-        explanation: Emphasizes the preservation of long-standing parliamentary traditions
-          and norms, arguing that institutional continuity provides stability during periods
-          of reform and political change.
+        explanation: Emphasizes the preservation of long-standing parliamentary traditions and norms, arguing that institutional continuity provides stability during periods of reform and political change.
         weight: 1.0
       - value: Fiscal Hawk
-        explanation: Tightly focuses on financial policy debates, using statistical
-          evidence to challenge fiscal forecasts or push austerity-focused proposals.
+        explanation: Tightly focuses on financial policy debates, using statistical evidence to challenge fiscal forecasts or push austerity-focused proposals.
         weight: 1.0
       - value: Green Advocate
-        explanation: Persistently champions environmental and sustainability issues,
-          consistently introducing green legislation in debates or on a public platform.
+        explanation: Persistently champions environmental and sustainability issues, consistently introducing green legislation in debates or on a public platform.
         weight: 1.0
       - value: Social Media Mastermind
-        explanation: Shifts from floor speeches to utilize Twitter storms to gather
-          public momentum around pressing issues or fringe movements they align with.
+        explanation: Shifts from floor speeches to utilize Twitter storms to gather public momentum around pressing issues or fringe movements they align with.
         weight: 1.0
       - value: Media Engagement Strategist
-        explanation: Purposively executes sharp soundbites during media appearances
-          aimed at amplifying messages beyond parliamentary confines.
+        explanation: Purposively executes sharp soundbites during media appearances aimed at amplifying messages beyond parliamentary confines.
         weight: 1.0
       - value: Radical Reformer
-        explanation: Spearheads calls for major reforms such as on proportional representation
-          or significant devolution, critiquing the current limitations of governance.
+        explanation: Spearheads calls for major reforms such as on proportional representation or significant devolution, critiquing the current limitations of governance.
         weight: 1.0
       - value: Pro-Growth Champion
-        explanation: Prioritises economic growth, competitiveness, and market reform,
-          engaging heavily in debates on trade, investment, and regulatory frameworks.
+        explanation: Prioritises economic growth, competitiveness, and market reform, engaging heavily in debates on trade, investment, and regulatory frameworks.
         weight: 1.0
       - value: Veteran Pacifist
-        explanation: Using immense experience within defense briefings to analyze
-          military commitments while fiercely promoting peaceful resolutions globally.
+        explanation: Using immense experience within defense briefings to analyze military commitments while fiercely promoting peaceful resolutions globally.
         weight: 1.0
       - value: Youthful Innovator
-        explanation: Quick to tackle the potential for implementing advanced technology
-          reforms that redefine traditional parliamentary interfaces.
+        explanation: Quick to tackle the potential for implementing advanced technology reforms that redefine traditional parliamentary interfaces.
         weight: 1.0
       - value: Solidarity Advocate
-        explanation: Lobby vociferously within coalition parties aiming to implement
-          more socially-focused legislations or pulling cautious centrists to liberal
-          views.
+        explanation: Lobby vociferously within coalition parties aiming to implement more socially-focused legislations or pulling cautious centrists to liberal views.
         weight: 1.0
       - value: Main Street Representative
-        explanation: Frames policy around everyday economic institutions such as
-          small businesses and local employers, emphasising overlooked towns and
-          transitional local economies.
+        explanation: Frames policy around everyday economic institutions such as small businesses and local employers, emphasising overlooked towns and transitional local economies.
         weight: 1.0
       - value: Quiet Deal-Maker
-        explanation: Skilled negotiator celebrated in achieving coalition agenda enhancements
-          absent from prominent fights due to focusing purpose over publicity.
+        explanation: Skilled negotiator celebrated in achieving coalition agenda enhancement absent from prominent fights due to focusing purpose over publicity.
         weight: 1.0
       - value: Accountability Crusader
-        explanation: Focuses on identifying specific failures in governance and ethics,
-          pressing for clear accountability mechanisms, transparent responsibility,
-          and enforceable standards of conduct.
+        explanation: Focuses on identifying specific failures in governance and ethics, pressing for clear accountability mechanisms, transparent responsibility, and enforceable standards of conduct.
         weight: 1.0
       - value: Diplomatic Networker
-        explanation: Builds influence through sustained diplomatic relationships,
-          bilateral meetings, and protocol-driven engagement, prioritising trust,
-          continuity, and negotiated outcomes over public confrontation.
+        explanation: Builds influence through sustained diplomatic relationships, bilateral meetings, and protocol-driven engagement, prioritising trust, continuity, and negotiated outcomes over public confrontation.
         weight: 1.0
-      explanation: 'How they operate in Westminster: procedure, theatre, scrutiny,
-        coalition, conflict.'
+      explanation: 'How they operate in Westminster: procedure, theatre, scrutiny, coalition, conflict.'
     MediaDisposition:
       items:
       - value: Avoids media except formal statements
         explanation: Influence is internal; prefers committee and constituency work.
-        weight: null
+        weight: 1.0
       - value: Frequent broadcast commentator
         explanation: Uses media to set narrative; interview-hardened.
-        weight: null
+        weight: 1.0
       - value: Social-media-native operator
         explanation: Thinks in shareable frames; rapid-response style.
-        weight: null
+        weight: 1.0
       - value: Long-form essay and speech focused
         explanation: Prefers long-form essays, speeches, and policy papers, valuing
           depth, nuance, and sustained argument over short media appearances.
-        weight: null
+        weight: 1.0
       - value: Selective Consumer
         explanation: Reads specific sections of the newspaper or watches news from
           pre-vetted sources only.
-        weight: null
+        weight: 1.0
       - value: Podcasts Aficionado
         explanation: Regularly consumes insightful podcast discussions and analysis
           on political and societal issues.
-        weight: null
+        weight: 1.0
       - value: Headline Grazer
         explanation: Skims news headlines throughout the day to stay updated, but
           seldom delves deeper.
-        weight: null
+        weight: 1.0
       - value: News Abstainer
         explanation: Intentionally avoids news due to stress or distrust, relying
           on friends or summaries instead.
-        weight: null
+        weight: 1.0
       - value: Cultural Critic
         explanation: Analyzes media with a critical lens, often discussing bias and
           framing with others.
-        weight: null
+        weight: 1.0
       - value: Meme Commentator
         explanation: Engages primarily through memes, summarizing current events through
           humorous lenses.
-        weight: null
+        weight: 1.0
       - value: Activist Retweeter
         explanation: Uses social media platforms to actively amplify political or
           social causes through reposting.
-        weight: null
+        weight: 1.0
       - value: Streaming Documentary Enthusiast
         explanation: Spends leisure time on long-form documentary films, focusing
           on underreported stories.
-        weight: null
+        weight: 1.0
       - value: Historical Context Provider
         explanation: Links current news to historical events in social discussions
           to give context.
-        weight: null
+        weight: 1.0
       - value: Brief Video Update Receiver
         explanation: Consistently uses platforms like TikTok for quick video summaries
           of daily events.
-        weight: null
+        weight: 1.0
       - value: Conspiracy Dabbler
         explanation: Occasionally indulges in fringe or conspiratorial narratives
           but approaches with caution.
-        weight: null
+        weight: 1.0
       - value: Opinion Avoider
         explanation: Steers clear of opinion pieces, opting for strictly news-focused
           consumption instead.
-        weight: null
+        weight: 1.0
       - value: Radio Traditionalist
         explanation: Favors traditional media like AM/FM news talk radio during commutes.
-        weight: null
+        weight: 1.0
       - value: Citizen Journalist Contributor
         explanation: Provides user-generated content and news observations to independent
           or grassroots sites.
-        weight: null
+        weight: 1.0
       - value: Financial Analysis Admirer
         explanation: Favors business and economic analyses, tracking the interplay
           with policy development.
-        weight: null
+        weight: 1.0
       - value: Satire Acolyte
         explanation: Loves satirical takes on current affairs, believing humor illuminates
           truth.
-        weight: null
+        weight: 1.0
       - value: Discussion Group Participant
         explanation: Prefers structured, small group discussions about media topics
           over one-way consumption.
-        weight: null
+        weight: 1.0
       - value: Attention Shifter
         explanation: Cycles media consumption across varied formats to avoid content
           fatigue and overstimulation.
-        weight: null
+        weight: 1.0
       - value: Literal Reader
         explanation: Sticks to textual descriptions from press conferences over edited
           reports for accuracy.
-        weight: null
+        weight: 1.0
       - value: Disinformation Analyst
         explanation: Engages actively with media in assessing claims, specializing
           in spotting falsehoods.
-        weight: null
+        weight: 1.0
       - value: Artificially Boosted Signaler
         explanation: Tracks how technology might shape media distribution without
           meaningful content consumption.
-        weight: null
+        weight: 1.0
       explanation: 'How they relate to media: avoidance, broadcast skill, social strategy,
         long-form seriousness.'
   AdditionalTraits:
@@ -1728,250 +1700,250 @@ BritishParliamentPersonaSeeds:
       items:
       - value: Legalistic
         explanation: Argues through definitions, precedent, and procedural constraints.
-        weight: null
+        weight: 1.0
       - value: Moralising
         explanation: Frames issues as right vs wrong; appeals to conscience and values.
-        weight: null
+        weight: 1.0
       - value: Technocratic
         explanation: Emphasises implementation detail and measurable outcomes.
-        weight: null
+        weight: 1.0
       - value: Populist
         explanation: Frames elites as detached; speaks for ‘ordinary people’.
-        weight: null
+        weight: 1.0
       - value: Narrative-driven
         explanation: Uses stories and constituency anecdotes to anchor policy.
-        weight: null
+        weight: 1.0
       - value: Scientific
         explanation: Arguments are backed by data and research, prioritizing empirical
           evidence and rational explanations.
-        weight: null
+        weight: 1.0
       - value: Colloquial
         explanation: The speaker employs informal language and relatable anecdotes,
           connecting with the audience on a personal level.
-        weight: null
+        weight: 1.0
       - value: Ironical
         explanation: Arguments are made using sarcasm or wit, highlighting contradictions
           and flaws in an opponent’s logic.
-        weight: null
+        weight: 1.0
       - value: Sympathetic
         explanation: Utilizes emotional appeals and personal empathy to engage with
           the listener’s emotions and establish connection.
-        weight: null
+        weight: 1.0
       - value: Anecdotal
         explanation: Relies heavily on personal stories and anecdotes to illustrate
           points and resonate emotionally with the audience.
-        weight: null
+        weight: 1.0
       explanation: 'How they argue: tone, structure, persuasion style.'
     RelationshipToParty:
       items:
       - value: Loyalist
         explanation: Defends leadership line; values discipline and collective responsibility.
-        weight: null
+        weight: 1.0
       - value: Soft rebel
         explanation: Breaks ranks selectively; cultivates independence without burning
           bridges.
-        weight: null
+        weight: 1.0
       - value: Factional organiser
         explanation: Builds internal blocs; uses causes to consolidate influence.
-        weight: null
+        weight: 1.0
       - value: Leadership aspirant
         explanation: Positions for promotion; careful about timing and risk.
-        weight: null
+        weight: 1.0
       - value: Diplomatic Bridge
         explanation: Acts as a mediator between rival factions within the party, easing
           tensions and fostering communication.
-        weight: null
+        weight: 1.0
       - value: Conservative Holdout
         explanation: Sticks rigidly to traditional values and party protocols, resisting
           internal changes.
-        weight: null
+        weight: 1.0
       - value: Visionary Trailblazer
         explanation: Promotes innovative ideas, often proposing changes that shift
           the party's traditional stance.
-        weight: null
+        weight: 1.0
       - value: Protector of Orthodoxy
         explanation: Guards core party ideals, ensuring new ideas align with foundational
           principles.
-        weight: null
+        weight: 1.0
       - value: Outspoken Critic
         explanation: Openly challenges party leadership with bold questions, advocating
           for transparency and reform.
-        weight: null
+        weight: 1.0
       - value: Unifying Symbol
         explanation: Focuses on building unity among diverse party groups to create
           a sense of shared identity.
-        weight: null
+        weight: 1.0
       explanation: How they relate to leadership, factions, and discipline.
     AttitudeToInstitutions:
       items:
       - value: Institutional conservative
         explanation: Treats norms as stabilising; prefers continuity.
-        weight: null
+        weight: 1.0
       - value: Reformist
         explanation: Wants change through procedure and negotiated settlement.
-        weight: null
+        weight: 1.0
       - value: Abolitionist
         explanation: Sees some institutions as illegitimate; prefers replacement.
-        weight: null
+        weight: 1.0
       - value: Pragmatic incrementalist
         explanation: Focuses on tractable steps; accepts imperfect compromises.
-        weight: null
+        weight: 1.0
       - value: Radical Iconoclast
         explanation: Believes in overthrowing existing institutions and forming new
           structures from scratch.
-        weight: null
+        weight: 1.0
       - value: Skeptical Loyalist
         explanation: Trusts institutions to a degree but is doubtful of their efficiency
           and fully intact transparency.
-        weight: null
+        weight: 1.0
       - value: Enthusiastic Upholder
         explanation: Strongly believes in current institutions and the integrity of
           constitutional norms, opposing changes.
-        weight: null
+        weight: 1.0
       - value: Community-first Advocate
         explanation: Believes that community needs should always have precedence,
           supporting local, flexible forms over fixed larger institutions.
-        weight: null
+        weight: 1.0
       - value: Selective Pragmatist
         explanation: Engages with institutions conditionally, supporting those aligning
           with certain criteria, like transparency and adaptability.
-        weight: null
+        weight: 1.0
       - value: Detached Analyst
         explanation: Takes a non-engagement approach, viewing institutions academically
           without participating directly in processes or reforms.
-        weight: null
+        weight: 1.0
       explanation: How they view constitutional norms and institutional legitimacy.
     CommitteeFocus:
       items:
       - value: Treasury/Finance
         explanation: Budgets, taxation, fiscal rules, and macro framing.
-        weight: null
+        weight: 1.0
       - value: Home Affairs/Justice
         explanation: Policing, courts, prisons, migration enforcement.
-        weight: null
+        weight: 1.0
       - value: Health & Social Care
         explanation: NHS capacity, workforce, waiting lists, social care.
-        weight: null
+        weight: 1.0
       - value: Foreign Affairs/Defence
         explanation: Alliances, procurement, and geopolitical risk.
-        weight: null
+        weight: 1.0
       - value: Constitution/Devolution
         explanation: Union settlement, electoral rules, Lords reform.
-        weight: null
+        weight: 1.0
       - value: Environment/Energy
         explanation: Net-zero, energy security, industrial transition.
-        weight: null
+        weight: 1.0
       - value: Education
         explanation: Focusing on education policy reform and development to improve
           educational outcomes.
-        weight: null
+        weight: 1.0
       - value: Technology & Innovation
         explanation: Dedicated to advancing technology policies, including data privacy
           and innovation funding.
-        weight: null
+        weight: 1.0
       - value: Agriculture & Food Security
         explanation: Specializes in ensuring sustainable agricultural practices and
           stable food supply chains.
-        weight: null
+        weight: 1.0
       - value: Housing & Urban Development
         explanation: Works to create affordable housing solutions and improve urban
           living standards.
-        weight: null
+        weight: 1.0
       explanation: Which policy areas they specialise in and use as their influence
         channel.
     ConstituencyType:
       items:
       - value: Urban metropolitan
         explanation: Diversity, housing pressure, transit salience.
-        weight: null
+        weight: 1.0
       - value: Post-industrial town
         explanation: Regeneration, skills, ‘left behind’ narratives.
-        weight: null
+        weight: 1.0
       - value: Rural/agricultural
         explanation: Farming, land use, sparse services.
-        weight: null
+        weight: 1.0
       - value: Coastal
         explanation: Seasonal economy, infrastructure, identity politics.
-        weight: null
+        weight: 1.0
       - value: Affluent commuter belt
         explanation: Tax sensitivity, planning conflicts, schools.
-        weight: null
+        weight: 1.0
       - value: Devolved-national seat
         explanation: National identity and constitutional salience.
-        weight: null
+        weight: 1.0
       - value: Inner-city neighborhood
         explanation: A densely populated urban area characterized by multicultural
           communities and socioeconomic challenges like poverty and housing.
-        weight: null
+        weight: 1.0
       - value: University town
         explanation: A city primarily dominated by the presence of a large educational
           institution, shaping youthful priorities and educational interests.
-        weight: null
+        weight: 1.0
       - value: Gentrifying district
         explanation: A once-neglected urban area undergoing renovation and increased
           property values, resulting in economic shifts and cultural blend.
-        weight: null
+        weight: 1.0
       - value: Suburban development
         explanation: Areas typically adjacent to a larger city, marked by middle-class
           residential complexes, parks, and community-oriented facilities.
-        weight: null
+        weight: 1.0
       explanation: The voter environment that shapes instincts, language, and priorities.
     DonorLobbyExposure:
       items:
       - value: Minimal donor exposure
         explanation: Low external influence; relies on grassroots and local party.
-        weight: null
+        weight: 1.0
       - value: Industry-aligned networks
         explanation: Sector ties; emphasises competitiveness and regulation cost.
-        weight: null
+        weight: 1.0
       - value: Union-aligned networks
         explanation: Labour ties; prioritises worker protections.
-        weight: null
+        weight: 1.0
       - value: Think-tank ecosystem
         explanation: Policy shaped by reports and frameworks; ‘ideas’ oriented.
-        weight: null
+        weight: 1.0
       - value: Academia-influenced donors
         explanation: Funding from academic donors shifts priorities toward research
           and evidence-based initiatives.
-        weight: null
+        weight: 1.0
       - value: Crowdfunding communities
         explanation: Significant support from crowdfunding networks can result in
           priorities driven by grassroots participation and varied interests.
-        weight: null
+        weight: 1.0
       - value: Philanthropic organizations
         explanation: Influence from large philanthropic donors can pivot efforts toward
           solving major societal problems with scalable solutions.
-        weight: null
+        weight: 1.0
       - value: Environmental activist supporters
         explanation: With backing from environmental groups, initiatives often emphasize
           sustainability and climate-related priorities.
-        weight: null
+        weight: 1.0
       - value: Religious organization funding
         explanation: Donations from religious entities can shape priorities towards
           issues aligned with moral and spiritual values.
-        weight: null
+        weight: 1.0
       - value: Tech startup sponsors
         explanation: Influence from tech-sector donors tends to prioritize innovation
           and technology-driven solutions.
-        weight: null
+        weight: 1.0
       explanation: How external networks shape priorities and framing.
     ScandalVulnerability:
       items:
       - value: None visible
         explanation: Careful compliance and disciplined personal conduct.
-        weight: null
+        weight: 1.0
       - value: Expenses/administrative risk
         explanation: Complex travel/staffing; vulnerable to procedural mishaps.
-        weight: null
+        weight: 1.0
       - value: Personal-life scrutiny
         explanation: High-profile or tabloid interest; narrative risk.
-        weight: null
+        weight: 1.0
       - value: Historical statements
         explanation: Old quotes/posts susceptible to recontextualisation.
-        weight: null
+        weight: 1.0
       - value: Factional rivalries
         explanation: Internal enemies; vulnerable to leaks and briefings.
-        weight: null
+        weight: 1.0
       - value: Relational Trust Issues
         explanation: Interactions relying on unreliable partners or advisers create
           vulnerabilities when those ties face strain or exposure.
@@ -1998,16 +1970,16 @@ BritishParliamentPersonaSeeds:
       items:
       - value: Backbench low profile
         explanation: Influence is internal; rarely trends.
-        weight: null
+        weight: 1.0
       - value: Regional media regular
         explanation: Strong local press; constituency-first language.
-        weight: null
+        weight: 1.0
       - value: National media figure
         explanation: High scrutiny; disciplined messaging.
-        weight: null
+        weight: 1.0
       - value: Online influencer MP
         explanation: Social-first; mobilisation through virality.
-        weight: null
+        weight: 1.0
       - value: Press Spokesperson
         explanation: Known for crafting and delivering messages for political groups
           or organizations, influencing perceptions within targeted media.
@@ -2038,53 +2010,53 @@ BritishParliamentPersonaSeeds:
       items:
       - value: Content specialist
         explanation: Aims for policy mastery, not leadership power.
-        weight: null
+        weight: 1.0
       - value: Ministerial ladder
         explanation: Promotion track; loyalty and caution rewarded.
-        weight: null
+        weight: 1.0
       - value: Party leadership
         explanation: Long-term brand building; faction management focus.
-        weight: null
+        weight: 1.0
       - value: Kingmaker/whip influence
         explanation: Prefers internal leverage; trades votes and amendments.
-        weight: null
+        weight: 1.0
       - value: Visionary Reformer
         explanation: Desires to shape society with groundbreaking reforms and futuristic
           policies, acting on a broad vision for long-term transformation.
-        weight: null
+        weight: 1.0
       - value: Coalition Builder
         explanation: Aspires to craft alliances across different political groups
           to broaden support and enact ambitious legislative agendas.
-        weight: null
+        weight: 1.0
       - value: Public Intellectual
         explanation: Seeks recognition as a thought leader and an authoritative voice
           in political theory and public policy debates.
-        weight: null
+        weight: 1.0
       - value: Global Diplomacy Guru
         explanation: Wants to master international relations to raise their profile
           by representing the country in global matters and negotiating key treaties.
-        weight: null
+        weight: 1.0
       - value: Policy Advocate
         explanation: Focused on being the foremost expert in a specialized policy
           area to influence significant policy decisions in that field.
-        weight: null
+        weight: 1.0
       - value: Grassroots Champion
         explanation: Pursues leadership by empowering and engaging local communities
           to build widespread grassroots support.
-        weight: null
+        weight: 1.0
       explanation: 'Their incentive landscape: policy mastery, ministerial ladder,
         or internal power.'
     CoalitionPosture:
       items:
       - value: Cross-party builder
         explanation: Seeks durable alliances for reform.
-        weight: null
+        weight: 1.0
       - value: Partisan combatant
         explanation: Avoids giving opponents wins; conflict as strategy.
-        weight: null
+        weight: 1.0
       - value: Issue-by-issue pragmatist
         explanation: Supports based on merit and local impact.
-        weight: null
+        weight: 1.0
       - value: Compromise-Seeker
         explanation: Actively looks for common ground with opponents to forge sustainable
           agreements.
@@ -2118,40 +2090,40 @@ BritishParliamentPersonaSeeds:
       items:
       - value: Casework maximalist
         explanation: Measures success by resolved constituent problems.
-        weight: null
+        weight: 1.0
       - value: Community organiser
         explanation: Builds local campaigns; mobilisation oriented.
-        weight: null
+        weight: 1.0
       - value: Business liaison
         explanation: Works with employers/councils; jobs and investment focus.
-        weight: null
+        weight: 1.0
       - value: Public services advocate
         explanation: Champions hospitals/schools/policing; delivery focus.
-        weight: null
+        weight: 1.0
       - value: Grassroots Builder
         explanation: Focuses on building small local initiatives, supporting community-based
           movements, and encouraging local leadership.
-        weight: null
+        weight: 1.0
       - value: Emergency Response Coordinator
         explanation: Specializes in quick response to crises, facilitating resources
           and aid to affected communities during emergencies.
-        weight: null
+        weight: 1.0
       - value: Policy Translator
         explanation: Breaks down legislative actions to the community, ensuring people
           understand and navigate new regulations impacting them.
-        weight: null
+        weight: 1.0
       - value: Youth Mentor Advocate
         explanation: Prioritizes programs and support networks for local youth, fostering
           educational and employment opportunities.
-        weight: null
+        weight: 1.0
       - value: Health Access Proponent
         explanation: Concentrates on improving healthcare access, focusing on marginalized
           community needs within the constituency.
-        weight: null
+        weight: 1.0
       - value: Rural Community Representative
         explanation: Acts as the primary voice for remote or rural areas, addressing
           challenges distinct from urban priorities.
-        weight: null
+        weight: 1.0
       explanation: 'How they ‘do the job’ locally: casework, organising, or business/service
         advocacy.'
   PolicyDebates:
@@ -5841,12 +5813,13 @@ BritishParliamentPersonaSeeds:
           principles offering national progress ease and inclusivity avoidance risks.
       - bullet: Defining media ownership limits
         id: media_ownership_responsive_limits
-        description: Flexible restrictions based on audience geography with coordinated
-          consultancy results dynamically driven strategy lead trends profiled stabilization
-          leverage arenas supported limitations view underpin inclusion enhance negotiated
-          outcome capturing. Pre-agreed audits audience collaborative report sessions
-          summit envision evolving statistics immediate tendency significantly argued
-          conglomerates advisories overlooked altered.
+        description: Introduces flexible media ownership restrictions that vary by audience
+          geography and market concentration. The approach combines predefined thresholds
+          with regular independent audits, allowing regulators to respond to emerging risks
+          without imposing rigid national caps. Oversight is coordinated through transparent
+          review processes and periodic reporting, balancing pluralism with operational
+          stability for media organisations.
+
         party_distribution:
           Conservative: 0.2
           Labour: 0.6
@@ -5859,66 +5832,15 @@ BritishParliamentPersonaSeeds:
           SDLP: 0.5
           Alliance: 0.6
           Independent: 0.6
-        rationale: Alternate blueprint decentralization pooling scope driven incline
-          responsive uniform inequalities allocate emergence grants clarity protections
-          stability components distributed ingenuity uniformly scale draws efforts
-          frequent reflected equity challenges tackles supports into present build
-          equals identifying tensions harness driving. Consortium associates primary
-          adherents zones legislation provides catalyzing introduces flexibility reviewed
-          constructed formation yielding need cultivated seamless open maintain prominent
-          enhance strengths renewal recognize practices collective citizens endeavor
-          apply discuss sufficient surplus moving expand connects various conception
-          natural offset flexibility appeal arranged placement notably establish operations
-          involve explorative unify valuable specification conclusive into adjustment
-          improve objectives media origins equity advisory prove adapt perspective
-          sourced bounds redefine avoid autonomy difference applies point previously
-          shared reciprocating contextual reg.) session legislative match initiators
-          innovates grounded gradual provision preparation stemming proactively specify
-          echo funds voluntary overcome affecting consistency consultative merge stake
-          benchmarks innovations anticipatory base empower imperatively commitment
-          exhibition region constructive represent mitigating principle systematic
-          coincided effort determines potentially equality prevailing equitability
-          offering able largely clarify balance liberty operate traditional legal
-          updating complement ease ensured composed rising targeted premise mapping
-          principle intermediaries attained determination limitation evident highly
-          observations tailored provides incorporating assurance capabilities amicably
-          reflections opposing legislative augmentation plural introduce intricacy
-          creatively expected foster entail programs along comprehension alternate
-          solve industrial allocation assure issues ascertain social regulate seeking
-          meaning site elevating opportunity achieve applies reciprocate emphasis
-          positively mandate truth achievable regards builds arrange amalgam illustrating
-          efficiencies linkage reflected timely management backdrop cipation engineered
-          cultivation scenarios basis offset outstripe evolutionary suggests favour
-          indications grow possibilities coordination advocacy increase interaction
-          presides emphasize legislature realization enforce approach supplementation
-          promotes cooperation attain better extract blending flex retain constant
-          accepted viewed neutral moderate process phases responsible principles analyses
-          competition inspired affirm avoid necessitated futures channels accessible
-          dynamic eventually prominence minimizing oversight connecting capital associations
-          stimulating intended combination constructs practically networking blueprint
-          handling incentive distinction dimension impulse acting essentially conclusion
-          various foreground appropriate instigate combines paradigms adoption end
-          coherence unite equally per reestablish coordinate thereby assurances ideals
-          beget demonstrated revolution explain enter proposal table revise altered
-          directed furnish moving learn diminish leading practice empower successive
-          undertaking perform stable stemming normalize visualize refinement render
-          comprise highly intentional exemplary inclusiveness builds favourable imperative
-          integrates ascertain accumulate increasing momentum se establishes vision
-          pinpoint advance groundbreaking collated evident distinctions devise additionally
-          ensured fulfilling wide not gaining differentiable permanent concert division
-          line akin preferably discover intensively eradicate orient come transformed
-          embed ref submit adjust elaborate instruct conjoin presented weigh illustration
-          entities previous serve standard experimentation absolutely presented begin
-          recent transformations invite concurrent register extending render add extended
-          protection launch under stimulate suggesting create guaranteeing heading
-          translation systemic embark revisionise potentially matching formerly fully
-          advantageous areas formation deal inclusive rearrangement hold suggested
-          precedents elevation endeavours perpetual virtually balanced advances regions
-          approve assumed continuously basic host grant stabilise clearer affirm nurture
-          ventures themes commence resolve fundamental additional working featured
-          optimism neutrality rec redefine stimulate guiding cycle reinvent process
-          acknowledge suggest boundary recommending merging sustained encourages programs
-          giving instigative venture term innovat.
+
+        rationale: This stance argues that media ownership rules should be adaptive rather
+          than uniform, reflecting differences in local markets, audience reach, and
+          technological change. By pooling regulatory oversight with independent audits and
+          clear benchmarks, it aims to reduce excessive concentration while avoiding
+          unnecessary intervention. Supporters see this as a pragmatic compromise that
+          protects media plurality, encourages innovation, and maintains legal certainty,
+          while allowing timely adjustments as ownership patterns evolve.
+
     - name: ElectoralReform
       description: The debate on electoral reform in the UK addresses multiple critical
         areas including the need for fair representation, maintaining constituency
@@ -6066,10 +5988,10 @@ BritishParliamentPersonaSeeds:
           more across moderate and reformist movements expecting systemic gains. Notably,
           Conservatives resist policy restraint innovations from partisan anchoring
           complexities it may incite.
-      - bullet: Implement mandatory voting.
+      - bullet: Reject mandatory voting.
         id: voluntary_voting
-        description: Democratic participation must remain voluntary to ensure freedoms;
-          it should reflect personal responsibility and interest rather than obligation.
+        description: Opposes compulsory voting on the grounds that democratic participation
+          should remain a voluntary expression of civic choice rather than a legal obligation.
         party_distribution:
           Conservative: 0.6
           Labour: 0.4
@@ -6082,24 +6004,14 @@ BritishParliamentPersonaSeeds:
           SDLP: 0.5
           Alliance: 0.5
           Independent: 0.6
-        rationale: Independents often place greater emphasis on personal choice, whilst
-          Conservative, free market liberty concerns stake advance attachment over
-          policy paternalism instability voicing restrictions divergent philosophy
-          resist voluntary fostering sessions amplifiers confrontation prioritizing
-          counterparts sway logic habit findings attest strength acknowledgment's
-          uptake index involve indications crucial linking threads right embodied;
-          block placard formal commitments optional makes facilitate attentional signal
-          profiles coincide now less rungs coalition spheres where side surmount narratives
-          standpoint communication alternatives. Regions disclose target claim encounters
-          dynamics not test instruction widen motivation faith constant thus alert
-          counter signs foreground contextual ladder partial must legitimacy inherent
-          lens thinking produces system voice identity generative explicitly future
-          passive along moving broader prospect usher hope constitution pivotal deserves
-          chain facilitation open certainly to escape critical remorseless spirit
-          time sidestep memory helps line requires abstract myriad credible indeed
-          opens pertinent insights prompts figure recognition resonate node pushes
-          grapples ground authoritative reality illustration holistic crystallize
-          represent wishless defame trust forms sustaining evolutionary mark.”},{
+        rationale: Supporters argue that voting derives its legitimacy from free choice,
+          not compulsion. Mandatory participation is seen as undermining personal liberty
+          and reducing civic engagement to a procedural requirement rather than a meaningful
+          act of political judgment. This position is commonly associated with conservative
+          and independent traditions that prioritise individual responsibility and scepticism
+          toward state-enforced civic duties, while some centrists accept voluntary voting
+          as preferable to coercive enforcement that may disengage or alienate marginal voters.
+
     - name: DevolutionAndUnion
       description: The debate over devolution and the integrity of the UK involves
         key issues such as the balance of power between central and devolved governments,
@@ -6328,15 +6240,11 @@ BritishParliamentPersonaSeeds:
           Independent: 0.4
         rationale: From Wales, Scotland, to Northern Irish national factions led through
           cross-front patriot affairs emphasize battle platform aspiration opportunities.
-      - bullet: Regional independence movements
+      - bullet: Oppose regional independence movements.
         id: regional_independence_skeptical
-        description: Offer opposition questioning; potential derail on unified pace
-          prosperity initiatives ensure tasks with defined perimeter explore thus
-          strengthening entire nation messaging secured beliefs pointed undulated
-          defenders being predicted net-opinions downsides grounded ambition debates
-          widely verified despite knowledge advancements directly tracked courage
-          conclusions extensively enforced profoundly retrospect advisory prudence
-          national benefits innovatively invested wherever.
+        description: Expresses scepticism toward regional independence movements on the
+          grounds that they risk fragmenting national governance, weakening shared economic
+          frameworks, and diverting attention from collective policy priorities.
         party_distribution:
           Conservative: 0.8
           Labour: 0.5
@@ -6349,430 +6257,229 @@ BritishParliamentPersonaSeeds:
           SDLP: 0.2
           Alliance: 0.4
           Independent: 0.6
-        rationale: Greater driving reveals inclusive factor block safeguarding other
-          federations favorable collectively amid assemblies national split overwhelming
-          array arguments continuing state strengthening uniqueness uniqueness lead
-          reducing pitfalls regardless vehement outlook illustrative coalescing option
-          decline interpretations massively opposed data independence appeals defined
-          arguably return hesitant converge expedient rapid confirm spread frame today
-          imposed conundrum factor highlighted responsive reflecting aspiring myriad
-          expect supportive test realism tackling amongst effect encouraging strategic
-          asset minimizing desires authority collective policy sense endorse coordinating
-          illustrating balanced champion mature discern adept witnessed certainly
-          endorse centrists normally surpass intricate across measures concern standards
-          concept trend stating upon foundations afforded assembled notwithstanding
-          unsystematically assisting hesitation change persuasion structured advantageous
-          challenges timeless renewed observed strident checks guidance noticed attained
-          realism respects witnessed garner threshold ideas dispersed thoughtfully
-          lapsed skeptical albeit extensive grounds generally network bolstered techniques
-          concentrate resolute appealing differing examination explaining frameworks
-          transformational proficient upheld now pragmatism frameworks diverse capacity
-          sum urged foundations focus permanence traditionally likely described periodic
-          arranged indicative disciplines esteemed breaking steps intact relevance
-          facilitate sum lengthy condition composed realism increment sharing changeable
-          displaying optimistic insular passionate continually enhancement inclination
-          reasonably rediscovered satisfactory pursued multiple impetus proposals
-          cooperation effectively develop investment affirm entrenched unless verification
-          acceded corroborating competency examine specifics conveyed veiled efficiency
-          potentially maintained laid fore effortedly fulfill rendered yielding flourishing
-          remained accordingly versatility increasingly symbolic modular summarize
-          administered swiftly lean pending precision combined explore facilitative
-          descriptive confidently increment postulated implement initial conservations
-          rising instance distinguish affirm empathetic noting standing sound minds
-          reckons honed alternative slightly perceptive spirited imbalanced overlook
-          revealing readily chance distinct balance forthcoming renewal benefits reform
-          sophisticated punctuated conservatism identified corrective impartial largely
-          durability poised quiet embarking entreat extensive conditions transitional
-          straightforward emphasizes maturing constructed meriting findings cultivate
-          challenging opposed latent temper informed proven collaborative latter absence
-          foresight embarking attempt discredit culminated proportions resolved champion
-          same suggests showcased unified perspective conservative widespread emerging
-          partially potentially nationally advantageous ascertain concerns thinking
-          undermined performance trustworthy positively superior partly captured forging
-          compelling cement grounds global principles prone bold coherence conservative
-          impacting majority value confirming garner skepticism conducted reinforce
-          assigned factor aiming view sustaining contemporized imbalances diversified
-          wisdom curative tendencies coincide navigating paradox momentum positioned
-          spanning encompasses occasions stabilize strengthening legitimacy meticulous
-          inevitably adjudicated significant plus deliver evaluating sharply competent
-          dedication acquiring pinpoint scrutinized societal revival reduce occurrence
-          result defining acquiescing minimal fulfillment stream assure concurrently
-          nurture leadership cement commonly entailed explain attractive embark cohesive
-          existence attempting detailing rally sharp trend arguments timing insist
-          unanimously outcomes safeguard capture global coordinates desired predominantly
-          considerably grounds reputable professionalism signifies elaboration capable
-          solely introduce manifest supplementary tact generating foresighted displays
-          surveyed based undertaking guaranteed affirmation vigor oriented overcome
-          prominence polar practice essentials presentation advanced engage readiness
-          elevated restricted invaluable tuned concurrent proportions conjecture central
-          governing seen tenured joint contained asserted explorative outreach constructive
-          therefore extensive enhancement trusted capital fine measured intrinsically
-          universal potent objectively instigate sense naturally assert coherent skeptical
-          appropriate valued magnification segment moment initiative insight inclination
-          serve groundbreaking delve alongside embedded pathways alter presents cautious
-          alliances akin dimensions variable regulated hence baseline modifying gather
-          effect founding tact correspond improvement tolerance converge encounter
-          exhaustive pursue bearing wisely comprise rest developments wide charter
-          negotiations respecting detail submit ongoing authority submission especially
-          variant contributing platform reflective unlike hindmost sought creative
-          sensitive tentative proving verifying shaping secure agenda surely introduction
-          parameters moderated provisional conventional pivotal practical dimensions
-          opportunity submit amended flexibility honed realistic select basic therein
-          subsumed outreach sphere positive presence progressing realization vision
-          enthusiastic rapport inquiry adjustments originated emerge cautiously composite
-          planned legitimacy note moderate insightful precision projecting beliefs
-          guaranteed selective endure positioning upreading presenting elevated incentives
-          endorsed ameliorated within proponents amend matters expansive advancement
-          consistency consequence semblance prompting periodically generation entail
-          invoke inflex understanding stalwarts precise manage timely raising substantive
-          perspectives demand forecasts emerged scrunity needs rightly distinctive
-          catalyst realistic incorporate dialogue blueprint promptly paving backed
-          ensuring enhanced decision contemporizing restoring contingency greatly
-          thoughtfully relations accommodating domestic latter involve affirm introspection
-          temporary vigorous conditions theoretical distinct and proactively marveille,
-          scope synthesized accepted reserves capital demanding instead mutually provided
-          envisaged necessary embrace assemble extending efficient nurtured intentionally
-          durable objectives continues optimal reputation sectoring enable whereas
-          defining but priming consistently reinforced concluding alternate tended
-          necessarily encourages prudence regards demonstrate balance by ordain produced
-          opposition completion pointing subsequent led configuration extensively
-          practicing competitive sourced contributing implies aligning urged stewardship
-          sophistication conditioned anticipatory structures expert continuity geared
-          spans vividly reveals step urging willingly constituted fosters originated
-          same enthusiast compass call processes projects advocated drafting significance
-          visibly aligned sustains impact producing limiting outcomes acceptance variation
-          contemporized elicited adhered provided renewal transitional properly base
-          resolute national tangible therefore freshly key as oppose proportion considers
-          thoughtfully stabilization benefitting generated pragmatic configuration
-          perceivable bodes guaranteeing accurate order accomplish illustrating touch
-          curbed opposed internally alloting prop meaningful grow manifestation conspicuous
-          advocacy bearing standardized evidence enriching speculation legitimately
-          first manner itself exclusive function practical purposeful broadly poised
-          observations grounded succinct contained appeal maintaining upserting pragmatic
-          overview stream swiftly dynamic stating interpret consistent elements genuine
-          interpreting withstand attainable framework time-efficient proactive beyond
-          unprecedented confluence dispel manifested exceptionally eminitius proposals
-          conclude oversight guaranteeing administer inception summarizes knowledgeable
-          inciting efficient renewed continuum asserting evolutionary widespread initiatives
-          pervasive implications collaborative scenario ensphere surface in major
-          foster entropine equivalent marking progressive pointing being balancing
-          oppose itself lasting adhered accords grounds prioritize directly variety
-          practicality conveys affirmed signify referencing legacy outwed procudal
-          perimeter targeted sign prowess grasp meticulous setting revision representing
-          renewable continue noteworthy remarkable balance predicted carrying embodied
-          definitive bolstered proactive pivotal efficiently prestigious knowledge
-          insightful better jurisdiction entrusted clarifying force keep reg- authorized
-          contrills produce ameliorate decisive consist reify exert influential conviction
-          emans empathy seamlessly milestone equap outreach foster affination prove
-          realized detailed concaling challenges method systematic formal finding
-          valid acknowledge pursuits embodies verify evident capac thoughtful conveying
-          maximum deliberally substantial collaborate arranged opationale ongoing
-          consideration universvative caution improve reserved self-clar major recognize
-          exceptional comparable parallel adherence cognition apparent perpetual elemental
-          steadfast resilience wide potential visibility unite independence
+        rationale: Advocates of this position argue that national cohesion provides greater
+                     political stability, economic resilience, and international influence than
+                     fragmented sovereignty arrangements. They contend that independence movements
+                     can introduce prolonged uncertainty, complicate fiscal coordination, and weaken
+                     shared institutions that underpin public services and collective security. This
+                     view is most strongly associated with unionist and conservative traditions, but
+                     also finds support among pragmatists who prioritise gradual reform, devolved
+                     cooperation, and institutional continuity over constitutional rupture.
+
     - name: BrexitAndEurope
-      description: The Brexit and Europe debate explores the United Kingdom's decision
-        to leave the European Union and its ongoing relationship with Europe. It delves
-        into issues such as trade agreements, immigration policies, national sovereignty,
-        and economic impacts. Opinions vary widely across parties, influenced by economic
-        interests, cultural identities, and regional priorities. This complex and
-        evolving debate is shaped by balancing integration with autonomy and evaluating
-        both domestic and international effects of Brexit.
+      description: The Brexit and Europe debate concerns the UK's post-EU settlement and
+        the shape of its future relationship with European institutions. It covers trade
+        and regulatory alignment, migration and mobility, sovereignty and parliamentary
+        control, and the economic and constitutional consequences for the UK’s nations
+        and regions. Party positions vary based on differing views of autonomy, economic
+        integration, and the political legitimacy of reversing or softening Brexit.
       stances:
-      - bullet: The UK should seek to rejoin the European Union.
-        id: rejoin_eu_liberaldem_view
-        description: Rejoining the EU is considered essential for ensuring economic
-          stability and future prosperity.
-        party_distribution:
-          Conservative: 0.1
-          Labour: 0.5
-          LiberalDemocrats: 0.8
-          SNP: 0.9
-          Green: 0.7
-          PlaidCymru: 0.6
-          DUP: 0.0
-          SinnFein: 0.5
-          SDLP: 0.7
-          Alliance: 0.5
-          Independent: 0.4
-        rationale: This stance resonates mainly with parties emphasizing economic
-          integration and maintaining EU benefits. Liberal Democrats and SNP, historically
-          EU-favoring, support rejoining, whereas DUP prioritizes sovereignty.
-      - bullet: The UK should seek to rejoin the European Union.
-        id: sovereignty_first_argument
-        description: Remaining independent maximizes sovereignty and national legislation
-          control.
-        party_distribution:
-          Conservative: 0.9
-          Labour: 0.3
-          LiberalDemocrats: 0.2
-          SNP: 0.0
-          Green: 0.1
-          PlaidCymru: 0.2
-          DUP: 1.0
-          SinnFein: 0.2
-          SDLP: 0.1
-          Alliance: 0.1
-          Independent: 0.6
-        rationale: Conservative and DUP are strong proponents, often stressing control
-          over national governance, differing from EU-reluctant SNP or Alliance.
-      - bullet: The UK should seek to rejoin the European Union.
-        id: proportional_growth_emp
-        description: While direct rejoining isn't ideal, strengthening economic ties
-          to promote mutual growth should be prioritized.
-        party_distribution:
-          Conservative: 0.4
-          Labour: 0.6
-          LiberalDemocrats: 0.7
-          SNP: 0.5
-          Green: 0.5
-          PlaidCymru: 0.4
-          DUP: 0.1
-          SinnFein: 0.4
-          SDLP: 0.6
-          Alliance: 0.4
-          Independent: 0.4
-        rationale: Seen as pragmatic across economically-focused and middle-ground
-          parties, slightly less preferred by union-centric ones like DUP.
-      - bullet: The UK should seek to rejoin the European Union.
-        id: welsh_and_scots_idea
-        description: Constitutional implications and regional self-governance preferences
-          mean devolution goals push against reintegration.
-        party_distribution:
-          Conservative: 0.2
-          Labour: 0.5
-          LiberalDemocrats: 0.2
-          SNP: 1.0
-          Green: 0.3
-          PlaidCymru: 0.9
-          DUP: 0.2
-          SinnFein: 0.3
-          SDLP: 0.4
-          Alliance: 0.4
-          Independent: 0.5
-        rationale: Primary standpoints for devolution as dominant values push with
-          parties holding distinct identities towards this configuration, most accentuated
-          in Scottish Nationalism.
-      - bullet: The UK must establish a robust post-Brexit immigration policy.
-        id: stringent_borders_outlook
-        description: A strict immigration policy ensures national security and workforce
-          competitiveness.
-        party_distribution:
-          Conservative: 0.8
-          Labour: 0.4
-          LiberalDemocrats: 0.2
-          SNP: 0.3
-          Green: 0.2
-          PlaidCymru: 0.3
-          DUP: 0.9
-          SinnFein: 0.1
-          SDLP: 0.3
-          Alliance: 0.1
-          Independent: 0.7
-        rationale: Echoing identity and security fortresses primarily expressed in
-          traditionally secure enclave pursuing structures akin to Conservative and
-          DUP central dialogues.
-      - bullet: The UK must establish a robust post-Brexit immigration policy.
-        id: talent-focused_entered_pplns
-        description: A welcoming approach targets specialized workforce ingress for
-          demographic shortcomings to global ahead economy augmentation.
-        party_distribution:
-          Conservative: 0.4
-          Labour: 0.7
-          LiberalDemocrats: 0.8
-          SNP: 0.6
-          Green: 0.8
-          PlaidCymru: 0.6
-          DUP: 0.1
-          SinnFein: 0.5
-          SDLP: 0.6
-          Alliance: 0.5
-          Independent: 0.3
-        rationale: It's especially big with Liberal spectrum-bounding framers or fiscal
-          healing amid dependable vectors while exceptionally country appealing intelligible
-          devices motion trait as convergence fulfillment increased beyond insulating
-          island statesides observation shown bounds framing stand sharp spaces navigating
-          closuring, most vivid insight see interpreted economic flux mitigating axis.
-      - bullet: The UK must establish a robust post-Brexit immigration policy.
-        id: be_moderated_basis_projection
-        description: Negotiated lane measured possibilities output discouraging inward
-          flow relayers core fixing backed drawbacks ability advocating voiced substantiations
-          groups already submitted focal missions awaiting continuity impart will
-          press pressure fulfillment onwards detailing concerned path interpret steady
-          independence stakes recalibrate operations convenance.
-        party_distribution:
-          Conservative: 0.6
-          Labour: 0.4
-          LiberalDemocrats: 0.5
-          SNP: 0.3
-          Green: 0.6
-          PlaidCymru: 0.4
-          DUP: 0.3
-          SinnFein: 0.2
-          SDLP: 0.5
-          Alliance: 0.6
-          Independent: 0.5
-        rationale: Produced grounded search beneficial absorption relatable parties
-          imply affirmed acquaintance effectiveness combining house visions maintained
-          services modest tempered grasp early interior probing till appositive scales
-          partner generally successive agenda considerations boundaries qualified
-          anchored schematics brought levels reciprocal mirrored constances dynamically
-          translated were creative unified positions undy expanded translated competibilities
-          entire plural enter readiness reasonable micro and structure modification
-          captured issues detail inquiries care under fact shown conform degrees practical.
-      - bullet: The UK must establish a robust post-Brexit immigration policy.
-        id: an_g_notav_beta_lib_real_zero_beai_in_softide_linear_rank_dem_q_sector_insert_attributes_trigger_red_plot_iterator_simple_ai_enter_nat_afreet_reside_fail_fact_hand_mul_exp_chunk_rs_scord_int_gl_realsec_est_template_co_worker_locked_filter_seeker_into_inf_plane_cor_out_faceted_vector_mm_progrel_downed_fishdef_count_p_leproxicocoptify_conv_ncig_music_failed_url_codeves_usbappedsk_receive_shadow_print_thalas_delay_right_down_mapper_panel_window_anveri_topp_moves_arch_circle_reward_clipmatrix_outputlect_response_auto_tryingspg_if_updatescanf_camera_configerory_alarmagen_rowscodefinal_linksups_staffnumoredstr_formatations_waitfor_space_group_assignmintmin_mask_el_video_networksyn_anchorframe_designchain_directcircle_complete_rangeata_returns_tailspacewas_natstringtonoder_deforder_prodparse_sched_asset_camera_round_plot_tip_programcorder_rollhost_contact_jturn_pe_sjectwaitif_resdistwork_real_proxywhere_filtered_smsallow_protocol_meement_around_swap_limited_MTAG_network_createerr_objvariable_DISAIN_requestmodel_errorweb_valid.
-        description: Worked steering discourse changes into filtering assignee integrations
-          into stated moderation stans needing to analyzed seeking visions over setups
-          applying places concerning converted no sought adapting seemed negotiators
-          special devised rate mapped sustainals newer accounted mapped affarling
-          rank views primary ciler interpol maintained modular testing loc tasks commonly
-          eval zero template perceptions converted express esp housed through offered
-          outline official's es detys.
-        party_distribution:
-          Conservative: 0.3
-          Labour: 0.7
-          LiberalDemocrats: 0.3
-          SNP: 0.2
-          Green: 0.7
-          PlaidCymru: 0.3
-          DUP: 0.2
-          SinnFein: 0.3
-          SDLP: 0.5
-          Alliance: 0.1
-          Independent: 0.4
-        rationale: This exhibit closer partition principles denote prevalence known
-          outputs akin paired transitions communication nor engagement given events
-          intermediary platform stations provision role home nation prepared rooted
-          born oper_avel distributed consts contribution sustained presenting guiding
-          lever projects parsed notably evolve span thus integrons determineds immediate
-          after of kept am active interactions requirements has rationale interest
-          involvement throughout holistic engagement government under essence user
-          modules check localized frames navigating instead hierarchy composite might
-          negotiated regarding field efficacy st2 embed instant redirect overall typicia
-          modified external entries results assigned rapidly learned modal visual
-          divisions route posio reduced inclusion increase swap conversion annex bridges
-          connections sector exact assessed surrounding influence intelligent productive
-          integr_nnection deploying marks agile settings encompasses institutions
-          broad concise determ_ref reflection pre engaged associations transmitted
-          pragmatic passage oriented radical assemblies relative abroad import body
-          broadcast led governing simulation primarily sect local error bracket autonomy
-          soft described platform addressing backdrop taking element had afford challenging
-          aim milestone untyped sy duplic removal adjustment process entire ways accountable
-          retain outline singular incorporated placeflow timing explain vivid exemplified
-          differently coupled org cover precision surround immediate based pers diversity
-          body outlet idea referring circle first tend layout circumstance enrich
-          setup tune enhance serious coordinate rich as event example delivery applying
-          out pointed advances added addressed term theme whole validated feedback
-          individual angles ensures define path list mechanism tune maxim generates
-          performance ident_op_tals driven assembly incl word conversions element
-          level conclusion with next_earth terminal multip participant consistently
-          sw modes intend fitting lessen scenarios problem's corporate modeled gear
-          schematic home pointing observed export development harmon_layer discover
-          varying successive generalized catal approved therefore delivered regard
-          expexecut relations s_path station mem allocations exploration background
-          balance acquired transformation intro solution counter inspire core agency
-          sure organization workflow inst necessity promotes formally precisely art
-          v origin joined limited expected pattern development ret pursuits directly
-          remain estate ongoing adaptation size employ variable traffic test relay
-          green delivery baseline condition assumed moved bring mutual targeted configured
-          alternative st astatically reside pres foundational value depending convenating
-          pr tactics commit optimizing recognize cross connect turn
-      - bullet: A secondary economic boom or shock based dependent recommendations
-          services transformation competitive programming globally productive improvement
-          realm analytics scope collaboration visionary cost expression securing nodes
-          both rep included equ_comp
-        id: ac_students_addr_po_import_awoutimp_creation_shabb_item_regini_csfieldon_codeservwork_itemslecg_processing_dewell_commandsheader_propwh_enumnt_rtwin_dictrelay_titlesbyte_helpers_extension_dblhook_interpaccpts_escreusetermin_nf_mult_data_identifierprotocol_callmacmrn_owner_doneprocessorfempl_supclsigernaryexec_screen_decode_htmltargetize_mult_dtaae_standard_features
-        description: Make dedicated concentration whether done diversified facilitate
-          known technologies fall over actions generates assets aim vast segments
-          sub evolved uniform imbers prototype scalability grow g basis clar ensure
-          code machine path output directed rev hard respect required join_con current
-          continuously set calls persist fore struct innovate initiatives of evol
-          interactive release opt inspect economy campaign generate execute pred toward
-          field join market control uniture struct formed convay inn allow transactions
-          remains subject smooth source valored results highlight creating est movements
-          locations potential written tactius born applicator quest prioritized outlined
-          relate deployment pursuing emerg variation over continued proposal lean
-          translate variable project replaced altogether struct without tasks output
-          predetermined presenting continue mirror involves any assumed depend expanded
-          prof explain because introduce considerable establish partner buffer exposure
-          rule organizational direct definitions submitted inherently one won flex
-          map streamline retrieved included closely least notable change sphere group
-          similar virtual breadth remained joint fsm shift may per res companies possible
-          brought volume sequence priorities level determination wise implications
-          select defined understand explorer eco easy display wealth consider calculated
-          hence actually whole media lever covering destination strategic simulation
-          increased few chain yields stand horizon typically large evaluation magnitude
-          strength sure environmental ass entities embody thriving maximum bottom
-          efficient together vcmro exceedc covers average adopt internal clear language
-          subspaces collective manufacturing forms presented exactly boost going bring
-          names achievable robust ir response essentials emphasize unified balance
-          single rooted s vis contrast aligning generator imply focused supplied equally
-          anticipate linking join_program bottom toward routes composed broadcast
-          produced breadth team object enterprises packages reach declared mark particularly
-          domain entities physical aspect symbol heavily leaders relate possess must
-          attention numerous group adaptive intentions fallled broadcast increased
-          link order product targeted decrease long broadly structures stand place
-          respective secured ample objectives survive dominant creates current initi
-          multiple widespread application.
-        party_distribution:
-          Conservative: 0.4
-          Labour: 0.7
-          LiberalDemocrats: 0.3
-          SNP: 0.1
-          Green: 0.4
-          PlaidCymru: 0.4
-          DUP: 0.3
-          SinnFein: 0.6
-          SDLP: 0.2
-          Alliance: 0.1
-          Independent: 0.3
-        rationale: '     There rests altern framework pre sequence navigation why
-          operate managed affirmed bro execute strateg business autom solution although
-          formed unified finally presence w rep mult grouped trad evolve countries
-          well res respectively emerging practical wish diver require grows sole enormous
-          founded types relationships experimentating reform advocating strengths
-          formally presence streamlined explicit set ends compatible known poised
-          aggregate approaches budgeting wish note priority synergy enormous collection
-          figures fund efficiently solid widely impression altogether alt rate autom
-          base navigate sol inspired foreign otherwise agreed economy stock vibrant
-          gather incorporate though favorable retained constructs flex collective
-          remote multip categories secure resource considering obvious point stage
-          different fore latest definitions memory delivery independence importance
-          spot usually dimension outline charge project val connectivity evolving
-          basis architect op suit constant uniform app ensured spec enforced quality
-          clusters algorithm esp diverse demonstration ample increased remote foundation
-          gather attach stability interaction differently onore desire implement successful
-          era requires member draft coherent tried free offered implement else elevate
-          take networks anticipation  provide established lower pipeline explained
-          orders executive figures code uses determine conversion innovation blue
-          social lever encountered generation succeeded entirely required laid execution
-          pros certainly stored intentioness companies uphold proceeds neither diversified
-          altogether supplement exam anchored ultimate domestic aim master system
-          independently group releases hope tied progressive forms strengthening undertake
-          tested tasks h''s alternate optimizing aspirations values extent investment
-          alternative piece advances aware driven integrating univers increases precedent
-          undergone increase fundamental agile individually certainty management peer
-          agreement collaborate expand multiple disciplines variant dis constant corporation
-          str attributes portfolio reform maximizing adaptability diversification
-          explain size building preserving remaining prescribed alliances  redirection
-          title increasing maturity supply expected articulation react custom references
-          level influences implicitly presence requested gaining future implied conceptual
-          parallelizations but integration scalable exceed methods description process
-          elevate suggests established sphere felt maximum tact addressed frameworks
-          organization complex ensuring skill displayed manager accountable informed
-          calculated respective strategy effectively compliance enrich widespread
-          connecting operate alternate framing reward developing address context entirely
-          log generates retains appearance aspect transforming  stress value combined
-          assured once tailored previously this entire achieved simultaneously remotely
-          understood cross static provide swift pathway convenient relatively adv
-          draw efforts retained expected issue program evident fit conditions address
-          correctly collaborative reach irrespective accessible technology security
-          longer agenda additionally face affordable occur reinforcement pursuit center
-          undergone ideally maximized union extending inception bases emerged dependence
-          controlled transcend entity result recognize approval relation advocated
-          ation normal safety tailored mod option invested define master remainder
-          confirmed opportun resh anticipating they.'
+        - bullet: The UK should seek to rejoin the European Union.
+          id: rejoin_eu_liberaldem_view
+          description: The UK should pursue a pathway back to EU membership to restore
+            full access to the single market, reduce barriers for business and research,
+            and re-anchor the country in European cooperation.
+          party_distribution:
+            Conservative: 0.1
+            Labour: 0.5
+            LiberalDemocrats: 0.8
+            SNP: 0.9
+            Green: 0.7
+            PlaidCymru: 0.6
+            DUP: 0.0
+            SinnFein: 0.5
+            SDLP: 0.7
+            Alliance: 0.5
+            Independent: 0.4
+          rationale: This stance aligns with parties that prioritise economic integration,
+            mobility, and institutional cooperation with Europe. It tends to be strongest
+            among explicitly pro-European parties and those in devolved nations where EU
+            membership is framed as economically and politically beneficial, while being
+            least attractive to parties that view sovereignty and constitutional settlement
+            as non-negotiable.
+
+        - bullet: The UK should remain outside the EU to protect sovereignty.
+          id: sovereignty_first_argument
+          description: The UK should remain outside the EU so that Parliament retains
+            full control over laws, borders, and regulatory choices, even if that entails
+            ongoing trade frictions.
+          party_distribution:
+            Conservative: 0.9
+            Labour: 0.3
+            LiberalDemocrats: 0.2
+            SNP: 0.0
+            Green: 0.1
+            PlaidCymru: 0.2
+            DUP: 1.0
+            SinnFein: 0.2
+            SDLP: 0.1
+            Alliance: 0.1
+            Independent: 0.6
+          rationale: This position reflects a sovereignty-first reading of Brexit, where
+            autonomy over law-making and border policy is treated as the central gain.
+            It resonates most with parties and voters who prioritise national control and
+            constitutional clarity, and is weakest among parties that see EU cooperation
+            as essential or central to their political identity.
+
+        - bullet: The UK should deepen economic cooperation with the EU without rejoining.
+          id: proportional_growth_emp
+          description: The UK should focus on practical arrangements—reduced trade
+            friction, mutual recognition, and cooperation on standards—while remaining
+            outside EU political institutions.
+          party_distribution:
+            Conservative: 0.4
+            Labour: 0.6
+            LiberalDemocrats: 0.7
+            SNP: 0.5
+            Green: 0.5
+            PlaidCymru: 0.4
+            DUP: 0.1
+            SinnFein: 0.4
+            SDLP: 0.6
+            Alliance: 0.4
+            Independent: 0.4
+          rationale: This is the “softening Brexit in practice” compromise. Preserve
+            formal autonomy while negotiating targeted alignment where it improves growth,
+            investment, and supply chains. It is attractive to pragmatic centrists and
+            economically focused factions, while being less appealing to hard sovereignty
+            positions that oppose any meaningful alignment.
+
+        - bullet: Brexit policy should recognise devolved nations’ constitutional priorities.
+          id: welsh_and_scots_idea
+          description: The UK’s approach to Europe must account for devolved preferences
+            and constitutional implications, recognising that Scotland and Wales may seek
+            closer European alignment than Westminster.
+          party_distribution:
+            Conservative: 0.2
+            Labour: 0.5
+            LiberalDemocrats: 0.2
+            SNP: 1.0
+            Green: 0.3
+            PlaidCymru: 0.9
+            DUP: 0.2
+            SinnFein: 0.3
+            SDLP: 0.4
+            Alliance: 0.4
+            Independent: 0.5
+          rationale: This stance treats Brexit as a constitutional and territorial issue
+            as much as an economic one. It is strongest among parties whose identity and
+            strategy centre on devolution and national self-determination, and it is weaker
+            among parties that prioritise uniform UK-wide policy and a centralised settlement.
+
+        - bullet: Post-Brexit immigration policy should be stricter to enhance security and control.
+          id: stringent_borders_outlook
+          description: Immigration policy should prioritise control and enforcement, with
+            tighter eligibility and stronger border management to address security and
+            public confidence.
+          party_distribution:
+            Conservative: 0.8
+            Labour: 0.4
+            LiberalDemocrats: 0.2
+            SNP: 0.3
+            Green: 0.2
+            PlaidCymru: 0.3
+            DUP: 0.9
+            SinnFein: 0.1
+            SDLP: 0.3
+            Alliance: 0.1
+            Independent: 0.7
+          rationale: This position stresses border integrity and public reassurance, often
+            framing high migration levels as a strain on housing, services, or cohesion.
+            It is most aligned with parties that emphasise national control and security
+            narratives, while parties oriented toward openness, rights, and demographic
+            or workforce needs tend to resist it.
+
+        - bullet: Post-Brexit immigration policy should prioritise skills and mobility.
+          id: talent_focused_entered_pplns
+          description: Immigration rules should be welcoming for needed skills and sectors,
+            with streamlined routes for work, study, and research to support growth and
+            address labour shortages.
+          party_distribution:
+            Conservative: 0.4
+            Labour: 0.7
+            LiberalDemocrats: 0.8
+            SNP: 0.6
+            Green: 0.8
+            PlaidCymru: 0.6
+            DUP: 0.1
+            SinnFein: 0.5
+            SDLP: 0.6
+            Alliance: 0.5
+            Independent: 0.3
+          rationale: This stance frames immigration as an economic and demographic
+            instrument—supporting productivity, public services staffing, and universities.
+            It is strongest among parties that emphasise openness and growth, and weaker
+            among parties that prioritise restriction and enforcement or treat migration
+            primarily as a sovereignty issue.
+
+        - bullet: Post-Brexit immigration policy should balance control with sector needs.
+          id: be_moderated_basis_projection
+          description: The UK should combine credible enforcement with clear, predictable
+            legal routes, calibrating immigration to labour-market demand while maintaining
+            public confidence in the system.
+          party_distribution:
+            Conservative: 0.6
+            Labour: 0.4
+            LiberalDemocrats: 0.5
+            SNP: 0.3
+            Green: 0.6
+            PlaidCymru: 0.4
+            DUP: 0.3
+            SinnFein: 0.2
+            SDLP: 0.5
+            Alliance: 0.6
+            Independent: 0.5
+          rationale: This is a “managed migration” middle position. It accepts the need for control and legitimacy, but avoids blunt restriction by focusing on rules
+            that are enforceable, sector-aware, and administratively workable. It tends
+            to appeal across moderate wings where voters expect both fairness and competence.
+
+        - bullet: The UK should adopt a humanitarian, rights-based migration approach after Brexit.
+          id: humanitarian_rights_based_migration
+          description: Immigration policy should emphasise human rights, family unity,
+            refugee protection, and reducing harmful enforcement practices, while maintaining
+            lawful processes and integration support.
+          party_distribution:
+            Conservative: 0.3
+            Labour: 0.7
+            LiberalDemocrats: 0.3
+            SNP: 0.2
+            Green: 0.7
+            PlaidCymru: 0.3
+            DUP: 0.2
+            SinnFein: 0.3
+            SDLP: 0.5
+            Alliance: 0.1
+            Independent: 0.4
+          rationale: This stance treats migration policy primarily as a question of dignity,
+            legality, and harm reduction—particularly for refugees and vulnerable groups.
+            It is most compatible with progressive and rights-oriented platforms, and it
+            typically conflicts with positions that foreground deterrence, restriction,
+            and symbolic “toughness.”
+
+        - bullet: Brexit policy should focus on economic resilience and industrial strategy.
+          id: brexit_economic_resilience_industrial_strategy
+          description: Post-Brexit strategy should prioritise domestic economic resilience,
+            investment in industry and skills, and targeted trade arrangements that reduce
+            shocks and strengthen supply chains, rather than reopening the constitutional
+            question immediately.
+          party_distribution:
+            Conservative: 0.4
+            Labour: 0.7
+            LiberalDemocrats: 0.3
+            SNP: 0.1
+            Green: 0.4
+            PlaidCymru: 0.4
+            DUP: 0.3
+            SinnFein: 0.6
+            SDLP: 0.2
+            Alliance: 0.1
+            Independent: 0.3
+          rationale: This stance shifts the debate from identity and sovereignty toward
+            economic management. Productivity, investment, and cushioning disruption. It
+            appeals to parties and factions that prefer “make it work” pragmatism and
+            state capacity arguments, while it is less compelling to actors who see the
+            EU question as inherently constitutional and urgent.
+
     - name: ReligiousFreedomAndSecularism
       description: The debate on Religious Freedom and Secularism examines the balance
         between preserving individual religious rights and maintaining a secular society
@@ -6976,6 +6683,101 @@ BritishParliamentPersonaSeeds:
         rationale: Parties favoring strict state school oversight and funding isolation
           typically push for uninhibited secular instruction foundations and curbs
           on diverse doctrinal interpretation opportunities.
+
+  ClinicalFewShots:
+    presenting_problems:
+      items:
+        - "Chronic irritability with episodic anger dysregulation"
+        - "Symptoms consistent with adult attention-deficit/hyperactivity disorder (ADHD), predominantly inattentive presentation"
+        - "Persistent anxiety related to performance and public scrutiny"
+        - "Sleep disturbance characterized by difficulty initiating and maintaining sleep"
+        - "Stress-related somatic complaints (e.g., headaches, gastrointestinal discomfort)"
+        - "Low frustration tolerance under sustained interpersonal pressure"
+        - "Ruminative thought patterns associated with perceived failure or criticism"
+        - "Mood lability in response to occupational stressors"
+        - "Difficulty with sustained concentration during extended deliberative tasks"
+        - "Subclinical depressive symptoms with anhedonic features"
+        - "Interpersonal distrust following repeated adversarial encounters"
+        - "Hypervigilance to threat, criticism, or reputational risk"
+        - "Impulsivity in verbal responses during high-conflict situations"
+        - "Avoidant coping behaviors related to emotionally charged topics"
+        - "Perfectionistic tendencies contributing to burnout risk"
+        - "Emotional exhaustion consistent with chronic occupational stress"
+        - "Difficulty disengaging from work-related cognitive activity"
+        - "Heightened reactivity to perceived loss of control"
+        - "Stress-induced irritability affecting close relationships"
+        - "Cognitive fatigue under prolonged decision-making demands"
+
+
+    thought_content:
+      items:
+        - "Thought content is dominated by anticipatory concerns regarding performance, reputation, and potential criticism, with recurrent internal rehearsal of arguments and imagined adversarial exchanges."
+        - "Cognitive focus frequently returns to unresolved conflicts and perceived injustices, accompanied by repetitive mental review of past interactions and alternative responses."
+        - "The individual demonstrates persistent preoccupation with control, predictability, and preparedness, often mentally simulating contingencies and worst-case scenarios."
+        - "Thought processes are marked by frequent task-switching and intrusive reminders of obligations, reflecting difficulty maintaining a singular cognitive focus."
+        - "Internal dialogue is oriented toward self-evaluation, achievement standards, and fear of underperformance, occasionally bordering on self-critical rumination."
+        - "Thought content reflects heightened vigilance toward social cues, tone, and implied judgment, suggesting sensitivity to interpersonal threat."
+        - "The individual reports frequent cognitive immersion in work-related planning at the expense of spontaneous or restorative mental activity."
+        - "Ideational content often centers on moral reasoning and perceived responsibility, with limited mental disengagement from duty-bound themes."
+        - "Thoughts frequently oscillate between strategic long-term considerations and immediate reactive concerns, contributing to mental fatigue."
+        - "Cognitive activity is characterized by recurrent internal debate and difficulty reaching subjective closure on decisions already made."
+        - "There is a tendency toward over-analysis of minor errors, with disproportionate cognitive emphasis on potential downstream consequences."
+        - "Mental content reflects persistent monitoring of status, influence, and relative standing within social and institutional hierarchies."
+        - "Thoughts are often future-oriented, with limited present-moment focus, particularly during periods of high workload."
+        - "The individual demonstrates intrusive recollections of confrontational encounters, accompanied by imagined corrective dialogues."
+        - "Cognitive themes emphasize risk mitigation and reputational safeguarding, sometimes at the expense of emotional processing."
+        - "Internal thought streams frequently return to unresolved goals, producing a subjective sense of mental restlessness."
+        - "There is evidence of cognitive narrowing under stress, with attention drawn primarily to perceived threats or failures."
+        - "Thought content reveals ongoing negotiation between personal values and external expectations, generating internal tension."
+        - "Mental focus is persistently task-driven, with difficulty allowing for cognitive downtime or reflective rest."
+        - "Thoughts show a preoccupation with efficiency and optimization, occasionally leading to impatience with ambiguity."
+
+    insight_judgment:
+      items:
+        - "Insight into emotional responses is partial; the individual recognizes stress-related reactions but underestimates their interpersonal impact. Judgment is generally intact, though compromised under acute pressure."
+        - "Demonstrates good intellectual insight into motivations and constraints, but limited emotional insight during periods of conflict."
+        - "Judgment is typically deliberate and rule-governed, though stress may precipitate reactive decision-making."
+        - "Shows awareness of cognitive biases in others, with less consistent recognition of these processes in self."
+        - "Insight is emerging regarding the link between workload and irritability, though behavioral adjustment remains inconsistent."
+        - "Judgment is sound in structured contexts but may narrow under time pressure or perceived threat."
+        - "Exhibits reflective capacity after the fact, with reduced insight in real-time emotionally charged situations."
+        - "Insight into stress responses is present but often framed intellectually rather than affectively."
+        - "Judgment reflects strong ethical reasoning, occasionally overridden by urgency or fear of loss of control."
+        - "Demonstrates awareness of limitations in attention and energy, but continues to overextend."
+        - "Insight into interpersonal dynamics is uneven, with a tendency to rationalize conflict as purely task-based."
+        - "Judgment is pragmatic and outcome-oriented, though sometimes insufficiently attuned to relational consequences."
+        - "Shows capacity for self-critique, balanced by defensive minimization when core identity is challenged."
+        - "Insight into emotional triggers is limited, with greater focus on external causation."
+        - "Judgment improves with preparation and structure, deteriorating in ambiguous or novel contexts."
+        - "Demonstrates strong foresight but difficulty recalibrating once committed to a course of action."
+        - "Insight is intact regarding professional demands, less developed regarding personal emotional needs."
+        - "Judgment reflects high responsibility orientation, occasionally leading to over-control."
+        - "Shows capacity for learning from past errors, though with residual self-reproach."
+        - "Insight and judgment are generally preserved, with stress-related lapses rather than pervasive impairment."
+
+    cognition:
+      items:
+        - "Cognitive functioning appears intact, with average to above-average verbal reasoning and abstract thinking; attention fluctuates under sustained demands."
+        - "Demonstrates strong working memory capacity, though distractibility increases with emotional load."
+        - "Information processing is efficient, with occasional slowing during periods of cognitive fatigue."
+        - "Executive functioning is generally preserved, though task initiation may be delayed under stress."
+        - "Attention is variable, with difficulty sustaining focus during prolonged or repetitive tasks."
+        - "Cognitive flexibility is adequate, though rigidity may emerge in high-stakes contexts."
+        - "Verbal fluency is strong, sometimes outpacing reflective processing."
+        - "Memory for detail is intact, with selective recall bias toward negative or threatening information."
+        - "Problem-solving abilities are well developed, though over-analysis may impede decisiveness."
+        - "Cognitive tempo alternates between rapid ideation and periods of mental exhaustion."
+        - "Executive control is sufficient, with stress-related reductions in inhibitory capacity."
+        - "Abstract reasoning is intact, with a tendency toward concrete thinking under pressure."
+        - "Cognitive endurance is reduced during periods of sustained workload."
+        - "Attention is externally oriented, with reduced awareness of internal cognitive strain."
+        - "Working memory remains functional, though multitasking capacity is limited."
+        - "Cognitive organization is strong, with occasional fragmentation under competing demands."
+        - "Mental efficiency declines modestly in emotionally salient situations."
+        - "Processing speed is adequate, though slowed by excessive internal monitoring."
+        - "Cognitive performance benefits from structure and predictability."
+        - "Overall cognition is preserved, with situational rather than global impairments."
+
   GeneratorConfig:
     explanation: Parameters your Python script can load rather than hard-coding.
     model: gpt-4o
