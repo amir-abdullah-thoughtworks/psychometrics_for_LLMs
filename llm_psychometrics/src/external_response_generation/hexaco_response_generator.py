@@ -45,8 +45,8 @@ from tqdm import tqdm
 # =========================
 
 THIS_FILE = Path(__file__).resolve()
-# this file is at: root/src/external_response_generation/hexaco_response_generator/<file>.py
-ROOT_DIR = THIS_FILE.parents[3]  # hexaco_response_generator -> external_response_generation -> src -> root
+# this file is at: root/src/external_response_generation/hexaco_response_generator.py
+ROOT_DIR = THIS_FILE.parents[2]  # external_response_generation -> src -> root
 
 
 DATA_DIR = ROOT_DIR / "data"
