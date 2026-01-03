@@ -201,7 +201,7 @@ class SJTResponseRunner:
         """Load SJT items from HF dataset."""
         print("Using Huggingface SJTs")
         print(f"Loading SJTs from {self.args.hf_sjt_path}")
-        name = getattr(self.args, "hf_sjt_config", None) or "expanded"
+        name = getattr(self.args, "hf_sjt_config", None) or "debug"
         split = getattr(self.args, "hf_sjt_split", None) or "train"
 
         hf_sjt_dataset = load_dataset(self.args.hf_sjt_path, name=name)
@@ -492,8 +492,8 @@ def parse_args() -> argparse.Namespace:
 
     # SJTs
     parser.add_argument("--hf-sjt-path", type=str, default="thoughtworks/psychometric_sjts_analysis")
-    parser.add_argument("--hf-sjt-config", type=str, default=None)
-    parser.add_argument("--hf-sjt-split", type=str, default="debug")
+    parser.add_argument("--hf-sjt-config", type=str, default="debug")
+    parser.add_argument("--hf-sjt-split", type=str, default="train")
     parser.add_argument("--n-sjtsample", type=int, default=1)
 
     # Prompt/answer behavior
