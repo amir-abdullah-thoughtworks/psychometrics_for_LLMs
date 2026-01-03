@@ -1,6 +1,15 @@
 # src/persona_generation/pydantic_parliamentarian_generation.py
 from __future__ import annotations
 
+import warnings
+from urllib3.exceptions import NotOpenSSLWarning
+
+warnings.filterwarnings(
+    "ignore",
+    message=r".*NotOpenSSLWarning.*|.*urllib3 v2 only supports OpenSSL 1\.1\.1\+.*",
+)
+
+warnings.filterwarnings("ignore", category=NotOpenSSLWarning)
 import argparse
 import hashlib
 import json
@@ -257,11 +266,14 @@ def extract_persona_core(root: dict):
 
     def extract_block(name: str):
         items = pc[name]["items"]
-        return [(it["value"], it.get("explanation", ""), it.get("weight")) for it in items]
+        results = [(it["value"], it["explanation"]) for it in items]
+        results = [result for result in results if result[0]]
+        return results
 
     appearance = extract_block("Appearance")
     parliamentary_style = extract_block("ParliamentaryStyle")
     media_disposition = extract_block("MediaDisposition")
+
 
     return appearance, parliamentary_style, media_disposition
 
@@ -320,8 +332,8 @@ class ParliamentarianPersonaGenerator:
             self.media_dispositions,
         ) = extract_persona_core(root)
 
-        print("DEBUG parliamentary_styles sample:", self.parliamentary_styles[:3])
-        print("DEBUG types:", [type(x) for x in self.parliamentary_styles[:3]])
+        # print("DEBUG parliamentary_styles sample:", self.parliamentary_styles[:3])
+        # print("DEBUG types:", [type(x) for x in self.parliamentary_styles[:3]])
 
         self.additional_trait_options = extract_additional_traits(root)
         self.policy_lookup = extract_policy_debates(root)
@@ -331,7 +343,7 @@ class ParliamentarianPersonaGenerator:
             raise ValueError("ClinicalFewShots must be a dict")
 
         def _req_list(name: str) -> List[str]:
-            xs = clinical.get(name)
+            xs = clinical.get(name)["items"]
             if not isinstance(xs, list) or not xs:
                 raise ValueError(f"ClinicalFewShots.{name} must be a non-empty list")
             return [str(x).strip() for x in xs if str(x).strip()]
@@ -470,7 +482,7 @@ class ParliamentarianPersonaGenerator:
     def _pick_appearance_by_index(self, idx: int) -> Tuple[str, List[str]]:
         rng = random.Random(self.base_seed + 127 * idx)
 
-        vals = [v for (v, _, _) in self.appearance_items]
+        vals = [v for (v, _) in self.appearance_items]
         if not vals:
             raise ValueError("PersonaCore.Appearance.items yielded no values")
 
@@ -627,290 +639,290 @@ class ParliamentarianPersonaGenerator:
     # ----------------------------
 
 
-def generate_one(self, idx: int, df_idx: int) -> Optional[dict]:
-    dem = self._pick_demographics_by_df_index(df_idx)
+    def generate_one(self, idx: int, df_idx: int) -> Optional[dict]:
+        dem = self._pick_demographics_by_df_index(df_idx)
 
-    memoir_title, memoir_summary = self._pick_memoir_by_index(idx)
-    archetype_name, archetype_desc = self._pick_archetype_by_index(idx)
+        memoir_title, memoir_summary = self._pick_memoir_by_index(idx)
+        archetype_name, archetype_desc = self._pick_archetype_by_index(idx)
 
-    party = self._pick_party_by_index(idx)
-    occupation, occupation_expl = self._pick_occupation_by_index(idx)
-    edu_sec, edu_sec_expl, edu_ter, edu_ter_expl = self._pick_education_by_index(idx)
-    region, region_expl = self._pick_region_by_index(idx)
-    parliamentary_style = self._pick_parliamentary_style_by_index(idx)
-    media_disp = self._pick_media_disposition_by_index(idx)
+        party = self._pick_party_by_index(idx)
+        occupation, occupation_expl = self._pick_occupation_by_index(idx)
+        edu_sec, edu_sec_expl, edu_ter, edu_ter_expl = self._pick_education_by_index(idx)
+        region, region_expl = self._pick_region_by_index(idx)
+        parliamentary_style = self._pick_parliamentary_style_by_index(idx)
+        media_disp = self._pick_media_disposition_by_index(idx)
 
-    # appearance chosen values
-    appearance_value, appearance_examples = self._pick_appearance_by_index(idx)
+        # appearance chosen values
+        appearance_value, appearance_examples = self._pick_appearance_by_index(idx)
 
-    # ✅ AdditionalTraits: each is a dict {value, explanation}
-    trait_values = self._pick_additional_traits_top_level_by_index(idx)
+        # ✅ AdditionalTraits: each is a dict {value, explanation}
+        trait_values = self._pick_additional_traits_top_level_by_index(idx)
 
-    # policy stances across ALL issues (stored as dict issue -> [stance_id])
-    policy_stances = self._pick_policy_stances_by_party(idx, party)
+        # policy stances across ALL issues (stored as dict issue -> [stance_id])
+        policy_stances = self._pick_policy_stances_by_party(idx, party)
 
-    # speech issues: pick 3 issues from the already-chosen stances
-    speech_issues = self._pick_speech_issues(idx, policy_stances, k=3)
-    speech_targets = self._speech_targets_payload(speech_issues, policy_stances)
+        # speech issues: pick 3 issues from the already-chosen stances
+        speech_issues = self._pick_speech_issues(idx, policy_stances, k=3)
+        speech_targets = self._speech_targets_payload(speech_issues, policy_stances)
 
-    # ----------------------------
-    # Few-shot examples for clinical fields (3 per field)
-    # Assumes you loaded these lists from YAML into:
-    #   self.fewshot_presenting_problems: List[str]  (each is a single phrase)
-    #   self.fewshot_thought_content: List[str]      (25–45 words)
-    #   self.fewshot_insight_judgment: List[str]     (25–45 words)
-    #   self.fewshot_cognition: List[str]            (25–45 words)
-    # ----------------------------
-    rng_fs = random.Random(self.base_seed + 1009 * idx)
+        # ----------------------------
+        # Few-shot examples for clinical fields (3 per field)
+        # Assumes you loaded these lists from YAML into:
+        #   self.fewshot_presenting_problems: List[str]  (each is a single phrase)
+        #   self.fewshot_thought_content: List[str]      (25–45 words)
+        #   self.fewshot_insight_judgment: List[str]     (25–45 words)
+        #   self.fewshot_cognition: List[str]            (25–45 words)
+        # ----------------------------
+        rng_fs = random.Random(self.base_seed + 1009 * idx)
 
-    def pick_n(pool: List[str], n=3) -> List[str]:
-        pool = [str(x).strip() for x in (pool or []) if str(x).strip()]
-        if len(pool) <= n:
-            return pool
-        return rng_fs.sample(pool, n)
+        def pick_n(pool: List[str], n=3) -> List[str]:
+            pool = [str(x).strip() for x in (pool or []) if str(x).strip()]
+            if len(pool) <= n:
+                return pool
+            return rng_fs.sample(pool, n)
 
-    fs_presenting = pick_n(getattr(self, "fewshot_presenting_problems", []))
-    fs_thought = pick_n(getattr(self, "fewshot_thought_content", []))
-    fs_insight = pick_n(getattr(self, "fewshot_insight_judgment", []))
-    fs_cog = pick_n(getattr(self, "fewshot_cognition", []))
+        fs_presenting = pick_n(getattr(self, "fewshot_presenting_problems", []))
+        fs_thought = pick_n(getattr(self, "fewshot_thought_content", []))
+        fs_insight = pick_n(getattr(self, "fewshot_insight_judgment", []))
+        fs_cog = pick_n(getattr(self, "fewshot_cognition", []))
 
-    # ----------------------------
-    # Build dynamic Pydantic trait fields (top-level Literals)
-    # Each trait becomes an object with {value, explanation} both literal
-    # ----------------------------
-    trait_fields: Dict[str, tuple[Any, Any]] = {}
-    for trait_name in _ADDITIONAL_TRAITS_ORDER:
-        chosen = trait_values[trait_name]
-        val = str(chosen["value"])
-        expl = str(chosen["explanation"])
+        # ----------------------------
+        # Build dynamic Pydantic trait fields (top-level Literals)
+        # Each trait becomes an object with {value, explanation} both literal
+        # ----------------------------
+        trait_fields: Dict[str, tuple[Any, Any]] = {}
+        for trait_name in _ADDITIONAL_TRAITS_ORDER:
+            chosen = trait_values[trait_name]
+            val = str(chosen["value"])
+            expl = str(chosen["explanation"])
 
-        TraitModel = create_model(  # type: ignore[misc]
-            f"{trait_name}Choice_{idx}",
-            value=(Literal[val], ...),
-            explanation=(Literal[expl], ...),
-        )
-        trait_fields[trait_name] = (TraitModel, ...)
-
-    SeededParliamentarianPersonaSchema = create_model(  # type: ignore[assignment]
-        f"SeededParliamentarianPersonaSchema_{idx}",
-        version=(Literal[self.version], ...),
-        uuid=(Literal[dem.uuid], ...),
-        name=(Literal[dem.name], ...),
-        age=(Literal[dem.age], ...),
-        sex=(Literal[dem.sex], ...),
-        marital_status=(Literal[dem.marital_status], ...),
-        ethnic_background=(Literal[dem.ethnic_background], ...),
-
-        party_affiliation=(Literal[party], ...),
-        occupation=(Literal[occupation], ...),
-        education_secondary=(Literal[edu_sec], ...),
-        education_tertiary=(Literal[edu_ter], ...),
-        region=(Literal[region], ...),
-        parliamentary_style=(Literal[parliamentary_style], ...),
-
-        appearance_category=(Literal[appearance_value], ...),
-        media_disposition=(Literal[media_disp], ...),
-
-        # ✅ promoted AdditionalTraits fields at top-level
-        **trait_fields,
-
-        # Grounding (excluded from persona_string)
-        memoir=(Literal[memoir_title], ...),
-        memoir_summary=(str, Field(
-            ...,
-            description="Copy the selected memoir summary exactly as provided. If empty, output an empty string."
-        )),
-        memoir_narrative=(str, Field(
-            ...,
-            description=(
-                "Write ~200 words as a short memoir-like narrative in the voice and cadence suggested by the selected memoir. "
-                "Ground all later details in this narrative. Do not mention 'memoir' or 'canonical text'."
-            ),
-        )),
-        archetype=(Literal[archetype_name], ...),
-        archetype_description=(str, Field(
-            ...,
-            description="Copy the provided archetype description exactly; grounding only.",
-        )),
-
-        appearance=(str, Field(
-            ...,
-            description=(
-                "2–3 specialized sentences about the person's appearance, faithful to the memoir narrative voice. "
-                "Anchor it in the fixed appearance_category value; stay concrete."
-            ),
-        )),
-
-        educational_vocational_history=(str, Field(
-            ...,
-            description="30–50 words. Align with education and occupation and party; show training/trajectory effects.",
-        )),
-        medical_developmental_history=(str, Field(
-            ...,
-            description="30–50 words. Health/development context relevant to the narrative; only what’s needed.",
-        )),
-        family_history=(str, Field(
-            ...,
-            description="30–50 words. Relational dynamics consistent with narrative, ethnic background, and marital status.",
-        )),
-
-        # ✅ Now free-generated, but with 3 few-shot examples included in the prompt
-        presenting_problems=(List[str], Field(
-            ...,
-            description=(
-                "Return 3–6 concise clinical presenting problems phrases describing the parliamentarian. "
-                "Use clinical/medical language (can include diagnostic formulations). "
-                "Avoid generic politics tropes; not all problems should be work/politics-related."
-            ),
-        )),
-        thought_content=(str, Field(
-            ...,
-            description=(
-                "25–45 words. Write like a clinician documenting thought content (MSE style): themes, ruminations, "
-                "preoccupations, intrusions, cognitive style. Clinical/medical focus."
-            ),
-        )),
-        insight_judgment=(str, Field(
-            ...,
-            description=(
-                "25–45 words. Clinical assessment of insight and judgment: awareness, attribution, decision-making, "
-                "stress effects, risk. Use professional tone."
-            ),
-        )),
-        cognition=(str, Field(
-            ...,
-            description=(
-                "25–45 words. Clinical cognition/MSE style: attention, memory, executive function, processing speed, "
-                "cognitive flexibility; specify if variable under stress."
-            ),
-        )),
-
-        emotional_behavioral_functioning=(str, Field(
-            ...,
-            description="35–55 words. How they handle pressure and difficult feelings; show behavior, avoid labels unless clinically warranted.",
-        )),
-        social_functioning=(str, Field(
-            ...,
-            description="35–55 words. Patterns in closeness, trust, and participation with others; concrete cues.",
-        )),
-        political_relations=(str, Field(
-            ...,
-            description="55–75 words. How they conduct themselves with other parliamentarians and constituents. Keep cohesive with their other description.",
-        )),
-        summary_of_psychological_profile=(str, Field(
-            ...,
-            description=(
-                "150–250 words. Integrative clinical summary using narrative + histories + functioning + problems. "
-                "Professional tone; may include diagnostic impressions. Do not explicitly name the archetype."
-            ),
-        )),
-
-        speech=(str, Field(
-            ...,
-            description=(
-                "Write a short speech (<=250 words) as the parliamentarian. "
-                "Use BOTH the parliamentary_style and the top-level RhetoricalRegister.value to set the tenor and rhetorical devices. "
-                "Ground it in the memoir narrative voice. Cover ONLY the provided issues and their provided stances; "
-                "do not invent new issues or contradict the stance descriptions."
-            ),
-        )),
-    )
-
-    rhetorical_register_value = trait_values["RhetoricalRegister"]["value"]
-    rhetorical_register_expl = trait_values["RhetoricalRegister"]["explanation"]
-
-    system_msg = (
-        "You are generating a synthetic British parliamentarian persona.\n"
-        "Rules:\n"
-        "• You MUST follow the fixed literal fields exactly.\n"
-        "• Keep everything consistent with the memoir narrative voice.\n"
-        "• Do not mention 'archetype', 'memoir', 'canonical text', or generation instructions.\n"
-        "• For clinical fields, write as a psychologist/clinician would document an assessment; professional tone.\n"
-        "• If the canonical summary is empty, infer voice/cadence from the title alone.\n"
-    )
-
-    def _fmt_fewshot_block(title: str, examples: List[Any]) -> str:
-        if not examples:
-            return f"{title}: (none)\n"
-        lines = [f"{title}:"]
-        for i, ex in enumerate(examples, 1):
-            if isinstance(ex, list):
-                # presenting_problems might be a list of phrases; render as YAML-ish list
-                lines.append(f"  Example {i}:")
-                for p in ex:
-                    lines.append(f"    - {p}")
-            else:
-                lines.append(f"  Example {i}: {str(ex).strip()}")
-        return "\n".join(lines) + "\n"
-
-    user_msg = (
-            "Fixed seeds you must respect:\n"
-            f"- Party affiliation: {party}\n"
-            f"- Occupation (pre-parliament): {occupation} (hint: {occupation_expl})\n"
-            f"- Education secondary: {edu_sec} (hint: {edu_sec_expl})\n"
-            f"- Education tertiary: {edu_ter} (hint: {edu_ter_expl})\n"
-            f"- Region: {region} (hint: {region_expl})\n"
-            f"- Parliamentary style: {parliamentary_style}\n"
-            f"- RhetoricalRegister (top-level): {rhetorical_register_value}\n"
-            f"  RhetoricalRegisterExplanation: {rhetorical_register_expl}\n"
-            f"- appearance_category: {appearance_value}\n"
-            f"  Appearance Examples: {appearance_examples}\n"
-            f"- Media disposition: {media_disp}\n"
-            f"- AdditionalTraits (ALL top-level fixed fields): {json.dumps(trait_values, ensure_ascii=False)}\n\n"
-            "Speech targets (use these EXACTLY; do not invent issues/stances):\n"
-            f"{json.dumps(speech_targets, ensure_ascii=False)}\n\n"
-            "Canonical text selection (grounding only):\n"
-            f"- title: {memoir_title}\n"
-            f"- summary (may be empty): {memoir_summary}\n\n"
-            "Clinical style few-shot examples (match style, not content; do not copy verbatim unless it fits):\n"
-            + _fmt_fewshot_block("presenting_problems examples", [[x] for x in fs_presenting])
-            + _fmt_fewshot_block("thought_content examples", fs_thought)
-            + _fmt_fewshot_block("insight_judgment examples", fs_insight)
-            + _fmt_fewshot_block("cognition examples", fs_cog)
-    )
-
-    last_err: Optional[Exception] = None
-    for attempt in range(3):
-        try:
-            resp = self.client.responses.parse(
-                model=self.model,
-                input=[
-                    {"role": "system", "content": system_msg},
-                    {"role": "user", "content": user_msg},
-                ],
-                temperature=self.temperature,
-                top_p=self.top_p,
-                text_format=SeededParliamentarianPersonaSchema,
+            TraitModel = create_model(  # type: ignore[misc]
+                f"{trait_name}Choice_{idx}",
+                value=(Literal[val], ...),
+                explanation=(Literal[expl], ...),
             )
-            out = resp.output_parsed
+            trait_fields[trait_name] = (TraitModel, ...)
 
-            # enforce exact grounding strings
-            out.memoir_summary = memoir_summary
-            out.archetype_description = archetype_desc
+        SeededParliamentarianPersonaSchema = create_model(  # type: ignore[assignment]
+            f"SeededParliamentarianPersonaSchema_{idx}",
+            version=(Literal[self.version], ...),
+            uuid=(Literal[dem.uuid], ...),
+            name=(Literal[dem.name], ...),
+            age=(Literal[dem.age], ...),
+            sex=(Literal[dem.sex], ...),
+            marital_status=(Literal[dem.marital_status], ...),
+            ethnic_background=(Literal[dem.ethnic_background], ...),
 
-            d = out.model_dump()
+            party_affiliation=(Literal[party], ...),
+            occupation=(Literal[occupation], ...),
+            education_secondary=(Literal[edu_sec], ...),
+            education_tertiary=(Literal[edu_ter], ...),
+            region=(Literal[region], ...),
+            parliamentary_style=(Literal[parliamentary_style], ...),
 
-            # deterministic columns
-            d["policy_stances"] = policy_stances
-            d["speech_issues"] = speech_issues
+            appearance_category=(Literal[appearance_value], ...),
+            media_disposition=(Literal[media_disp], ...),
 
-            # persona_string/hash
-            persona_str = self.persona_row_to_string(d)
-            d["persona_string"] = persona_str
-            d["persona_hash"] = stable_hash(persona_str)
+            # ✅ promoted AdditionalTraits fields at top-level
+            **trait_fields,
 
-            # word-limit hardening
-            d["memoir_narrative"] = _words_at_most(str(d.get("memoir_narrative", "")).strip(), 210)
-            d["speech"] = _words_at_most(str(d.get("speech", "")).strip(), 260)
+            # Grounding (excluded from persona_string)
+            memoir=(Literal[memoir_title], ...),
+            memoir_summary=(str, Field(
+                ...,
+                description="Copy the selected memoir summary exactly as provided. If empty, output an empty string."
+            )),
+            memoir_narrative=(str, Field(
+                ...,
+                description=(
+                    "Write ~200 words as a short memoir-like narrative in the voice and cadence suggested by the selected memoir. "
+                    "Ground all later details in this narrative. Do not mention 'memoir' or 'canonical text'."
+                ),
+            )),
+            archetype=(Literal[archetype_name], ...),
+            archetype_description=(str, Field(
+                ...,
+                description="Copy the provided archetype description exactly; grounding only.",
+            )),
 
-            return d
+            appearance=(str, Field(
+                ...,
+                description=(
+                    "2–3 specialized sentences about the person's appearance, faithful to the memoir narrative voice. "
+                    "Anchor it in the fixed appearance_category value; stay concrete."
+                ),
+            )),
 
-        except Exception as e:
-            last_err = e
-            time.sleep((0.5 * (2 ** attempt)) + random.random() * 0.25)
+            educational_vocational_history=(str, Field(
+                ...,
+                description="30–50 words. Align with education and occupation and party; show training/trajectory effects.",
+            )),
+            medical_developmental_history=(str, Field(
+                ...,
+                description="30–50 words. Health/development context relevant to the narrative; only what’s needed.",
+            )),
+            family_history=(str, Field(
+                ...,
+                description="30–50 words. Relational dynamics consistent with narrative, ethnic background, and marital status.",
+            )),
 
-    print(f"[warn] generation skipped idx={idx} df_idx={df_idx}: {last_err}")
-    return None
+            # ✅ Now free-generated, but with 3 few-shot examples included in the prompt
+            presenting_problems=(List[str], Field(
+                ...,
+                description=(
+                    "Return 3–6 concise clinical presenting problems phrases describing the parliamentarian. "
+                    "Use clinical/medical language (can include diagnostic formulations). "
+                    "Avoid generic politics tropes; not all problems should be work/politics-related."
+                ),
+            )),
+            thought_content=(str, Field(
+                ...,
+                description=(
+                    "25–45 words. Write like a clinician documenting thought content (MSE style): themes, ruminations, "
+                    "preoccupations, intrusions, cognitive style. Clinical/medical focus."
+                ),
+            )),
+            insight_judgment=(str, Field(
+                ...,
+                description=(
+                    "25–45 words. Clinical assessment of insight and judgment: awareness, attribution, decision-making, "
+                    "stress effects, risk. Use professional tone."
+                ),
+            )),
+            cognition=(str, Field(
+                ...,
+                description=(
+                    "25–45 words. Clinical cognition/MSE style: attention, memory, executive function, processing speed, "
+                    "cognitive flexibility; specify if variable under stress."
+                ),
+            )),
+
+            emotional_behavioral_functioning=(str, Field(
+                ...,
+                description="35–55 words. How they handle pressure and difficult feelings; show behavior, avoid labels unless clinically warranted.",
+            )),
+            social_functioning=(str, Field(
+                ...,
+                description="35–55 words. Patterns in closeness, trust, and participation with others; concrete cues.",
+            )),
+            political_relations=(str, Field(
+                ...,
+                description="55–75 words. How they conduct themselves with other parliamentarians and constituents. Keep cohesive with their other description.",
+            )),
+            summary_of_psychological_profile=(str, Field(
+                ...,
+                description=(
+                    "150–250 words. Integrative clinical summary using narrative + histories + functioning + problems. "
+                    "Professional tone; may include diagnostic impressions. Do not explicitly name the archetype."
+                ),
+            )),
+
+            speech=(str, Field(
+                ...,
+                description=(
+                    "Write a short speech (<=250 words) as the parliamentarian. "
+                    "Use BOTH the parliamentary_style and the top-level RhetoricalRegister.value to set the tenor and rhetorical devices. "
+                    "Ground it in the memoir narrative voice. Cover ONLY the provided issues and their provided stances; "
+                    "do not invent new issues or contradict the stance descriptions."
+                ),
+            )),
+        )
+
+        rhetorical_register_value = trait_values["RhetoricalRegister"]["value"]
+        rhetorical_register_expl = trait_values["RhetoricalRegister"]["explanation"]
+
+        system_msg = (
+            "You are generating a synthetic British parliamentarian persona.\n"
+            "Rules:\n"
+            "• You MUST follow the fixed literal fields exactly.\n"
+            "• Keep everything consistent with the memoir narrative voice.\n"
+            "• Do not mention 'archetype', 'memoir', 'canonical text', or generation instructions.\n"
+            "• For clinical fields, write as a psychologist/clinician would document an assessment; professional tone.\n"
+            ". Write each of these in the third person!"
+        )
+
+        def _fmt_fewshot_block(title: str, examples: List[Any]) -> str:
+            if not examples:
+                return f"{title}: (none)\n"
+            lines = [f"{title}:"]
+            for i, ex in enumerate(examples, 1):
+                if isinstance(ex, list):
+                    # presenting_problems might be a list of phrases; render as YAML-ish list
+                    lines.append(f"  Example {i}:")
+                    for p in ex:
+                        lines.append(f"    - {p}")
+                else:
+                    lines.append(f"  Example {i}: {str(ex).strip()}")
+            return "\n".join(lines) + "\n"
+
+        user_msg = (
+                "Fixed seeds you must respect:\n"
+                f"- Party affiliation: {party}\n"
+                f"- Occupation (pre-parliament): {occupation} (hint: {occupation_expl})\n"
+                f"- Education secondary: {edu_sec} (hint: {edu_sec_expl})\n"
+                f"- Education tertiary: {edu_ter} (hint: {edu_ter_expl})\n"
+                f"- Region: {region} (hint: {region_expl})\n"
+                f"- Parliamentary style: {parliamentary_style}\n"
+                f"- RhetoricalRegister (top-level): {rhetorical_register_value}\n"
+                f"  RhetoricalRegisterExplanation: {rhetorical_register_expl}\n"
+                f"- appearance_category: {appearance_value}\n"
+                f"  Appearance Examples: {appearance_examples}\n"
+                f"- Media disposition: {media_disp}\n"
+                f"- AdditionalTraits (ALL top-level fixed fields): {json.dumps(trait_values, ensure_ascii=False)}\n\n"
+                "Speech targets (use these EXACTLY; do not invent issues/stances):\n"
+                f"{json.dumps(speech_targets, ensure_ascii=False)}\n\n"
+                "Canonical text selection (grounding only):\n"
+                f"- title: {memoir_title}\n"
+                f"- summary (may be empty): {memoir_summary}\n\n"
+                "Clinical style few-shot examples (match style, not content; do not copy verbatim unless it fits):\n"
+                + _fmt_fewshot_block("presenting_problems examples", [[x] for x in fs_presenting])
+                + _fmt_fewshot_block("thought_content examples", fs_thought)
+                + _fmt_fewshot_block("insight_judgment examples", fs_insight)
+                + _fmt_fewshot_block("cognition examples", fs_cog)
+        )
+
+        last_err: Optional[Exception] = None
+        for attempt in range(3):
+            try:
+                resp = self.client.responses.parse(
+                    model=self.model,
+                    input=[
+                        {"role": "system", "content": system_msg},
+                        {"role": "user", "content": user_msg},
+                    ],
+                    temperature=self.temperature,
+                    top_p=self.top_p,
+                    text_format=SeededParliamentarianPersonaSchema,
+                )
+                out = resp.output_parsed
+
+                # enforce exact grounding strings
+                out.memoir_summary = memoir_summary
+                out.archetype_description = archetype_desc
+
+                d = out.model_dump()
+
+                # deterministic columns
+                d["policy_stances"] = policy_stances
+                d["speech_issues"] = speech_issues
+
+                # persona_string/hash
+                persona_str = self.persona_row_to_string(d)
+                d["persona_string"] = persona_str
+                d["persona_hash"] = stable_hash(persona_str)
+
+                # word-limit hardening
+                d["memoir_narrative"] = _words_at_most(str(d.get("memoir_narrative", "")).strip(), 210)
+                d["speech"] = _words_at_most(str(d.get("speech", "")).strip(), 260)
+
+                return d
+
+            except Exception as e:
+                last_err = e
+                time.sleep((0.5 * (2 ** attempt)) + random.random() * 0.25)
+
+        print(f"[warn] generation skipped idx={idx} df_idx={df_idx}: {last_err}")
+        return None
 
 
 # ----------------------------
@@ -978,8 +990,8 @@ def push_personas_to_hub(
     print(bad[["uuid", "name", "parliamentary_style"]].head(8))
     print(bad["parliamentary_style"].map(type).value_counts())
 
-    if "uuid" in df_merged.columns:
-        df_merged = df_merged.drop_duplicates(subset=["uuid"]).reset_index(drop=True)
+    if "persona_hash" in df_merged.columns:
+        df_merged = df_merged.drop_duplicates(subset=["persona_hash"]).reset_index(drop=True)
     else:
         df_merged = df_merged.drop_duplicates().reset_index(drop=True)
 
@@ -1009,7 +1021,7 @@ def main():
     parser.add_argument("--demographics-csv", type=str, default=str(DEFAULT_DEMOGRAPHICS_CSV))
     parser.add_argument("--repo-id", type=str, default="thoughtworks/parliamentary_personas")
     parser.add_argument("--version", type=str, default="v1")
-    parser.add_argument("--num-personas", type=int, default=2000)
+    parser.add_argument("--num-personas", type=int, default=2200)
     parser.add_argument(
         "--debug",
         action=argparse.BooleanOptionalAction,

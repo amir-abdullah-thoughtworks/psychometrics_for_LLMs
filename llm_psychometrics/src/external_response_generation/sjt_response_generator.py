@@ -1,28 +1,30 @@
 """
-vLLM-only, class-based SJT response generator (consolidated single file).
+vLLM-only, class-based SJT response generator (single consolidated file).
 
-Features:
-- vLLM only (no OpenAI support).
+This file is intentionally patterned after `hexaco_response_generator.py` in the same repo.
+
+Key behavior:
+- vLLM only (no transformers/OpenAI client usage).
 - Does NOT start/boot/kill any vLLM server.
 - Uses an externally created VLLMServerManager passed from main().
 - Uses mgr.vllm_chat_batched(prompts=..., guided_choices=...) with per-prompt constraints.
-- Fresh shuffle per answer (iid) when --answer-shuffle is enabled.
-- Stores:
-  - persona_hash = SHA256(persona_string)
-  - raw_prompts (exact strings sent to vLLM)
-  - guided_choices (exact decoding constraints per prompt)
-  - answer_index (per prompt permutation of options)
-  - question_hashes
-  - answers (normalized to "1".."6" when possible)
+- Optional per-answer shuffling of answer-option ordering (iid) when --answer-shuffle is enabled.
+- Pulls Personas from the *same* HF persona dataset/config used by the HEXACO runner.
+- Pushes results to the *same* HF responses repo_id but under a different HF dataset *config* (default: "sjt").
 
-Output JSON schema:
-{
-  "<persona_uuid or base_model>": {
-    "config": {...},
-    "answers": [[...], [...], ...]   # n_times iterations
-  },
-  ...
-}
+Expected repo layout (mirrors HEXACO runner assumptions):
+root/
+  configs/
+  data/
+  src/
+    external_response_generation/
+      sjt_response_generator/   <-- this file lives here (or similar)
+  psychometric_tests/
+
+Notes:
+- Paths are resolved relative to this file, not CWD.
+- Requires the repo's `root/src` to be importable (we insert it into sys.path).
+
 """
 
 from __future__ import annotations
@@ -32,19 +34,39 @@ import hashlib
 import json
 import os
 import random
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+import sys
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
-import transformers
-from datasets import Dataset, load_dataset
-from jinja2 import Template
-from pydantic import BaseModel
-from tqdm import tqdm
+from datasets import Dataset, DatasetDict, load_dataset  # type: ignore
+from jinja2 import Template  # type: ignore
+from pydantic import BaseModel  # type: ignore
+from tqdm import tqdm  # type: ignore
 
-# --- Custom imports (keep as-is in your repo) ---
-from utils_v0 import list_to_str
-from prompt_templates.sjt_base_prompt_templates import sjt_base_prompt_templates
-from prompt_templates.sjt_persona_prompt_templates import sjt_persona_prompt_templates
-from utils.vllm_utils import VLLMServerManager
+# =========================
+# Paths (match HEXACO runner style)
+# =========================
+
+THIS_FILE = Path(__file__).resolve()
+# sjt_response_generator -> external_response_generation -> src -> root
+ROOT_DIR = THIS_FILE.parents[3]
+
+DATA_DIR = ROOT_DIR / "data"
+PSYCHOMETRIC_DIR = ROOT_DIR / "psychometric_tests"
+SRC_DIR = ROOT_DIR / "src"
+CONFIGS_DIR = ROOT_DIR / "configs"
+
+# Ensure imports work no matter where script is run from
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+# --- Custom imports (these live under root/src) ---
+from utils_v0 import list_to_str  # type: ignore
+from utils.vllm_utils import VLLMServerManager  # type: ignore
+from prompt_templates.sjt_base_prompt_templates import sjt_base_prompt_templates  # type: ignore
+from prompt_templates.sjt_persona_prompt_templates import sjt_persona_prompt_templates  # type: ignore
 
 
 # =========================
@@ -64,16 +86,20 @@ DEFAULT_ANSWER_OPTION_ORDERING: List[str] = [
 
 
 # =========================
-# Pydantic output schema
+# Result schemas (row-wise push mirrors HEXACO runner)
 # =========================
 
 class PersonaRunConfig(BaseModel):
     persona: str
-    persona_hash: Optional[str]  # SHA256(persona_string), None for base_model
-    question_hashes: List[str]
-    sjt_answer_options: Literal["normal", "shuffle"]
+    persona_hash: str
 
-    # Per iteration -> per question -> list[int]
+    # Per iteration -> per question -> answers (normalized to "1".."6" when possible)
+    answers: List[List[str]]
+
+    # Per iteration -> per question -> hashes of the SJT items (stable across runs)
+    question_hashes: List[List[str]]
+
+    # Per iteration -> per question -> list[int] permutation of DEFAULT_ANSWER_OPTION_ORDERING
     answer_index: List[List[List[int]]]
 
     # Per iteration -> per question -> exact prompt passed to vLLM
@@ -84,21 +110,23 @@ class PersonaRunConfig(BaseModel):
 
     model_name: str
 
+    # Audit fields
+    hf_persona_path: Optional[str] = None
+    hf_persona_config: Optional[str] = None
+    hf_sjt_path: Optional[str] = None
+    hf_sjt_config: Optional[str] = None
+    hf_sjt_split: Optional[str] = None
+
 
 class PersonaRunResult(BaseModel):
     config: PersonaRunConfig
-    # Per iteration -> per question -> chosen option (ideally "1".."6")
-    answers: List[List[str]]
+    # Raw model outputs (before normalization), per iteration -> per question
+    raw_texts: List[List[str]]
 
 
-class ExperimentResults(BaseModel):
-    """
-    persona_uuid (or 'base_model') -> PersonaRunResult
-    """
-    __root__: Dict[str, PersonaRunResult]
-
-    def to_jsonable(self) -> Dict[str, Any]:
-        return {k: v.model_dump() for k, v in self.__root__.items()}
+class SJTExperimentResults(BaseModel):
+    # persona_id -> result
+    root: Dict[str, PersonaRunResult]
 
 
 # =========================
@@ -110,117 +138,53 @@ class SJTResponseRunner:
         self.args = args
         self.mgr = mgr
 
-        transformers.logging.set_verbosity_error()
-
-        # vLLM generation settings
         self.model: str = args.model_name
         self.max_tokens: int = args.max_tokens
         self.temperature: float = args.temperature
+
+        # batching inside mgr.vllm_chat_batched
         self.mp_batch_size: int = args.mp_batch_size
         self.mp_workers: int = args.mp_workers
+
+        # retries passed to mgr.vllm_chat_batched
         self.max_retries: int = args.max_retries
         self.retry_backoff_s: float = args.retry_backoff_s
 
-        # Templates: list of dicts with role + compiled Jinja template for content
-        self.base_sjt_template: List[Dict[str, Any]] = []
-        self.persona_sjt_template: List[Dict[str, Any]] = []
+    # ----------------------------
+    # Hashing / helpers
+    # ----------------------------
 
-    # ----------------------------
-    # Hashing
-    # ----------------------------
-    def stable_hash(self, text: str) -> str:
+    @staticmethod
+    def stable_hash(text: str) -> str:
         return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-    # ----------------------------
-    # CLI
-    # ----------------------------
-    @staticmethod
-    def parse_args() -> argparse.Namespace:
-        parser = argparse.ArgumentParser()
-
-        parser.add_argument("--model-name", type=str, default="Qwen/Qwen2.5-7B-Instruct")
-        parser.add_argument(
-            "--persona-source",
-            type=str,
-            default="huggingface",
-            help="(base_model | huggingface | personallm_paper | local)",
-        )
-        parser.add_argument("--hf-persona-path", type=str, default="thoughtworks/psychometric_personas")
-        parser.add_argument("--hf-sjt-path", type=str, default="thoughtworks/psychometric_SJTs")
-
-        parser.add_argument("--batching", action="store_true")
-        parser.add_argument("--batch-size", type=int, default=5)
-
-        parser.add_argument("--n-times", type=int, default=1)
-        parser.add_argument("--n-sjtsample", type=int, default=1)
-        parser.add_argument("--n-personasample", type=int, default=1)
-
-        parser.add_argument("--answer-shuffle", action="store_true")
-
-        parser.add_argument("--out-dir", type=str, default=".")
-
-        # vLLM generation params
-        parser.add_argument("--max-tokens", type=int, default=16)
-        parser.add_argument("--temperature", type=float, default=0.0)
-
-        # multiprocessing / batching inside mgr.vllm_chat_batched
-        parser.add_argument("--mp-batch-size", type=int, default=256)
-        parser.add_argument("--mp-workers", type=int, default=8)
-
-        # retry behavior passed to mgr.vllm_chat_batched
-        parser.add_argument("--max-retries", type=int, default=3)
-        parser.add_argument("--retry-backoff-s", type=float, default=0.1)
-
-        # manager connection details (we do NOT start any server here)
-        parser.add_argument("--vllm-host", type=str, default="127.0.0.1")
-        parser.add_argument("--vllm-port", type=int, default=8000)
-        parser.add_argument("--vllm-timeout-s", type=int, default=180)
-
-        return parser.parse_args()
-
-    # ----------------------------
-    # Small utils
-    # ----------------------------
-    @staticmethod
-    def _write_json(obj: Dict[str, Any], file_path: str) -> None:
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(obj, f, indent=2)
-
-    @staticmethod
-    def _read_json(file_path: str) -> Any:
-        with open(file_path, "r", encoding="utf-8") as f:
-            return json.load(f)
 
     @staticmethod
     def _batch_list(lst: List[Any], n: int):
         for i in range(0, len(lst), n):
             yield lst[i : i + n]
 
-    # ----------------------------
-    # Templates
-    # ----------------------------
     @staticmethod
-    def _compile_message_templates(messages: List[Dict[str, str]]) -> List[Dict[str, Any]]:
-        return [{"role": msg["role"], "content": Template(msg["content"])} for msg in messages]
-
-    def load_prompt_templates(self) -> None:
-        # Keep using "gpt" chat-style templates, but we linearize to plain text prompts.
-        base_templates = sjt_base_prompt_templates["gpt"]
-        persona_templates = sjt_persona_prompt_templates["gpt"]
-        self.base_sjt_template = self._compile_message_templates(base_templates)
-        self.persona_sjt_template = self._compile_message_templates(persona_templates)
+    def _normalize_choice(text: str, allowed: List[str]) -> str:
+        """Map raw model output to one of allowed choices if possible."""
+        if text is None:
+            return ""
+        t = str(text).strip()
+        # common patterns
+        if t in allowed:
+            return t
+        # allow prefixes like "1." or "1)" or "Answer: 1"
+        for a in allowed:
+            if t.startswith(a):
+                return a
+        # fallback: first digit 1-6 found
+        for ch in t:
+            if ch in allowed:
+                return ch
+        return t
 
     @staticmethod
-    def render_messages(template_messages: List[Dict[str, Any]], **kwargs) -> List[Dict[str, str]]:
-        return [{"role": msg["role"], "content": msg["content"].render(**kwargs)} for msg in template_messages]
-
-    @staticmethod
-    def messages_to_prompt_text(messages: List[Dict[str, str]]) -> str:
-        """
-        Converts chat-style messages into a single plain text prompt.
-        We store exactly this prompt for audit/replay.
-        """
+    def _messages_to_text(messages: List[Dict[str, str]]) -> str:
+        """Convert OpenAI-style messages list to a single prompt string."""
         lines: List[str] = []
         for m in messages:
             role = m.get("role", "user")
@@ -232,266 +196,237 @@ class SJTResponseRunner:
     # ----------------------------
     # Data loaders
     # ----------------------------
+
     def load_sjts(self) -> List[Dict[str, Any]]:
+        """Load SJT items from HF dataset."""
         print("Using Huggingface SJTs")
         print(f"Loading SJTs from {self.args.hf_sjt_path}")
-        hf_sjt_dataset = load_dataset(self.args.hf_sjt_path)
-        sjt_datasets_total = hf_sjt_dataset["restricted"]
-        total_sjt_df = sjt_datasets_total.to_pandas()
+        name = getattr(self.args, "hf_sjt_config", None) or "expanded"
+        split = getattr(self.args, "hf_sjt_split", None) or "train"
 
-        sampled_sjt = total_sjt_df.groupby("template_no").sample(n=self.args.n_sjtsample, random_state=42)
-        sjt_datasets = sampled_sjt.to_dict("records")
-        print(f"No of SJTs: {len(sjt_datasets)}")
-        return sjt_datasets
-
-    def load_personas(self) -> Optional[Union[Dataset, List[Dict[str, Any]]]]:
-        if self.args.persona_source == "huggingface":
-            print("Using Huggingface Personas")
-            print(f"Loading Personas from {self.args.hf_persona_path}")
-            hf_persona_dataset = load_dataset(self.args.hf_persona_path)
-            persona_datasets_total = hf_persona_dataset["train"]
-            total_persona_df = persona_datasets_total.to_pandas()
-
-            sampled_personas = total_persona_df.groupby("archetype").sample(
-                n=self.args.n_personasample, random_state=42
-            )
-            persona_datasets = Dataset.from_pandas(sampled_personas)
-            print(f"No of Personas: {len(persona_datasets)}")
-            return persona_datasets
-
-        if self.args.persona_source == "personallm_paper":
-            print("Using Persona LLM Paper Personas")
-            persona_datasets_total = self._read_json("../data/persona_llm_paper_seed_combinations.json")
-            random.seed(42)
-            persona_datasets = random.sample(persona_datasets_total, self.args.n_personasample)
-            print(f"No of Personas: {len(persona_datasets)}")
-            return persona_datasets
-
-        if self.args.persona_source == "base_model":
-            return None
-
-        print("Using Local Personas")
-        import yaml
-
-        with open("../configs/personas_v2.yaml", "r", encoding="utf-8") as f:
-            local_personas = yaml.safe_load(f)
-
-        job_title = "law_enforcement"
-        persona_datasets = local_personas[job_title]["personas"]
-        print(f"No of Personas: {len(persona_datasets)}")
-        return persona_datasets
-
-    # ----------------------------
-    # vLLM generation
-    # ----------------------------
-    @staticmethod
-    def _normalize_choice(text: str, choices: List[str]) -> str:
-        """
-        Map outputs back to canonical choice if possible.
-        - exact match "3"
-        - or first occurrence of any digit in choices in the output string
-        """
-        t = (text or "").strip()
-        if t in choices:
-            return t
-        for ch in t:
-            if ch in choices:
-                return ch
-        return t
-
-    @staticmethod
-    def _extract_texts(outputs: Any) -> List[str]:
-        """
-        vllm_chat_batched may return:
-        - list[str]
-        - list[dict] with {"text": "..."} (common pattern)
-        - other: stringified
-        """
-        if outputs is None:
-            return []
-        if isinstance(outputs, list) and (len(outputs) == 0 or isinstance(outputs[0], str)):
-            return outputs
-        if isinstance(outputs, list) and isinstance(outputs[0], dict) and "text" in outputs[0]:
-            return [o.get("text", "") for o in outputs]
-        return [str(o) for o in outputs]
-
-    def vllm_generate_batched(self, prompts_text: List[str], guided_choices: List[List[str]]) -> List[str]:
-        if len(prompts_text) != len(guided_choices):
+        hf_sjt_dataset = load_dataset(self.args.hf_sjt_path, name=name)
+        if split not in hf_sjt_dataset:
             raise ValueError(
-                f"len(prompts_text) ({len(prompts_text)}) != len(guided_choices) ({len(guided_choices)})"
+                f"Requested SJT split '{split}' not found in {self.args.hf_sjt_path}. " 
+                f"Available splits: {list(hf_sjt_dataset.keys())}"
             )
 
-        outputs = self.mgr.vllm_chat_batched(
-            prompts=prompts_text,
-            guided_choices=guided_choices,
+        sjt_ds = hf_sjt_dataset[split]
+        print(f"Loaded {len(sjt_ds)} SJTs from {self.args.hf_sjt_path} name={name!r} split={split!r}")
+
+        # Keep as list of dicts for easy templating
+        return [dict(x) for x in sjt_ds]
+
+    def load_personas(self) -> Dataset:
+        """Load personas (mirrors HEXACO runner: dataset path + config name)."""
+        if self.args.persona_source != "huggingface":
+            raise ValueError("This runner currently supports persona_source='huggingface' only (to match HEXACO workflow).")
+
+        print("Using Huggingface Personas")
+        print(f"Loading Personas from {self.args.hf_persona_path}")
+        hf_config = getattr(self.args, "hf_persona_config", None) or None
+
+        hf_persona_dataset = load_dataset(self.args.hf_persona_path, name=hf_config)
+        persona_ds = hf_persona_dataset["train"]
+        print(f"Loaded {len(persona_ds)} Personas from {self.args.hf_persona_path} name={hf_config!r}")
+
+        if self.args.debug:
+            persona_ds = persona_ds.select(range(min(10, len(persona_ds))))
+            print(f"Debug mode enabled; using {len(persona_ds)} personas.")
+
+        return persona_ds
+
+    # ----------------------------
+    # Prompt building
+    # ----------------------------
+
+    def build_prompt_for_sjt(
+        self,
+        persona_str: str,
+        sjt_item: Dict[str, Any],
+        answer_shuffle: bool,
+    ) -> Tuple[str, List[str], List[int], str]:
+        """
+        Returns:
+          prompt_text, guided_choices, answer_index, question_hash
+        """
+        # Determine answer-option order
+        if answer_shuffle:
+            idxs = list(range(len(DEFAULT_ANSWER_OPTION_ORDERING)))
+            random.shuffle(idxs)
+        else:
+            idxs = list(range(len(DEFAULT_ANSWER_OPTION_ORDERING)))
+
+        # Render the prompt using the same template pattern as existing SJT runner
+        # Expect sjt_item to contain the scenario text + the six options keyed by DEFAULT_ANSWER_OPTION_ORDERING
+        option_order = [DEFAULT_ANSWER_OPTION_ORDERING[i] for i in idxs]
+        ordered_options = [sjt_item.get(k, "") for k in option_order]
+
+        base_template = Template(sjt_base_prompt_templates["sjt_base_prompt_template"])
+        persona_template = Template(sjt_persona_prompt_templates["sjt_persona_prompt_template"])
+
+        scenario = sjt_item.get("scenario", sjt_item.get("prompt", ""))
+        if not scenario:
+            raise ValueError("SJT item missing 'scenario' (or 'prompt') field.")
+
+        # Format options nicely (1..6 correspond to the *ordered* options)
+        options_text = "\n".join([f"{i+1}. {opt}" for i, opt in enumerate(ordered_options)])
+
+        persona_block = persona_template.render(persona=persona_str)
+        prompt_text = base_template.render(
+            persona=persona_block,
+            scenario=scenario,
+            options=options_text,
+        )
+
+        # Guided decoding choices are always 1..6
+        guided_choices = SJT_ANSWER_CHOICES
+
+        # Hash should be stable per SJT item (use full JSON canonical form)
+        question_hash = self.stable_hash(json.dumps(sjt_item, sort_keys=True, ensure_ascii=False))
+
+        return prompt_text, guided_choices, idxs, question_hash
+
+    # ----------------------------
+    # vLLM generation (batched)
+    # ----------------------------
+
+    def vllm_generate_batched(self, prompts: List[str], guided_choices: List[List[str]]) -> List[str]:
+        return self.mgr.vllm_chat_batched(
+            prompts=prompts,
             model=self.model,
             max_tokens=self.max_tokens,
             temperature=self.temperature,
             batch_size=self.mp_batch_size,
             num_workers=self.mp_workers,
+            guided_choices=guided_choices,
             max_retries=self.max_retries,
             retry_backoff_s=self.retry_backoff_s,
         )
-        return self._extract_texts(outputs)
 
     # ----------------------------
-    # Prompt building (fresh shuffle per answer)
+    # Push to Hub (mirrors HEXACO runner)
     # ----------------------------
-    def build_prompts_for_questions(
+
+    def push_results_to_hub(
         self,
-        sjt_template: List[Dict[str, Any]],
-        question_batch: List[Dict[str, Any]],
-        persona_str: Optional[str],
-        answer_shuffle: bool,
-    ) -> Tuple[List[str], List[str], List[List[int]], List[List[str]]]:
-        prompt_texts: List[str] = []
-        hash_list: List[str] = []
-        answer_index_list: List[List[int]] = []
-        guided_choices_list: List[List[str]] = []
+        results: SJTExperimentResults,
+        repo_id: str,
+        split_name: str,
+        config_name: str = "sjt",
+    ) -> None:
+        """Push row-wise results to HF under the given dataset config and split."""
+        rows: List[Dict[str, Any]] = []
+        now_iso = datetime.now(timezone.utc).isoformat()
 
-        base_index = [0, 1, 2, 3, 4, 5]
-
-        for sjt_dict in question_batch:
-            # Fresh iid shuffle PER ANSWER
-            idx = base_index[:]  # fresh copy each question
-            if answer_shuffle:
-                random.shuffle(idx)
-
-            answer_index_list.append(idx)
-
-            sjt = sjt_dict["corrected_sjt"]
-            answer_options_text = [sjt[k] for k in DEFAULT_ANSWER_OPTION_ORDERING if "_option" in k]
-            answer_options_text = [answer_options_text[i] for i in idx]
-
-            question = sjt["question"]
-            messages = self.render_messages(
-                sjt_template,
-                attributes=persona_str,
-                question=question,
-                answer_options=list_to_str(answer_options_text),
+        for persona_id, run_result in results.root.items():
+            cfg = run_result.config
+            rows.append(
+                {
+                    "persona_id": persona_id,
+                    "persona_hash": cfg.persona_hash,
+                    "model_name": cfg.model_name,
+                    "n_times": len(cfg.answers),
+                    "n_questions": (len(cfg.answers[0]) if cfg.answers else 0),
+                    "answers": cfg.answers,
+                    "raw_texts": run_result.raw_texts,
+                    "question_hashes": cfg.question_hashes,
+                    "answer_index": cfg.answer_index,
+                    "raw_prompts": cfg.raw_prompts,
+                    "guided_choices": cfg.guided_choices,
+                    "hf_persona_path": cfg.hf_persona_path,
+                    "hf_persona_config": cfg.hf_persona_config,
+                    "hf_sjt_path": cfg.hf_sjt_path,
+                    "hf_sjt_config": cfg.hf_sjt_config,
+                    "hf_sjt_split": cfg.hf_sjt_split,
+                    "created_at": now_iso,
+                    "generator": "sjt_response_generator.py",
+                }
             )
 
-            prompt_texts.append(self.messages_to_prompt_text(messages))
-            hash_list.append(sjt_dict["hash_id"])
+        ds = Dataset.from_list(rows)
+        dsd = DatasetDict({split_name: ds})
 
-            # Constrain each prompt to outputs "1".."6"
-            guided_choices_list.append(SJT_ANSWER_CHOICES)
+        # datasets supports configs via config_name in push_to_hub in recent versions.
+        # If user's environment has an older datasets, they can remove config_name and instead use split_name isolation.
+        try:
+            dsd.push_to_hub(repo_id, config_name=config_name)
+        except TypeError:
+            # Back-compat: no config support
+            dsd.push_to_hub(repo_id)
 
-        return prompt_texts, hash_list, answer_index_list, guided_choices_list
+        print(f"Pushed {len(rows)} rows to HF dataset {repo_id} config '{config_name}' split '{split_name}'")
 
     # ----------------------------
-    # Experiment loop
+    # Main run loop
     # ----------------------------
-    def generate_answers(
-        self,
-        synthetic_sjts: List[Dict[str, Any]],
-        persona_datasets: Optional[Union[Dataset, List[Dict[str, Any]]]],
-        answer_shuffle: bool,
-    ) -> ExperimentResults:
-        if self.args.batching:
-            raise NotImplementedError("Batching not implemented (kept consistent with your prior script).")
 
-        sjt_answer_options_mode: Literal["normal", "shuffle"] = "shuffle" if answer_shuffle else "normal"
-        print("Shuffling answer options for SJTs" if answer_shuffle else "Default Ordering of answer options for SJTs")
-        print(f"No of SJTs: {len(synthetic_sjts)}")
+    def run(self) -> str:
+        print(f"Model Used: {self.model}")
 
-        if persona_datasets:
-            print(f"No of personas: {len(persona_datasets)}")
+        personas = self.load_personas()
+        sjt_items = self.load_sjts()
+
+        # Sample SJTs per persona if requested
+        if self.args.n_sjtsample is not None and self.args.n_sjtsample > 0:
+            if self.args.n_sjtsample < len(sjt_items):
+                sjt_items_sampled = random.sample(sjt_items, k=self.args.n_sjtsample)
+            else:
+                sjt_items_sampled = sjt_items
         else:
-            print("Answering the SJTs using the base model, without any personas")
-
-        print("Passing one question per prompt")
+            sjt_items_sampled = sjt_items
 
         results: Dict[str, PersonaRunResult] = {}
 
-        # --- Base model mode
-        if self.args.persona_source == "base_model":
-            print("Running SJTs on Base Model without Personas")
-            sjt_template = self.base_sjt_template
+        for row in tqdm(personas, desc="Personas"):
+            persona_uuid = str(row.get("uuid", row.get("persona_id", row.get("id", ""))))
+            persona_str = str(row.get("persona_string", row.get("persona", row.get("text", ""))))
+            if not persona_uuid:
+                persona_uuid = self.stable_hash(persona_str)[:16]
 
-            repeated_answers: List[List[str]] = []
-            repeated_answer_indexes: List[List[List[int]]] = []
-            repeated_raw_prompts: List[List[str]] = []
-            repeated_guided_choices: List[List[List[str]]] = []
-
-            for _ in tqdm(range(self.args.n_times), desc="Iterations"):
-                all_prompts: List[str] = []
-                all_guided: List[List[str]] = []
-                question_hashes: List[str] = []
-                answer_indexes: List[List[int]] = []
-
-                for q_batch in tqdm(self._batch_list(synthetic_sjts, self.args.batch_size), desc="SJT Batches"):
-                    prompts_text, batch_hashes, batch_answer_idx, batch_guided = self.build_prompts_for_questions(
-                        sjt_template=sjt_template,
-                        question_batch=q_batch,
-                        persona_str=None,
-                        answer_shuffle=answer_shuffle,
-                    )
-                    all_prompts.extend(prompts_text)
-                    all_guided.extend(batch_guided)
-                    question_hashes.extend(batch_hashes)
-                    answer_indexes.extend(batch_answer_idx)
-
-                raw_texts = self.vllm_generate_batched(all_prompts, guided_choices=all_guided)
-                persona_answer = [self._normalize_choice(t, SJT_ANSWER_CHOICES) for t in raw_texts]
-
-                repeated_answers.append(persona_answer)
-                repeated_answer_indexes.append(answer_indexes)
-                repeated_raw_prompts.append(all_prompts)
-                repeated_guided_choices.append(all_guided)
-
-            cfg = PersonaRunConfig(
-                persona="base_model",
-                persona_hash=None,
-                question_hashes=question_hashes,
-                sjt_answer_options=sjt_answer_options_mode,
-                answer_index=repeated_answer_indexes,
-                raw_prompts=repeated_raw_prompts,
-                guided_choices=repeated_guided_choices,
-                model_name=self.model,
-            )
-            results["base_model"] = PersonaRunResult(config=cfg, answers=repeated_answers)
-            return ExperimentResults(__root__=results)
-
-        # --- Persona-conditioned mode
-        print("Running SJTs with Personas")
-        sjt_template = self.persona_sjt_template
-
-        if persona_datasets is None:
-            raise ValueError("persona_datasets is None but persona_source != base_model")
-
-        for persona_dataset in tqdm(persona_datasets, desc="Personas"):
-            persona_uuid = persona_dataset["uuid"]
-            persona_str = persona_dataset["persona_string"]
             persona_hash = self.stable_hash(persona_str)
 
             repeated_answers: List[List[str]] = []
+            repeated_raw_texts: List[List[str]] = []
+            repeated_question_hashes: List[List[str]] = []
             repeated_answer_indexes: List[List[List[int]]] = []
             repeated_raw_prompts: List[List[str]] = []
             repeated_guided_choices: List[List[List[str]]] = []
 
-            for _ in tqdm(range(self.args.n_times), desc="Iterations"):
+            for _ in range(self.args.n_times):
                 all_prompts: List[str] = []
                 all_guided: List[List[str]] = []
                 question_hashes: List[str] = []
                 answer_indexes: List[List[int]] = []
 
-                for q_batch in tqdm(self._batch_list(synthetic_sjts, self.args.batch_size), desc="Batches"):
-                    prompts_text, batch_hashes, batch_answer_idx, batch_guided = self.build_prompts_for_questions(
-                        sjt_template=sjt_template,
-                        question_batch=q_batch,
-                        persona_str=persona_str,
-                        answer_shuffle=answer_shuffle,
-                    )
+                for sjt_batch in self._batch_list(sjt_items_sampled, self.args.batch_size):
+                    prompts_text: List[str] = []
+                    batch_guided: List[List[str]] = []
+                    batch_hashes: List[str] = []
+                    batch_answer_idx: List[List[int]] = []
+
+                    for sjt_item in sjt_batch:
+                        ptxt, guided, aidx, qhash = self.build_prompt_for_sjt(
+                            persona_str=persona_str,
+                            sjt_item=sjt_item,
+                            answer_shuffle=bool(self.args.answer_shuffle),
+                        )
+                        prompts_text.append(ptxt)
+                        batch_guided.append(guided)
+                        batch_hashes.append(qhash)
+                        batch_answer_idx.append(aidx)
+
                     all_prompts.extend(prompts_text)
                     all_guided.extend(batch_guided)
                     question_hashes.extend(batch_hashes)
                     answer_indexes.extend(batch_answer_idx)
 
                 raw_texts = self.vllm_generate_batched(all_prompts, guided_choices=all_guided)
-                persona_answer = [self._normalize_choice(t, SJT_ANSWER_CHOICES) for t in raw_texts]
+                persona_answers = [self._normalize_choice(t, SJT_ANSWER_CHOICES) for t in raw_texts]
 
-                repeated_answers.append(persona_answer)
+                repeated_answers.append(persona_answers)
+                repeated_raw_texts.append(raw_texts)
+                repeated_question_hashes.append(question_hashes)
                 repeated_answer_indexes.append(answer_indexes)
                 repeated_raw_prompts.append(all_prompts)
                 repeated_guided_choices.append(all_guided)
@@ -499,52 +434,123 @@ class SJTResponseRunner:
             cfg = PersonaRunConfig(
                 persona=persona_uuid,
                 persona_hash=persona_hash,
-                question_hashes=question_hashes,
-                sjt_answer_options=sjt_answer_options_mode,
+                answers=repeated_answers,
+                question_hashes=repeated_question_hashes,
                 answer_index=repeated_answer_indexes,
                 raw_prompts=repeated_raw_prompts,
                 guided_choices=repeated_guided_choices,
                 model_name=self.model,
+                hf_persona_path=getattr(self.args, "hf_persona_path", None),
+                hf_persona_config=getattr(self.args, "hf_persona_config", None),
+                hf_sjt_path=getattr(self.args, "hf_sjt_path", None),
+                hf_sjt_config=getattr(self.args, "hf_sjt_config", None),
+                hf_sjt_split=getattr(self.args, "hf_sjt_split", None),
             )
-            results[persona_uuid] = PersonaRunResult(config=cfg, answers=repeated_answers)
 
-        return ExperimentResults(__root__=results)
+            results[persona_uuid] = PersonaRunResult(config=cfg, raw_texts=repeated_raw_texts)
 
-    # ----------------------------
-    # Orchestrate
-    # ----------------------------
-    def run(self) -> str:
-        print(f"Model Used: {self.model}")
-        print(f"Writing Output in: {self.args.out_dir}")
+        final = SJTExperimentResults(root=results)
 
-        self.load_prompt_templates()
-        synthetic_sjts = self.load_sjts()
-        persona_datasets = self.load_personas()
+        # Always write local output
+        out_dir = Path(self.args.out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out_path = out_dir / f"sjt_responses_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        with out_path.open("w", encoding="utf-8") as f:
+            json.dump(final.model_dump(), f, indent=2)
+        print(f"Wrote local results to {out_path}")
 
-        results = self.generate_answers(
-            synthetic_sjts=synthetic_sjts,
-            persona_datasets=persona_datasets,
-            answer_shuffle=self.args.answer_shuffle,
-        )
+        if bool(self.args.push_to_hub):
+            self.push_results_to_hub(
+                results=final,
+                repo_id=self.args.hub_repo,
+                config_name=self.args.hub_config,
+                split_name=self.args.hub_split,
+            )
 
-        model_name_safe = self.model.replace(".", "_").split("/")[-1]
-        out_file = os.path.join(
-            self.args.out_dir,
-            f"{self.args.persona_source}_sjt_answers_{model_name_safe}.json",
-        )
-        self._write_json(results.to_jsonable(), out_file)
-        print(f"Results saved to {out_file}")
-        return out_file
+        return str(out_path)
 
 
 # =========================
-# Main (manager created here; does NOT start server)
+# CLI
 # =========================
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--model-name", type=str, default="Qwen/Qwen2.5-7B-Instruct")
+
+    # Personas (match HEXACO runner: dataset path + config name)
+    parser.add_argument(
+        "--persona-source",
+        type=str,
+        default="huggingface",
+        help="Only 'huggingface' is supported (matches HEXACO workflow).",
+    )
+    parser.add_argument("--hf-persona-path", type=str, default="thoughtworks/psychometric_personas")
+    parser.add_argument("--hf-persona-config", type=str, default="expanded")
+    parser.add_argument("--n-personasample", type=int, default=1)
+
+    # SJTs
+    parser.add_argument("--hf-sjt-path", type=str, default="thoughtworks/psychometric_sjts_analysis")
+    parser.add_argument("--hf-sjt-config", type=str, default=None)
+    parser.add_argument("--hf-sjt-split", type=str, default="debug")
+    parser.add_argument("--n-sjtsample", type=int, default=1)
+
+    # Prompt/answer behavior
+    parser.add_argument("--answer-shuffle", action="store_true")
+    parser.add_argument("--batching", action="store_true")
+    parser.add_argument("--batch-size", type=int, default=5)
+    parser.add_argument("--n-times", type=int, default=1)
+
+    # Output
+    parser.add_argument("--out-dir", type=str, default=str(ROOT_DIR / "outputs"))
+
+    # vLLM generation params
+    parser.add_argument("--max-tokens", type=int, default=16)
+    parser.add_argument("--temperature", type=float, default=0.0)
+
+    # multiprocessing / batching inside mgr.vllm_chat_batched
+    parser.add_argument("--mp-batch-size", type=int, default=256)
+    parser.add_argument("--mp-workers", type=int, default=8)
+
+    # retry behavior passed to mgr.vllm_chat_batched
+    parser.add_argument("--max-retries", type=int, default=3)
+    parser.add_argument("--retry-backoff-s", type=float, default=0.5)
+
+    # vLLM server connection (we DO NOT start it; mgr only uses these for URL)
+    parser.add_argument("--vllm-host", type=str, default="127.0.0.1")
+    parser.add_argument("--vllm-port", type=int, default=8000)
+    parser.add_argument("--vllm-timeout-s", type=int, default=180)
+
+    # Debug + push (match HEXACO runner flags)
+    parser.add_argument(
+        "--debug", action=argparse.BooleanOptionalAction,
+        default=True, help="Debug mode (default True): only run first 10 personas.",
+    )
+    parser.add_argument(
+        "--push-to-hub", action=argparse.BooleanOptionalAction,
+        default=True, help="Push results to Hugging Face Hub (default True).",
+    )
+    parser.add_argument(
+        "--hub-repo", type=str,
+        default="thoughtworks/psychometric_test_responses",
+        help="HF dataset repo to push to (same as HEXACO runner).",
+    )
+    parser.add_argument(
+        "--hub-config", type=str, default="sjt",
+        help="HF dataset config name for SJT outputs.",
+    )
+    parser.add_argument(
+        "--hub-split", type=str, default="train",
+        help="HF dataset split name inside the SJT config.",
+    )
+
+    return parser.parse_args()
+
 
 def main():
-    args = SJTResponseRunner.parse_args()
+    args = parse_args()
 
-    # Create manager and pass it in. This assumes a server is already reachable.
     mgr = VLLMServerManager(
         model=args.model_name,
         host=args.vllm_host,
