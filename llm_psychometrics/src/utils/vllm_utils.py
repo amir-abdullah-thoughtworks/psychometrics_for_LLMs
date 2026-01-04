@@ -337,6 +337,7 @@ class VLLMServerManager:
             guided_choices: Optional[List[str]] = None,
     ) -> str:
         guided_choices = guided_choices or []
+        self._log(f"Received guided_choices {guided_choices}")
         payload = {
             "model": model,
             "messages": [{"role": "user", "content": prompt}],
@@ -359,99 +360,6 @@ class VLLMServerManager:
         ts = datetime.utcnow().isoformat()
         with open(self.log_file, "a", encoding="utf-8") as f:
             f.write(f"[{ts}] {msg}\n")
-
-
-    def _chat_one(
-            self,
-            prompt: str,
-            model: str,
-            max_tokens: int,
-            temperature: float,
-            max_retries: int,
-            retry_backoff_s: float,
-            guided_choices: Optional[List[str]] = None,
-    ) -> str:
-
-        self._log(f"Received guided choices {guided_choices}")
-
-        last_err: Optional[Exception] = None
-
-        # Normalize guided choices
-        choice_set = None
-        if guided_choices:
-            choice_set = {c.strip() for c in guided_choices}
-
-
-        def _normalize_candidate(resp: str) -> List[str]:
-            """
-            Very conservative normalization.
-            - strip whitespace
-            - take first token only
-            - strip common trailing punctuation
-            """
-            if not resp:
-                return [""]
-
-            tok = resp.strip().split(None, 1)[0]
-            tok = tok.rstrip(".,:;)")
-
-            return [tok]
-
-        had_mismatch = False
-
-        for attempt in range(max_retries):
-            try:
-                resp = self.vllm_chat(
-                    prompt=prompt,
-                    model=model,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    guided_choices=guided_choices,
-                )
-
-                # No constraint → success
-                if not choice_set:
-                    return resp
-
-                candidates = _normalize_candidate(resp)
-                for c in candidates:
-                    if c in choice_set:
-                        if had_mismatch:
-                            self._log(
-                                f"GUIDED_CHOICES_RECOVERED "
-                                f"attempt={attempt + 1} "
-                                f"fixed_with={c!r}"
-                            )
-                        return c
-
-                # Mismatch → retry
-                had_mismatch = True
-                self._log(
-                    f"GUIDED_CHOICES_MISMATCH "
-                    f"attempt={attempt + 1} "
-                    f"resp={resp!r} "
-                    f"candidates={candidates!r}"
-                )
-
-                last_err = ValueError("Response did not match guided_choices")
-                time.sleep(retry_backoff_s * (2 ** attempt))
-
-            except Exception as e:
-                last_err = e
-                self._log(
-                    f"VLLM_EXCEPTION "
-                    f"attempt={attempt + 1} "
-                    f"err={repr(e)}"
-                )
-                time.sleep(retry_backoff_s * (2 ** attempt))
-
-        self._log(
-            "GUIDED_CHOICES_FINAL_FAILURE "
-            f"retries={max_retries} "
-            f"last_err={repr(last_err)}"
-        )
-        raise RuntimeError("vllm_chat failed") from last_err
-
 
     def _mp_chat_chunk(
             self,
@@ -545,6 +453,8 @@ class VLLMServerManager:
 
         # Normalize to per-prompt guidance (crucial fix)
         per_prompt_guidance: List[List[str]] = self._normalize_guided_choices(prompts, guided_choices)
+
+        self._log(f"Using per prompt guidance of{per_prompt_guidance}")
 
         with tqdm(total=total, desc=f"vLLM completions for guided choices: {guided_choices}", unit="req") as pbar:
             for i in range(0, total, batch_size):
