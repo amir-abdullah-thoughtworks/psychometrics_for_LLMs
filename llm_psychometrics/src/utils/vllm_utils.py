@@ -363,8 +363,11 @@ class VLLMServerManager:
             temperature: float,
             max_retries: int,
             retry_backoff_s: float,
-            guided_choices: Optional[List[str]] = None,
+            guided_choices: Optional[List[str]],
     ) -> str:
+        if guided_choices is None or len(guided_choices) == 0:
+            raise ValueError(f"No guided choices provided!")
+
         last_err: Optional[Exception] = None
 
         # Normalize guided choices
