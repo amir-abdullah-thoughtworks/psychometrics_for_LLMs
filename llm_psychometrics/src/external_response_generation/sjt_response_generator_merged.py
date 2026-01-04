@@ -252,13 +252,13 @@ def push_results_to_hub(exp: ExperimentResults, args: argparse.Namespace) -> Non
     source_meta = build_source_meta(args)
     rows = flatten_results_for_hub(exp, source_meta)
     ds = Dataset.from_list(rows)
-    dsd = DatasetDict({args.hub_split: ds})
+    dsd = DatasetDict({args.target_hub_split: ds})
 
     desc = {
         "created_utc": _utc_now_iso(),
-        "repo_id": args.hub_repo_id,
-        "config": args.hub_config,
-        "split": args.hub_split,
+        "repo_id": args.target_hub_repo_id,
+        "config": args.target_hub_config,
+        "split": args.target_hub_split,
         "source_meta": source_meta,
         "counts": {
             "rows": len(ds),
@@ -266,7 +266,7 @@ def push_results_to_hub(exp: ExperimentResults, args: argparse.Namespace) -> Non
             "unique_questions": len(set(ds["question_hash"])) if len(ds) else 0,
         },
     }
-    dsd[args.hub_split].info.description = json.dumps(desc, indent=2, sort_keys=True)
+    dsd[args.target_hub_split].info.description = json.dumps(desc, indent=2, sort_keys=True)
 
     dsd.push_to_hub(
         repo_id=args.target_hub_repo_id,
@@ -465,10 +465,10 @@ def parse_args() -> argparse.Namespace:
 
     # vLLM settings
     p.add_argument("--model", type=str, default="Qwen/Qwen2.5-7B-Instruct")
-    p.add_argument("--max-tokens", type=int, default=16)
+    p.add_argument("--max-tokens", type=int, default=1)
     p.add_argument("--temperature", type=float, default=0.0)
-    p.add_argument("--batch-size", type=int, default=64)
-    p.add_argument("--num-workers", type=int, default=32)
+    p.add_argument("--batch-size", type=int, default=1000)
+    p.add_argument("--num-workers", type=int, default=60)
 
     # Templates / SJT behavior
     p.add_argument("--template-key", type=str, default="gpt")
@@ -535,9 +535,9 @@ def main() -> None:
     print(f"Wrote local results -> {args.out_json}")
 
     # Push to hub only in no-debug mode
-    if (not args.debug) and args.push_to_hub:
+    if args.push_to_hub:
         push_results_to_hub(results, args)
-        print(f"Pushed to hub -> {args.hub_repo_id} (config={args.hub_config})")
+        print(f"Pushed to hub -> {args.target_hub_repo_id} (config={args.target_hub_config})")
     else:
         print("Skipping hub push (debug mode or push disabled).")
 
