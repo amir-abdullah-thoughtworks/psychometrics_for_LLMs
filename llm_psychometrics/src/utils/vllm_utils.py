@@ -43,7 +43,6 @@ class VLLMServerManager:
         self.timeout_s = timeout_s
         self.kill_existing = kill_existing
         self._proc = None
-        self._log("Started up vllm")
 
     def list_vllm_models(self) -> list[str]:
         """
@@ -337,7 +336,6 @@ class VLLMServerManager:
             guided_choices: Optional[List[str]] = None,
     ) -> str:
         guided_choices = guided_choices or []
-        self._log(f"Received guided_choices {guided_choices}")
         payload = {
             "model": model,
             "messages": [{"role": "user", "content": prompt}],
