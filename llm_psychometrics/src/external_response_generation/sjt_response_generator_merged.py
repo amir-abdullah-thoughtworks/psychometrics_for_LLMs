@@ -138,15 +138,18 @@ def normalize_answer_to_trait(
     permutation_displayed_to_canonical: length-6 list mapping displayed position -> canonical option index
     """
     a = str((answer or "").strip())[0]
-    if a not in SJT_ANSWER_CHOICES:
-        raise ValueError(f"Invalid answer choice: {a}, {a} not {SJT_ANSWER_CHOICES}")
-    displayed_idx = int(a) - 1
-    if not (0 <= displayed_idx < 6):
-        raise ValueError(f"Invalid answer displayed index: {displayed_idx}")
-    canonical_idx = permutation_displayed_to_canonical[displayed_idx]
-    if not (0 <= canonical_idx < 6):
-        raise ValueError(f"Invalid permutation displayed index: {canonical_idx}")
-    return DEFAULT_ANSWER_OPTION_ORDERING[canonical_idx]
+    try:
+        if a not in SJT_ANSWER_CHOICES:
+            raise ValueError(f"Invalid answer choice: {a}, {a} not {SJT_ANSWER_CHOICES}")
+        displayed_idx = int(a) - 1
+        if not (0 <= displayed_idx < 6):
+            raise ValueError(f"Invalid answer displayed index: {displayed_idx}")
+        canonical_idx = permutation_displayed_to_canonical[displayed_idx]
+        if not (0 <= canonical_idx < 6):
+            raise ValueError(f"Invalid permutation displayed index: {canonical_idx}")
+        return DEFAULT_ANSWER_OPTION_ORDERING[canonical_idx]
+    except ValueError:
+        return None
 
 
 # =========================
@@ -371,10 +374,11 @@ class SJTResponseRunner:
                 if a not in SJT_ANSWER_CHOICES:
                     # Still store raw first token; downstream can filter
                     pass
-                iter_answers.append(a)
-                iter_norm.append(normalize_answer_to_trait(a, perm))
-                iter_idx.append(perm)
-                iter_guided.append(SJT_ANSWER_CHOICES)
+                else:
+                    iter_answers.append(a)
+                    iter_norm.append(normalize_answer_to_trait(a, perm))
+                    iter_idx.append(perm)
+                    iter_guided.append(SJT_ANSWER_CHOICES)
 
             answers_all.append(iter_answers)
             norm_all.append(iter_norm)

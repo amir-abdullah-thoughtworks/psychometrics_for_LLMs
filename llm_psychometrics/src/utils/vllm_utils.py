@@ -346,7 +346,7 @@ class VLLMServerManager:
         last_err: Optional[Exception] = None
         had_mismatch = False
 
-        for attempt in range(5):
+        for attempt in range(3):
             try:
                 payload = {
                     "model": model,
@@ -404,10 +404,10 @@ class VLLMServerManager:
 
         self._log(
             "GUIDED_CHOICES_FINAL_FAILURE "
-            f"retries=5 "
+            f"retries=3"
             f"last_err={repr(last_err)}"
         )
-        raise RuntimeError("vllm_chat failed to produce a valid guided choice") from last_err
+        return None
 
     def _log(self, msg: str):
         ts = datetime.utcnow().isoformat()

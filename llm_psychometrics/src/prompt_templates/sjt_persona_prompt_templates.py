@@ -15,8 +15,7 @@ Task: Answer the below multiple choice question:""",
 Choices for this question are:
 
 {{ answer_options }}
-Pick the option most consistent with your attributes by picking a number between 1 and 6.
-Exactly one option is the best answer. All others are incorrect.
+Give ONLY the option most consistent with your persona by picking a number ranging from 1 to 6 inclusive, with no explanation.
 """,
 },
 ],
