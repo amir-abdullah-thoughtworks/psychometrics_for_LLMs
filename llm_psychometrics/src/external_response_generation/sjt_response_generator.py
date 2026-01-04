@@ -223,17 +223,16 @@ class SJTResponseRunner:
     # Hashing / helpers
     # ----------------------------
 
-    @staticmethod
-    def stable_hash(text: str) -> str:
+
+    def stable_hash(self, text: str) -> str:
         return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
-    @staticmethod
-    def _batch_list(lst: List[Any], n: int):
+
+    def _batch_list(self, lst: List[Any], n: int):
         for i in range(0, len(lst), n):
             yield lst[i : i + n]
 
-    @staticmethod
-    def _normalize_choice(text: str, allowed: List[str]) -> str:
+    def _normalize_choice(self, text: str, allowed: List[str]) -> str:
         """Map raw model output to one of allowed choices if possible."""
         if text is None:
             return ""
@@ -488,6 +487,7 @@ class SJTResponseRunner:
                     answer_indexes.extend(batch_answer_idx)
 
                 raw_texts = self.vllm_generate_batched(all_prompts, guided_choices=all_guided)
+                print(f"Raw texts: {raw_texts}")
                 persona_answers = [self._normalize_choice(t, SJT_ANSWER_CHOICES) for t in raw_texts]
 
                 repeated_answers.append(persona_answers)
