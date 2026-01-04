@@ -354,6 +354,11 @@ class VLLMServerManager:
         resp.raise_for_status()
         return resp.json()["choices"][0]["message"]["content"]
 
+    def _log(self, msg: str):
+        ts = datetime.utcnow().isoformat()
+        with open(self.log_file, "a", encoding="utf-8") as f:
+            f.write(f"[{ts}] {msg}\n")
+
 
     def _chat_one(
             self,
@@ -370,7 +375,7 @@ class VLLMServerManager:
             with open(self.log_file, "a", encoding="utf-8") as f:
                 f.write(f"[{ts}] {msg}\n")
 
-        _log(f"Received guided choices {guided_choices}")
+        self._log(f"Received guided choices {guided_choices}")
 
         last_err: Optional[Exception] = None
 
@@ -378,7 +383,6 @@ class VLLMServerManager:
         choice_set = None
         if guided_choices:
             choice_set = {c.strip() for c in guided_choices}
-
 
 
         def _normalize_candidate(resp: str) -> List[str]:
@@ -416,7 +420,7 @@ class VLLMServerManager:
                 for c in candidates:
                     if c in choice_set:
                         if had_mismatch:
-                            _log(
+                            self._log(
                                 f"GUIDED_CHOICES_RECOVERED "
                                 f"attempt={attempt + 1} "
                                 f"fixed_with={c!r}"
@@ -425,7 +429,7 @@ class VLLMServerManager:
 
                 # Mismatch → retry
                 had_mismatch = True
-                _log(
+                self._log(
                     f"GUIDED_CHOICES_MISMATCH "
                     f"attempt={attempt + 1} "
                     f"resp={resp!r} "
@@ -437,14 +441,14 @@ class VLLMServerManager:
 
             except Exception as e:
                 last_err = e
-                _log(
+                self._log(
                     f"VLLM_EXCEPTION "
                     f"attempt={attempt + 1} "
                     f"err={repr(e)}"
                 )
                 time.sleep(retry_backoff_s * (2 ** attempt))
 
-        _log(
+        self._log(
             "GUIDED_CHOICES_FINAL_FAILURE "
             f"retries={max_retries} "
             f"last_err={repr(last_err)}"
