@@ -310,6 +310,7 @@ class VLLMServerManager:
         """
         n = len(prompts)
         if guided_choices is None:
+            raise ValueError(f"No guided choices provided")
             return [[] for _ in range(n)]
 
         # Case A: shared list[str] for all prompts
