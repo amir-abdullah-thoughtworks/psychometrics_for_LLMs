@@ -140,7 +140,7 @@ def normalize_answer_to_trait(
     """
     a = str((answer or "").strip())
     if a not in SJT_ANSWER_CHOICES:
-        raise ValueError(f"Invalid answer choice: {a}")
+        raise ValueError(f"Invalid answer choice: {a}, {a} not {SJT_ANSWER_CHOICES}")
     displayed_idx = int(a) - 1
     if not (0 <= displayed_idx < 6):
         raise ValueError(f"Invalid answer displayed index: {displayed_idx}")
