@@ -138,7 +138,7 @@ def normalize_answer_to_trait(
     answer: model output, ideally "1".."6" (displayed index +1)
     permutation_displayed_to_canonical: length-6 list mapping displayed position -> canonical option index
     """
-    a = str((answer or "").strip())
+    a = str((answer or "").strip())[0]
     if a not in SJT_ANSWER_CHOICES:
         raise ValueError(f"Invalid answer choice: {a}, {a} not {SJT_ANSWER_CHOICES}")
     displayed_idx = int(a) - 1
