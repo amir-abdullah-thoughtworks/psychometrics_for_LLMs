@@ -6,17 +6,16 @@ sjt_persona_prompt_templates = {
 
 {{ attributes }}
 
-Task: Answer the below multiple choice questions:""",
+Task: Answer the below multiple choice question:""",
         },
         {
-                        "role": "user",
-                        "content": """Question: {{ question }}
+        "role": "user",
+        "content": """Question: {{ question }}
 
-Choices for these questions are:
+Choices for this question are:
 
 {{ answer_options }}
-
-Answer the question using the value from [1,2,3,4,5,6] most consistent with your attributes.
+Pick the option most consistent with your attributes by picking a number between 1 and 6.
 Exactly one option is the best answer. All others are incorrect.
 """,
 },
