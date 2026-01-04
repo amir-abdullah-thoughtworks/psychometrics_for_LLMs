@@ -212,27 +212,26 @@ class SJTResponseRunner:
 # ----------------------------
     # Small utils
     # ----------------------------
-    @staticmethod
-    def _write_json(obj: Dict[str, Any], file_path: str) -> None:
+    def _write_json(self, obj: Dict[str, Any], file_path: str) -> None:
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(obj, f, indent=2)
 
-    @staticmethod
-    def _read_json(file_path: str) -> Any:
+
+    def _read_json(self, file_path: str) -> Any:
         with open(file_path, "r", encoding="utf-8") as f:
             return json.load(f)
 
-    @staticmethod
-    def _batch_list(lst: List[Any], n: int):
+
+    def _batch_list(self, lst: List[Any], n: int):
         for i in range(0, len(lst), n):
             yield lst[i : i + n]
 
     # ----------------------------
     # Templates
     # ----------------------------
-    @staticmethod
-    def _compile_message_templates(messages: List[Dict[str, str]]) -> List[Dict[str, Any]]:
+
+    def _compile_message_templates(self, messages: List[Dict[str, str]]) -> List[Dict[str, Any]]:
         return [{"role": msg["role"], "content": Template(msg["content"])} for msg in messages]
 
     def load_prompt_templates(self) -> None:
@@ -242,12 +241,12 @@ class SJTResponseRunner:
         self.base_sjt_template = self._compile_message_templates(base_templates)
         self.persona_sjt_template = self._compile_message_templates(persona_templates)
 
-    @staticmethod
-    def render_messages(template_messages: List[Dict[str, Any]], **kwargs) -> List[Dict[str, str]]:
+
+    def render_messages(self, template_messages: List[Dict[str, Any]], **kwargs) -> List[Dict[str, str]]:
         return [{"role": msg["role"], "content": msg["content"].render(**kwargs)} for msg in template_messages]
 
-    @staticmethod
-    def messages_to_prompt_text(messages: List[Dict[str, str]]) -> str:
+
+    def messages_to_prompt_text(self, messages: List[Dict[str, str]]) -> str:
         """
         Converts chat-style messages into a single plain text prompt.
         We store exactly this prompt for audit/replay.
@@ -309,7 +308,7 @@ class SJTResponseRunner:
         # base_model: no personas
         return None
 
-    def _normalize_choice(text: str, choices: List[str]) -> str:
+    def _normalize_choice(self, text: str, choices: List[str]) -> str:
         """
         Map outputs back to canonical choice if possible.
         - exact match "3"
@@ -323,8 +322,8 @@ class SJTResponseRunner:
                 return ch
         return t
 
-    @staticmethod
-    def _choice_to_trait(choice: str, perm: List[int]) -> Optional[str]:
+
+    def _choice_to_trait(self, choice: str, perm: List[int]) -> Optional[str]:
         """
         Given a model choice in displayed space ("1".."6") and the permutation used
         to shuffle options, return the canonical trait option key.
@@ -342,8 +341,8 @@ class SJTResponseRunner:
         return DEFAULT_ANSWER_OPTION_ORDERING[canonical_idx]
 
 
-    @staticmethod
-    def _extract_texts(outputs: Any) -> List[str]:
+
+    def _extract_texts(self, outputs: Any) -> List[str]:
         """
         vllm_chat_batched may return:
         - list[str]
