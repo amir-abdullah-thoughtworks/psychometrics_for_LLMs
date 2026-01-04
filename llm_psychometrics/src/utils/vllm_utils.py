@@ -507,7 +507,6 @@ class VLLMServerManager:
         # Normalize to per-prompt guidance (crucial fix)
         per_prompt_guidance: List[List[str]] = self._normalize_guided_choices(prompts, guided_choices)
 
-        self._log(f"Using per prompt guidance of{per_prompt_guidance}")
 
         with tqdm(total=total, desc=f"vLLM completions for guided choices: {guided_choices}", unit="req") as pbar:
             for i in range(0, total, batch_size):
