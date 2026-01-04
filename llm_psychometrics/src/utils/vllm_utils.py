@@ -327,6 +327,7 @@ class VLLMServerManager:
             )
         return [gc or [] for gc in per]
 
+
     def vllm_chat(
             self,
             prompt: str,
@@ -336,23 +337,77 @@ class VLLMServerManager:
             guided_choices: Optional[List[str]] = None,
     ) -> str:
         guided_choices = guided_choices or []
-        payload = {
-            "model": model,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-        }
-        # Only apply guided_choice if non-empty
-        if guided_choices:
-            payload["extra_body"] = {"guided_choice": guided_choices}
+        choice_set = {c.strip() for c in guided_choices}
 
-        resp = requests.post(
-            f"{self.base_url}/v1/chat/completions",
-            json=payload,
-            timeout=30,
+        def _normalize(resp: str) -> str:
+            # strict + simple: first token only
+            return resp.strip().split(None, 1)[0]
+
+        last_err: Optional[Exception] = None
+        had_mismatch = False
+
+        for attempt in range(5):
+            try:
+                payload = {
+                    "model": model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                }
+
+                if guided_choices:
+                    payload["extra_body"] = {"guided_choice": guided_choices}
+
+                resp = requests.post(
+                    f"{self.base_url}/v1/chat/completions",
+                    json=payload
+                )
+                resp.raise_for_status()
+
+                text = resp.json()["choices"][0]["message"]["content"]
+
+                # No constraint → return raw
+                if not choice_set:
+                    return text
+
+                token = _normalize(text)
+                if token in choice_set:
+                    if had_mismatch:
+                        self._log(
+                            f"GUIDED_CHOICES_RECOVERED "
+                            f"attempt={attempt + 1} "
+                            f"token={token!r}"
+                        )
+                    return token
+
+                # Mismatch → retry
+                had_mismatch = True
+                last_err = ValueError(
+                    f"guided_choices mismatch: raw={text!r}, token={token!r}"
+                )
+                self._log(
+                    f"GUIDED_CHOICES_MISMATCH "
+                    f"attempt={attempt + 1} "
+                    f"raw={text!r} "
+                    f"token={token!r}"
+                )
+                time.sleep(0.2 * (2 ** attempt))
+
+            except Exception as e:
+                last_err = e
+                self._log(
+                    f"VLLM_EXCEPTION "
+                    f"attempt={attempt + 1} "
+                    f"err={repr(e)}"
+                )
+                time.sleep(0.2 * (2 ** attempt))
+
+        self._log(
+            "GUIDED_CHOICES_FINAL_FAILURE "
+            f"retries=5 "
+            f"last_err={repr(last_err)}"
         )
-        resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"]
+        raise RuntimeError("vllm_chat failed to produce a valid guided choice") from last_err
 
     def _log(self, msg: str):
         ts = datetime.utcnow().isoformat()
