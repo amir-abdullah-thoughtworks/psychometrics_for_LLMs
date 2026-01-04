@@ -54,7 +54,6 @@ DEFAULT_ANSWER_OPTION_ORDERING: List[str] = [
     "openness_option",
 ]
 
-
 # =========================
 # Models
 # =========================

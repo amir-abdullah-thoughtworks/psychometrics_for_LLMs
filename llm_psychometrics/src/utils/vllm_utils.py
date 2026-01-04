@@ -35,6 +35,7 @@ class VLLMServerManager:
         self.host = host
         self.port = port
         self.base_url = f"http://{host}:{port}"
+        self.backup_url = f"http://{host}:8001"
         self.python_executable = python_executable
         self.server_extra_args = server_extra_args or []
         self.env = {**os.environ, **(env or {})}
@@ -407,7 +408,7 @@ class VLLMServerManager:
 
         args_list = [
             (
-                idx, self.base_url,
+                idx, self.base_url if idx % 2 == 0 else self.backup_url,
                 prompt, model, max_tokens, temperature,
                 max_retries, retry_backoff_s, guided_choices[idx],
             )
