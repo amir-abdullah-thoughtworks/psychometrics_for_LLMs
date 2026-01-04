@@ -215,7 +215,7 @@ def build_source_meta(args: argparse.Namespace) -> Dict[str, Any]:
         "answer_shuffle": bool(getattr(args, "answer_shuffle", False)),
         "n_times": int(getattr(args, "n_times", 1)),
         "model": getattr(args, "model", None),
-        "max_tokens": int(getattr(args, "max_tokens", 16)),
+        "max_tokens": int(getattr(args, "max_tokens", 1)),
         "temperature": float(getattr(args, "temperature", 0.0)),
     }
 
@@ -465,7 +465,7 @@ def parse_args() -> argparse.Namespace:
 
     # vLLM settings
     p.add_argument("--model", type=str, default="Qwen/Qwen2.5-7B-Instruct")
-    p.add_argument("--max-tokens", type=int, default=16)
+    p.add_argument("--max-tokens", type=int, default=1)
     p.add_argument("--temperature", type=float, default=0.0)
     p.add_argument("--batch-size", type=int, default=64)
     p.add_argument("--num-workers", type=int, default=32)

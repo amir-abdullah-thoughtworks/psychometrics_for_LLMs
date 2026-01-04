@@ -365,19 +365,86 @@ class VLLMServerManager:
             retry_backoff_s: float,
             guided_choices: Optional[List[str]] = None,
     ) -> str:
-        last_err = None
+        last_err: Optional[Exception] = None
+
+        # Normalize guided choices
+        choice_set = None
+        if guided_choices:
+            choice_set = {c.strip() for c in guided_choices}
+
+        def _log(msg: str):
+            ts = datetime.utcnow().isoformat()
+            with open(self.log_file, "a", encoding="utf-8") as f:
+                f.write(f"[{ts}] {msg}\n")
+
+        def _normalize_candidate(resp: str) -> List[str]:
+            """
+            Very conservative normalization.
+            - strip whitespace
+            - take first token only
+            - strip common trailing punctuation
+            """
+            if not resp:
+                return [""]
+
+            tok = resp.strip().split(None, 1)[0]
+            tok = tok.rstrip(".,:;)")
+
+            return [tok]
+
+        had_mismatch = False
+
         for attempt in range(max_retries):
             try:
-                return self.vllm_chat(
+                resp = self.vllm_chat(
                     prompt=prompt,
                     model=model,
                     max_tokens=max_tokens,
                     temperature=temperature,
                     guided_choices=guided_choices,
                 )
+
+                # No constraint → success
+                if not choice_set:
+                    return resp
+
+                candidates = _normalize_candidate(resp)
+                for c in candidates:
+                    if c in choice_set:
+                        if had_mismatch:
+                            _log(
+                                f"GUIDED_CHOICES_RECOVERED "
+                                f"attempt={attempt + 1} "
+                                f"fixed_with={c!r}"
+                            )
+                        return c
+
+                # Mismatch → retry
+                had_mismatch = True
+                _log(
+                    f"GUIDED_CHOICES_MISMATCH "
+                    f"attempt={attempt + 1} "
+                    f"resp={resp!r} "
+                    f"candidates={candidates!r}"
+                )
+
+                last_err = ValueError("Response did not match guided_choices")
+                time.sleep(retry_backoff_s * (2 ** attempt))
+
             except Exception as e:
                 last_err = e
+                _log(
+                    f"VLLM_EXCEPTION "
+                    f"attempt={attempt + 1} "
+                    f"err={repr(e)}"
+                )
                 time.sleep(retry_backoff_s * (2 ** attempt))
+
+        _log(
+            "GUIDED_CHOICES_FINAL_FAILURE "
+            f"retries={max_retries} "
+            f"last_err={repr(last_err)}"
+        )
         raise RuntimeError("vllm_chat failed") from last_err
 
 
@@ -459,7 +526,7 @@ class VLLMServerManager:
         temperature: float = 0.0,
         batch_size: int = 100,
         num_workers: int = 100,
-        max_retries: int = 3,
+        max_retries: int = 5,
         retry_backoff_s: float = 0.1,
         chunk_max_retries: int = 2,
         chunk_retry_backoff_s: float = 0.5,
