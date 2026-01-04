@@ -363,10 +363,14 @@ class VLLMServerManager:
             temperature: float,
             max_retries: int,
             retry_backoff_s: float,
-            guided_choices: Optional[List[str]],
+            guided_choices: Optional[List[str]] = None,
     ) -> str:
-        if guided_choices is None or len(guided_choices) == 0:
-            raise ValueError(f"No guided choices provided!")
+        def _log(msg: str):
+            ts = datetime.utcnow().isoformat()
+            with open(self.log_file, "a", encoding="utf-8") as f:
+                f.write(f"[{ts}] {msg}\n")
+
+        _log(f"Received guided choices {guided_choices}")
 
         last_err: Optional[Exception] = None
 
@@ -375,10 +379,7 @@ class VLLMServerManager:
         if guided_choices:
             choice_set = {c.strip() for c in guided_choices}
 
-        def _log(msg: str):
-            ts = datetime.utcnow().isoformat()
-            with open(self.log_file, "a", encoding="utf-8") as f:
-                f.write(f"[{ts}] {msg}\n")
+
 
         def _normalize_candidate(resp: str) -> List[str]:
             """
