@@ -18,6 +18,8 @@ from contextlib import contextmanager
 from diskcache import Cache
 from datetime import datetime
 
+from diskcache import Cache, FanoutCache
+
 class VLLMServerManager:
     """
     Minimal manager for a local vLLM OpenAI-compatible server.
@@ -483,6 +485,131 @@ class VLLMServerManager:
         return out
 
 
+    def _open_cache(
+        self,
+        cache_dir: str,
+        cache_type: str = "fanout",   # "fanout" (recommended for multiproc) or "cache"
+        shards: int = 128,
+        timeout: float = 1.0,
+        **kwargs,
+    ):
+        """
+        Returns a diskcache cache instance.
+
+        FanoutCache is strongly preferred for multi-process writers/readers.
+        - cache_type="fanout": FanoutCache(cache_dir, shards=..., timeout=...)
+        - cache_type="cache":  Cache(cache_dir)
+        """
+        cache_type = (cache_type or "fanout").lower().strip()
+
+        if cache_type in {"fanout", "fanoutcache", "fan_out", "fan-out"}:
+            # FanoutCache expects a directory; it will create per-shard subdirs.
+            Path(cache_dir).mkdir(parents=True, exist_ok=True)
+            return FanoutCache(cache_dir, shards=int(shards), timeout=float(timeout), **kwargs)
+
+        if cache_type in {"cache", "diskcache"}:
+            Path(cache_dir).mkdir(parents=True, exist_ok=True)
+            return Cache(cache_dir, **kwargs)
+
+        raise ValueError(f"Unknown cache_type={cache_type!r}. Use 'fanout' or 'cache'.")
+
+    @staticmethod
+    def _cache_get_many(cache, keys: List[str]) -> dict[str, str]:
+        """
+        diskcache Cache supports __contains__/__getitem__.
+        FanoutCache supports .get similarly; safest is using .get with default.
+        """
+        out: dict[str, str] = {}
+        for k in keys:
+            v = cache.get(k, default=None)
+            if v is not None:
+                out[k] = v
+        return out
+
+    @staticmethod
+    def _cache_set_many(cache, items: List[tuple[str, str]]):
+        for k, v in items:
+            cache.set(k, v)
+
+    # ...
+
+    def _mp_chat_chunk(
+        self,
+        prompts: List[str],
+        model: str,
+        max_tokens: int,
+        temperature: float,
+        num_workers: int,
+        max_retries: int,
+        retry_backoff_s: float,
+        pbar: Optional[tqdm] = None,
+        guided_choices: Optional[List[List[str]]] = None,  # per-prompt
+        cache_dir: Optional[str] = None,
+        cache_keys: Optional[List[str]] = None,
+        # --- NEW ---
+        cache_type: str = "fanout",
+        cache_shards: int = 64,
+        cache_timeout: float = 1.0,
+    ) -> List[str]:
+        """
+        Returns outputs in the exact same order as `prompts`.
+
+        guided_choices: per-prompt List[List[str]] aligned with prompts.
+        """
+        n = len(prompts)
+        results: List[Optional[str]] = [None] * n
+
+        guided_choices = guided_choices or [[] for _ in range(n)]
+        if len(guided_choices) != n:
+            raise ValueError("guided_choices must be the same length as prompts (per-prompt).")
+
+        args_list = [
+            (
+                idx, self.base_url if idx % 2 == 0 else self.backup_url,
+                prompt, model, max_tokens, temperature,
+                max_retries, retry_backoff_s, guided_choices[idx],
+            )
+            for idx, prompt in enumerate(prompts)
+        ]
+
+        with ProcessPoolExecutor(max_workers=num_workers) as ex:
+            futures = [ex.submit(_mp_chat_one_worker_args, args) for args in args_list]
+
+            failures: List[str] = []
+            for fut in as_completed(futures):
+                try:
+                    idx, text = fut.result()
+                    results[idx] = text
+                except Exception as e:
+                    failures.append(repr(e))
+                finally:
+                    if pbar is not None:
+                        pbar.update(1)
+
+        if failures:
+            raise RuntimeError(f"One or more vLLM worker calls failed (showing up to 3): {failures[:3]}")
+
+        missing = [i for i, r in enumerate(results) if r is None]
+        if missing:
+            raise RuntimeError(f"Missing outputs for indices: {missing[:10]} (total missing={len(missing)})")
+
+        out: List[str] = results  # type: ignore[assignment]
+
+        # write-through cache (parent process only)
+        if cache_dir is not None:
+            if cache_keys is None or len(cache_keys) != len(out):
+                raise ValueError("cache_keys must be provided and match prompts length when cache is enabled.")
+
+            with self._open_cache(
+                cache_dir=cache_dir,
+                cache_type=cache_type,
+                shards=cache_shards,
+                timeout=cache_timeout,
+            ) as cache:
+                self._cache_set_many(cache, list(zip(cache_keys, out)))
+
+        return out
+
     def vllm_chat_batched(
         self,
         prompts: List[str],
@@ -498,22 +625,23 @@ class VLLMServerManager:
         chunk_retry_backoff_s: float = 0.5,
         cache_dir: Optional[str] = ".vllm_cache/diskcache",
         cache_enabled: bool = True,
+        # --- NEW ---
+        cache_type: str = "fanout",   # "fanout" recommended for multiproc
+        cache_shards: int = 64,
+        cache_timeout: float = 1.0,
     ) -> List[str]:
         outputs: List[str] = []
 
         total = len(prompts)
         cache_hits_total = 0
 
-        # Normalize to per-prompt guidance (crucial fix)
         per_prompt_guidance: List[List[str]] = self._normalize_guided_choices(prompts, guided_choices)
-
 
         with tqdm(total=total, desc=f"vLLM completions for guided choices: {guided_choices}", unit="req") as pbar:
             for i in range(0, total, batch_size):
                 chunk = prompts[i: i + batch_size]
                 chunk_guidance = per_prompt_guidance[i: i + batch_size]
 
-                # Build keys for this chunk (now correctly per-prompt)
                 chunk_keys = [
                     self._cache_key(
                         prompt=p,
@@ -528,8 +656,13 @@ class VLLMServerManager:
                 # Read cache first
                 cached: dict[str, str] = {}
                 if cache_enabled and cache_dir:
-                    with Cache(cache_dir) as cache:
-                        cached = {k: cache[k] for k in chunk_keys if k in cache}
+                    with self._open_cache(
+                        cache_dir=cache_dir,
+                        cache_type=cache_type,
+                        shards=cache_shards,
+                        timeout=cache_timeout,
+                    ) as cache:
+                        cached = self._cache_get_many(cache, chunk_keys)
 
                 chunk_out: List[Optional[str]] = [None] * len(chunk)
 
@@ -562,9 +695,13 @@ class VLLMServerManager:
                                 max_retries=max_retries,
                                 retry_backoff_s=retry_backoff_s,
                                 pbar=None,
-                                guided_choices=miss_guidance,  # ✅ per-prompt, actually used
+                                guided_choices=miss_guidance,
                                 cache_dir=(cache_dir if (cache_enabled and cache_dir) else None),
                                 cache_keys=miss_keys,
+                                # --- pass through cache config ---
+                                cache_type=cache_type,
+                                cache_shards=cache_shards,
+                                cache_timeout=cache_timeout,
                             )
 
                             for pos, text in zip(miss_positions, miss_out):
@@ -582,7 +719,6 @@ class VLLMServerManager:
                     if last_err is not None:
                         raise last_err
                 else:
-                    # all hits
                     pbar.update(len(chunk))
 
                 missing = [idx for idx, r in enumerate(chunk_out) if r is None]
