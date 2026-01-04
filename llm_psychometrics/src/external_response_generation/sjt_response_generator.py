@@ -45,6 +45,8 @@ from jinja2 import Template  # type: ignore
 from pydantic import BaseModel  # type: ignore
 from tqdm import tqdm  # type: ignore
 
+from prompt_templates.sjt_persona_prompt_templates import sjt_persona_prompt_templates
+
 # =========================
 # Paths (match HEXACO runner style)
 # =========================
@@ -83,6 +85,71 @@ DEFAULT_ANSWER_OPTION_ORDERING: List[str] = [
     "conscientiousness_option",
     "openness_option",
 ]
+
+def render_llm_messages(template_messages, **kwargs):
+    rendered =  [
+        {"role": msg["role"], "content": msg["content"].render(**kwargs)}
+        for msg in template_messages
+    ]
+    return rendered
+
+
+def build_prompts(sjt_template, question_batch, answer_index, batching=False,
+                        persona_str=None, answer_shuffle=False):
+    """Generate a batch of questions."""
+    if batching:
+        raise NotImplementedError("Batching not implemented")
+
+    # Non-batched
+    prompt_list = []
+    hash_list = []
+    answer_index_list = []
+    for sjt_dict in question_batch:
+
+        answer_index_copy = answer_index.copy()
+        if answer_shuffle:
+
+            random.shuffle(answer_index_copy)
+        answer_index_list.append(list(answer_index_copy))
+
+        sjt = sjt_dict['corrected_sjt']
+        # print("raw sjt", sjt)
+        answer_options = [sjt[key] for key in DEFAULT_ANSWER_OPTION_ORDERING]
+        # print("answer options after default ordering ", answer_options)
+        answer_options = [answer_options[idx] for idx in answer_index_copy]
+        # print("final answer options", answer_options)
+        question = sjt['question']
+
+        prompt = render_llm_messages(
+            sjt_template,
+            attributes=persona_str,
+            question=question,
+            answer_options=list_to_str(answer_options)
+        )
+        # print("final prompt",prompt)
+        prompt_list.append(prompt)
+        hash_list.append(sjt_dict['hash_id'])
+
+def load_prompt_templates(model_name):
+    """
+    Use chat-style (OpenAI/vLLM) templates for all models to avoid Outlines/HF.
+    Signature unchanged.
+    """
+    # We ignore non-GPT branches to keep everything in chat format.
+    print("Loading Prompt Templates for Chat-style (OpenAI/vLLM) models")
+    base_templates = sjt_base_prompt_templates["gpt"]
+    persona_templates = sjt_persona_prompt_templates["gpt"]
+
+    # compile GPT messages into Jinja templates
+    def compile_message_templates(messages):
+        return [
+            {"role": msg["role"], "content": Template(msg["content"])}
+            for msg in messages
+        ]
+
+    base_sjt_template = compile_message_templates(base_templates)
+    persona_sjt_template = compile_message_templates(persona_templates)
+    return base_sjt_template, persona_sjt_template
 
 
 # =========================
@@ -149,6 +216,8 @@ class SJTResponseRunner:
         # retries passed to mgr.vllm_chat_batched
         self.max_retries: int = args.max_retries
         self.retry_backoff_s: float = args.retry_backoff_s
+
+        self.base_sjt_template, self.persona_sjt_template = load_prompt_templates(self.model)
 
     # ----------------------------
     # Hashing / helpers
@@ -262,8 +331,6 @@ class SJTResponseRunner:
         option_order = [DEFAULT_ANSWER_OPTION_ORDERING[i] for i in idxs]
         ordered_options = [sjt_item.get(k, "") for k in option_order]
 
-        base_template = Template(sjt_base_prompt_templates["sjt_base_prompt_template"])
-        persona_template = Template(sjt_persona_prompt_templates["sjt_persona_prompt_template"])
 
         scenario = sjt_item.get("scenario", sjt_item.get("prompt", ""))
         if not scenario:
@@ -272,9 +339,8 @@ class SJTResponseRunner:
         # Format options nicely (1..6 correspond to the *ordered* options)
         options_text = "\n".join([f"{i+1}. {opt}" for i, opt in enumerate(ordered_options)])
 
-        persona_block = persona_template.render(persona=persona_str)
-        prompt_text = base_template.render(
-            persona=persona_block,
+        prompt_text = self.persona_sjt_template.render(
+            persona=persona_str,
             scenario=scenario,
             options=options_text,
         )

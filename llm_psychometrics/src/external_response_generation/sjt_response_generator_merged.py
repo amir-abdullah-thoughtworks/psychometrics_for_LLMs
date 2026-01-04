@@ -46,6 +46,8 @@ from prompt_templates.sjt_base_prompt_templates import sjt_base_prompt_templates
 from prompt_templates.sjt_persona_prompt_templates import sjt_persona_prompt_templates
 from utils.vllm_utils import VLLMServerManager
 
+from pydantic import RootModel
+
 
 # =========================
 # Constants
@@ -102,14 +104,13 @@ class PersonaRunConfig(BaseModel):
     sjt_answer_options: Optional[Literal["normal", "shuffle"]] = None
 
 
-class ExperimentResults(BaseModel):
+class ExperimentResults(RootModel[Dict[str, "PersonaRunConfig"]]):
     """
     persona_uuid (or 'base_model') -> PersonaRunConfig
     """
-    __root__: Dict[str, PersonaRunConfig]
-
     def to_jsonable(self) -> Dict[str, Any]:
-        return {k: v.model_dump() for k, v in self.__root__.items()}
+        # In pydantic v2: RootModel stores value in `.root`
+        return {k: v.model_dump() for k, v in self.root.items()}
 # =========================
 # Runner
 # =========================
@@ -515,7 +516,7 @@ class SJTResponseRunner:
         if self.args.persona_source == "base_model":
             print("Running SJTs on Base Model without Personas")
             results["base_model"] = _run_one_persona("base_model", None, None)
-            return ExperimentResults(__root__=results)
+            return ExperimentResults(results)
 
         # --- Persona mode
         if persona_datasets is None:
@@ -531,7 +532,7 @@ class SJTResponseRunner:
 
             results[persona_uuid] = _run_one_persona(persona_uuid, persona_hash, persona_str)
 
-        return ExperimentResults(__root__=results)
+        return ExperimentResults(results)
 
 
     def run(self) -> str:
