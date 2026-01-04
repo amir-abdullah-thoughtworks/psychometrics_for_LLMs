@@ -43,6 +43,7 @@ class VLLMServerManager:
         self.timeout_s = timeout_s
         self.kill_existing = kill_existing
         self._proc = None
+        self._log("Started up vllm")
 
     def list_vllm_models(self) -> list[str]:
         """
@@ -370,10 +371,6 @@ class VLLMServerManager:
             retry_backoff_s: float,
             guided_choices: Optional[List[str]] = None,
     ) -> str:
-        def _log(msg: str):
-            ts = datetime.utcnow().isoformat()
-            with open(self.log_file, "a", encoding="utf-8") as f:
-                f.write(f"[{ts}] {msg}\n")
 
         self._log(f"Received guided choices {guided_choices}")
 
@@ -549,7 +546,7 @@ class VLLMServerManager:
         # Normalize to per-prompt guidance (crucial fix)
         per_prompt_guidance: List[List[str]] = self._normalize_guided_choices(prompts, guided_choices)
 
-        with tqdm(total=total, desc="vLLM completions", unit="req") as pbar:
+        with tqdm(total=total, desc=f"vLLM completions for guided choices: {guided_choices}", unit="req") as pbar:
             for i in range(0, total, batch_size):
                 chunk = prompts[i: i + batch_size]
                 chunk_guidance = per_prompt_guidance[i: i + batch_size]
