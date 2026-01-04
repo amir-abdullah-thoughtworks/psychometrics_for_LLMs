@@ -420,7 +420,7 @@ class VLLMServerManager:
         self,
         cache_dir: str,
         cache_type: str = "fanout",   # "fanout" (recommended for multiproc) or "cache"
-        shards: int = 128,
+        shards: int = 64,
         timeout: float = 1.0,
         **kwargs,
     ):
