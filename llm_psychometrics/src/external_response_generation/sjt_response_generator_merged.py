@@ -340,6 +340,8 @@ class SJTResponseRunner:
         prompts_all: List[List[str]] = []
         guided_all: List[List[List[str]]] = []
 
+        invalid_rows = 0
+
         for t in range(self.args.n_times):
             prompts: List[str] = []
             perms: List[List[int]] = []
@@ -372,8 +374,9 @@ class SJTResponseRunner:
                 # Keep only first token-ish to be safe
                 a = str(a.split()[0] if a else "")
                 if a not in SJT_ANSWER_CHOICES:
-                    # Still store raw first token; downstream can filter
+                    invalid_rows += 1
                     pass
+
                 else:
                     iter_answers.append(a)
                     iter_norm.append(normalize_answer_to_trait(a, perm))
@@ -385,6 +388,8 @@ class SJTResponseRunner:
             idx_all.append(iter_idx)
             prompts_all.append(prompts)
             guided_all.append(iter_guided)
+
+        print(f"Total invalid rows: {invalid_rows}")
 
         return PersonaRunConfig(
             persona=persona_uuid,
