@@ -163,13 +163,11 @@ class SJTResponseRunner:
         # Personas (same HF dataset as HEXACO runner)
         parser.add_argument("--hf-persona-path", type=str, default="thoughtworks/psychometric_personas")
         parser.add_argument("--hf-persona-config", type=str, default="expanded")
-        parser.add_argument("--hf-persona-split", type=str, default="train")
         parser.add_argument("--n-personasample", type=int, default=10)
 
         # SJTs
-        parser.add_argument("--hf-sjt-path", type=str, default="thoughtworks/psychometric_SJTs")
-        parser.add_argument("--hf-sjt-config", type=str, default=None)
-        parser.add_argument("--hf-sjt-split", type=str, default="restricted")
+        parser.add_argument("--hf-sjt-path", type=str, default="thoughtworks/psychometric_sjts_analysis")
+        parser.add_argument("--hf-sjt-config", type=str, default="debug")
         parser.add_argument("--n-sjtsample", type=int, default=10)
 
         # Prompt / generation
@@ -267,12 +265,9 @@ class SJTResponseRunner:
     # ----------------------------
     def load_sjts(self) -> List[Dict[str, Any]]:
         print("Using Huggingface SJTs")
-        print(f"Loading SJTs from {self.args.hf_sjt_path} (config={self.args.hf_sjt_config}, split={self.args.hf_sjt_split})")
+        print(f"Loading SJTs from {self.args.hf_sjt_path} (config={self.args.hf_sjt_config})")
 
-        if self.args.hf_sjt_config:
-            ds = load_dataset(self.args.hf_sjt_path, name=self.args.hf_sjt_config)[self.args.hf_sjt_split]
-        else:
-            ds = load_dataset(self.args.hf_sjt_path)[self.args.hf_sjt_split]
+        ds = load_dataset(self.args.hf_sjt_path, name=self.args.hf_sjt_config)["train"]
 
         n = min(self.args.n_sjtsample, len(ds))
         if n <= 0:
@@ -284,12 +279,13 @@ class SJTResponseRunner:
         sjt_records = ds.to_pandas().to_dict("records")
         print(f"No of SJTs: {len(sjt_records)}")
         return sjt_records
+
     def load_personas(self) -> Optional[Union[Dataset, List[Dict[str, Any]]]]:
         if self.args.persona_source == "huggingface":
             print("Using Huggingface Personas")
-            print(f"Loading Personas from {self.args.hf_persona_path} (config={self.args.hf_persona_config}, split={self.args.hf_persona_split})")
+            print(f"Loading Personas from {self.args.hf_persona_path} (config={self.args.hf_persona_config})")
 
-            ds = load_dataset(self.args.hf_persona_path, name=self.args.hf_persona_config)[self.args.hf_persona_split]
+            ds = load_dataset(self.args.hf_persona_path, name=self.args.hf_persona_config)["train"]
             n = min(self.args.n_personasample, len(ds))
             if n <= 0:
                 print("No personas requested; returning empty dataset.")
