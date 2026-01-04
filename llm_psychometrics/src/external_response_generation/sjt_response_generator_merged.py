@@ -477,7 +477,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--max-tokens", type=int, default=1)
     p.add_argument("--temperature", type=float, default=0.0)
     p.add_argument("--batch-size", type=int, default=1000)
-    p.add_argument("--num-workers", type=int, default=60)
+    p.add_argument("--num-workers", type=int, default=70)
 
     # Templates / SJT behavior
     p.add_argument("--template-key", type=str, default="gpt")
