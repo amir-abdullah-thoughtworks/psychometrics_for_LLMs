@@ -140,13 +140,13 @@ def normalize_answer_to_trait(
     """
     a = (answer or "").strip()
     if a not in SJT_ANSWER_CHOICES:
-        return None
+        raise ValueError(f"Invalid answer choice: {a}")
     displayed_idx = int(a) - 1
     if not (0 <= displayed_idx < 6):
-        return None
+        raise ValueError(f"Invalid answer displayed index: {displayed_idx}")
     canonical_idx = permutation_displayed_to_canonical[displayed_idx]
     if not (0 <= canonical_idx < 6):
-        return None
+        raise ValueError(f"Invalid permutation displayed index: {canonical_idx}")
     return DEFAULT_ANSWER_OPTION_ORDERING[canonical_idx]
 
 
