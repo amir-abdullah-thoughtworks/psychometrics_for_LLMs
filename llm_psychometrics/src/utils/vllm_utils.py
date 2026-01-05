@@ -4,6 +4,7 @@ import psutil
 import socket
 import subprocess
 import hashlib
+import json
 import requests
 import sys
 import time
@@ -392,14 +393,15 @@ class VLLMServerManager:
                     f"raw={text!r} "
                     f"token={token!r}"
                 )
-                time.sleep(0.2 * (2 ** attempt))
+                time.sleep(0.01 * (2 ** attempt))
 
             except Exception as e:
                 last_err = e
                 self._log(
                     f"VLLM_EXCEPTION "
                     f"attempt={attempt + 1} "
-                    f"err={repr(e)}"
+                    f"err={repr(e)} on payload "
+                    f"{json.dumps(payload, indent=4)}"
                 )
                 time.sleep(0.2 * (2 ** attempt))
 
