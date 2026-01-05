@@ -361,6 +361,8 @@ class SJTResponseRunner:
                 batch_size=self.args.batch_size,
                 num_workers=self.args.num_workers,
                 guided_choices=SJT_ANSWER_CHOICES,
+                cache_enabled=True,
+                cache_type='diskcache'
             )
 
             # Normalize / record
@@ -476,8 +478,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--model", type=str, default="Qwen/Qwen2.5-7B-Instruct")
     p.add_argument("--max-tokens", type=int, default=1)
     p.add_argument("--temperature", type=float, default=0.0)
-    p.add_argument("--batch-size", type=int, default=1000)
-    p.add_argument("--num-workers", type=int, default=70)
+    p.add_argument("--batch-size", type=int, default=500)
+    p.add_argument("--num-workers", type=int, default=6)
 
     # Templates / SJT behavior
     p.add_argument("--template-key", type=str, default="gpt")
@@ -501,7 +503,7 @@ def parse_args() -> argparse.Namespace:
 
     # SJT dataset
     p.add_argument("--hf-sjt-path", type=str, default="thoughtworks/psychometric_sjts_analysis")
-    p.add_argument("--hf-sjt-config", type=str, default="expanded")
+    p.add_argument("--hf-sjt-config", type=str, default="restricted")
     p.add_argument("--hf-sjt-split", type=str, default="train")
 
     # Output
