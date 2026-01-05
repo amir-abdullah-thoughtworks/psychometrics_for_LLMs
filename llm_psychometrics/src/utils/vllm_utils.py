@@ -659,7 +659,7 @@ class VLLMServerManager:
 
         if cache_enabled and cache_dir:
             hits = cache_hits_total
-            print(f"[vllm_chat_batched] Cache hits: {hits}/{total} ({(100.0 * hits / max(1, total)):.1f}%)")
+            self._log(f"[vllm_chat_batched] Cache hits: {hits}/{total} ({(100.0 * hits / max(1, total)):.1f}%)")
 
         return outputs
 
