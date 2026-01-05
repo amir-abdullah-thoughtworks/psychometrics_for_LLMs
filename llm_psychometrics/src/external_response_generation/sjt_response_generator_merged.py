@@ -108,6 +108,16 @@ class ExperimentResults(RootModel[Dict[str, PersonaRunConfig]]):
 def stable_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
+def prompt_seed_int(*parts: str, salt: str = "sjt_shuffle_v1") -> int:
+    """
+    Deterministic 32-bit seed from stable SHA256 over concatenated parts.
+    Use parts that uniquely define the prompt instance (persona, question, etc).
+    """
+    s = salt + "||" + "||".join(parts)
+    # take first 8 hex chars = 32 bits (enough for random.Random seed)
+    return int(hashlib.sha256(s.encode("utf-8")).hexdigest()[:8], 16)
+
+
 def compile_message_templates(messages: List[Dict[str, str]]) -> List[Dict[str, Any]]:
     return [{"role": m["role"], "content": Template(m["content"])} for m in messages]
 
@@ -294,7 +304,10 @@ class SJTResponseRunner:
         chosen = persona_msgs if self.args.use_persona_template else base_msgs
         self.compiled_templates = compile_message_templates(chosen)
 
-    def _make_shuffled_options(self, canonical_options: List[str]) -> Tuple[List[str], List[int]]:
+    def _make_shuffled_options(
+            self, canonical_options: List[str],
+            *, seed: Optional[int] = None,
+    ) -> Tuple[List[str], List[int]]:
         """
         Returns:
           displayed_options: List[str] length 6 (possibly shuffled)
@@ -304,7 +317,8 @@ class SJTResponseRunner:
             return canonical_options[:], list(range(6))
 
         perm = list(range(6))
-        random.shuffle(perm)
+        rng = random.Random(seed) if seed is not None else random
+        rng.shuffle(perm)
         displayed = [canonical_options[i] for i in perm]
         return displayed, perm
 
@@ -348,7 +362,11 @@ class SJTResponseRunner:
             displayed_options_list: List[List[str]] = []
 
             for sjt in sjts:
-                displayed, perm = self._make_shuffled_options(sjt.options_canonical)
+                seed = prompt_seed_int(
+                    str(persona_hash or persona_uuid or "base_model"),
+                    str(sjt.hash_id)
+                )
+                displayed, perm = self._make_shuffled_options(sjt.options_canonical, seed=seed)
                 displayed_options_list.append(displayed)
                 perms.append(perm)
                 prompts.append(self._build_prompt(persona_str=persona_str, sjt=sjt, displayed_options=displayed))
@@ -377,7 +395,11 @@ class SJTResponseRunner:
                 a = str(a.split()[0] if a else "")
                 if a not in SJT_ANSWER_CHOICES:
                     invalid_rows += 1
-                    pass
+                    a = None
+                    iter_answers.append(a)
+                    iter_norm.append(a)
+                    iter_idx.append(perm)
+                    iter_guided.append(SJT_ANSWER_CHOICES)
 
                 else:
                     iter_answers.append(a)
@@ -550,7 +572,6 @@ def main() -> None:
         print(f"Pushed to hub -> {args.target_hub_repo_id} (config={args.target_hub_config})")
     else:
         print("Skipping hub push (debug mode or push disabled).")
-
 
 if __name__ == "__main__":
     main()
