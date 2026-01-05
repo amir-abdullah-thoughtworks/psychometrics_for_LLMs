@@ -526,7 +526,6 @@ def parse_args() -> argparse.Namespace:
 
     return args
 
-
 def main() -> None:
     args = parse_args()
 
