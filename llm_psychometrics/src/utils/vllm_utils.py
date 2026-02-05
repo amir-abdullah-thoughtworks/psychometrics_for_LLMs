@@ -4,6 +4,7 @@ import psutil
 import socket
 import subprocess
 import hashlib
+import json
 import requests
 import sys
 import time
@@ -227,10 +228,9 @@ class VLLMServerManager:
         cmd = [
             self.python_executable,
             "-m", "vllm.entrypoints.openai.api_server",
-            "--gpu-memory-utilization", "0.8",
-            "--max-num-batched-tokens", "70000",
-            "--max-num-seqs", "200",
-            "--enforce-eager", # Needed to prevent erroring out on cluster.
+            "--gpu-memory-utilization", "0.85",
+            "--max-num-batched-tokens", "10000",
+            "--max-num-seqs", "30",
             "--disable-log-requests",
             "--max-model-len", "2048",
             "--disable-log-stats",
@@ -393,14 +393,15 @@ class VLLMServerManager:
                     f"raw={text!r} "
                     f"token={token!r}"
                 )
-                time.sleep(0.2 * (2 ** attempt))
+                time.sleep(0.01 * (2 ** attempt))
 
             except Exception as e:
                 last_err = e
                 self._log(
                     f"VLLM_EXCEPTION "
                     f"attempt={attempt + 1} "
-                    f"err={repr(e)}"
+                    f"err={repr(e)} on payload "
+                    f"{json.dumps(payload, indent=4)}"
                 )
                 time.sleep(0.2 * (2 ** attempt))
 
@@ -420,7 +421,7 @@ class VLLMServerManager:
         self,
         cache_dir: str,
         cache_type: str = "fanout",   # "fanout" (recommended for multiproc) or "cache"
-        shards: int = 128,
+        shards: int = 64,
         timeout: float = 1.0,
         **kwargs,
     ):
@@ -660,7 +661,7 @@ class VLLMServerManager:
 
         if cache_enabled and cache_dir:
             hits = cache_hits_total
-            print(f"[vllm_chat_batched] Cache hits: {hits}/{total} ({(100.0 * hits / max(1, total)):.1f}%)")
+            self._log(f"[vllm_chat_batched] Cache hits: {hits}/{total} ({(100.0 * hits / max(1, total)):.1f}%)")
 
         return outputs
 

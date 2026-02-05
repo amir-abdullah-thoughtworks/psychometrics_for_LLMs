@@ -111,6 +111,16 @@ class ExperimentResults(RootModel[Dict[str, PersonaRunConfig]]):
 def stable_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
+def prompt_seed_int(*parts: str, salt: str = "sjt_shuffle_v1") -> int:
+    """
+    Deterministic 32-bit seed from stable SHA256 over concatenated parts.
+    Use parts that uniquely define the prompt instance (persona, question, etc).
+    """
+    s = salt + "||" + "||".join(parts)
+    # take first 8 hex chars = 32 bits (enough for random.Random seed)
+    return int(hashlib.sha256(s.encode("utf-8")).hexdigest()[:8], 16)
+
+
 def compile_message_templates(messages: List[Dict[str, str]]) -> List[Dict[str, Any]]:
     return [{"role": m["role"], "content": Template(m["content"])} for m in messages]
 
@@ -285,11 +295,19 @@ def push_results_to_hub(exp: ExperimentResults, args: argparse.Namespace) -> Non
 # =========================
 
 class SJTResponseRunner:
-    def __init__(self, args: argparse.Namespace, mgr: VLLMServerManager):
+    def __init__(self, args: argparse.Namespace, mgr: VLLMServerManager, persona_max_tokens=1150):
         self.args = args
         self.mgr = mgr
 
         transformers.logging.set_verbosity_error()
+
+        self.persona_max_tokens = persona_max_tokens  # hard-enforced as requested
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.args.model,
+            use_fast=True,
+            trust_remote_code=True,  # Qwen tokenizers sometimes need this
+        )
+
 
         # Templates
         base_msgs = sjt_base_prompt_templates[self.args.template_key]
@@ -297,7 +315,30 @@ class SJTResponseRunner:
         chosen = persona_msgs if self.args.use_persona_template else base_msgs
         self.compiled_templates = compile_message_templates(chosen)
 
-    def _make_shuffled_options(self, canonical_options: List[str]) -> Tuple[List[str], List[int]]:
+    def _truncate_persona_to_tokens(self, persona_str: str) -> Tuple[str, bool, int, int]:
+        """
+        Returns: (possibly_truncated_persona, was_truncated, orig_tokens, new_tokens)
+        Truncates to self.persona_max_tokens using the model tokenizer.
+        """
+        if not persona_str:
+            return persona_str, False, 0, 0
+
+        ids = self.tokenizer.encode(persona_str, add_special_tokens=False)
+        orig_n = len(ids)
+        if orig_n <= self.persona_max_tokens:
+            return persona_str, False, orig_n, orig_n
+
+        ids = ids[: self.persona_max_tokens]
+        truncated = self.tokenizer.decode(ids, skip_special_tokens=True)
+        # Optional cleanup: avoid trailing partial whitespace
+        truncated = truncated.rstrip()
+
+        return truncated, True, orig_n, len(ids)
+
+    def _make_shuffled_options(
+            self, canonical_options: List[str],
+            *, seed: Optional[int] = None,
+    ) -> Tuple[List[str], List[int]]:
         """
         Returns:
           displayed_options: List[str] length 6 (possibly shuffled)
@@ -307,7 +348,8 @@ class SJTResponseRunner:
             return canonical_options[:], list(range(6))
 
         perm = list(range(6))
-        random.shuffle(perm)
+        rng = random.Random(seed) if seed is not None else random
+        rng.shuffle(perm)
         displayed = [canonical_options[i] for i in perm]
         return displayed, perm
 
@@ -351,7 +393,11 @@ class SJTResponseRunner:
             displayed_options_list: List[List[str]] = []
 
             for sjt in sjts:
-                displayed, perm = self._make_shuffled_options(sjt.options_canonical)
+                seed = prompt_seed_int(
+                    str(persona_hash or persona_uuid or "base_model"),
+                    str(sjt.hash_id)
+                )
+                displayed, perm = self._make_shuffled_options(sjt.options_canonical, seed=seed)
                 displayed_options_list.append(displayed)
                 perms.append(perm)
                 prompts.append(self._build_prompt(persona_str=persona_str, sjt=sjt, displayed_options=displayed))
@@ -364,7 +410,9 @@ class SJTResponseRunner:
                 batch_size=self.args.batch_size,
                 num_workers=self.args.num_workers,
                 guided_choices=SJT_ANSWER_CHOICES,
-                cache_enabled=False
+                cache_enabled=True,
+                cache_type='diskcache'
+
             )
 
             # Normalize / record
@@ -379,7 +427,11 @@ class SJTResponseRunner:
                 a = str(a.split()[0] if a else "")
                 if a not in SJT_ANSWER_CHOICES:
                     invalid_rows += 1
-                    pass
+                    a = None
+                    iter_answers.append(a)
+                    iter_norm.append(a)
+                    iter_idx.append(perm)
+                    iter_guided.append(SJT_ANSWER_CHOICES)
 
                 else:
                     iter_answers.append(a)
@@ -450,6 +502,8 @@ class SJTResponseRunner:
         else:
             persona_count = len(persona_ds)
 
+        truncated_count = 0
+
         for i in tqdm(range(persona_count), desc="Personas"):
             persona_row = persona_ds[i]
             persona_uuid = (
@@ -464,7 +518,23 @@ class SJTResponseRunner:
             if persona_str is None:
                 raise ValueError(f"Persona row missing persona_string/attributes/persona. Keys={list(persona_row.keys())}")
 
-            results[str(persona_uuid)] = self._run_one_persona(str(persona_uuid), persona_hash, str(persona_str), sjts)
+            # ✅ HARD ENFORCE: truncate persona to 1150 tokens (Qwen tokenizer)
+            persona_str = str(persona_str)
+            persona_str, was_trunc, orig_n, new_n = self._truncate_persona_to_tokens(persona_str)
+            if was_trunc:
+                truncated_count += 1
+                # keep log lightweight but informative
+                if truncated_count <= 5:
+                    print(f"[persona trunc] {persona_uuid}: {orig_n} -> {new_n} tokens")
+                elif truncated_count == 6:
+                    print("[persona trunc] ... (suppressing further truncation logs)")
+
+            results[str(persona_uuid)] = self._run_one_persona(str(persona_uuid), persona_hash, persona_str, sjts)
+
+        if truncated_count:
+            print(f"[persona trunc] total personas truncated: {truncated_count}/{persona_count}")
+        else:
+            print("[persona trunc] no personas exceeded 1150 tokens")
 
         return ExperimentResults(results)
 
@@ -480,8 +550,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--model", type=str, default="Qwen/Qwen2.5-7B-Instruct")
     p.add_argument("--max-tokens", type=int, default=1)
     p.add_argument("--temperature", type=float, default=0.0)
-    p.add_argument("--batch-size", type=int, default=1000)
-    p.add_argument("--num-workers", type=int, default=70)
+    p.add_argument("--batch-size", type=int, default=500)
+    p.add_argument("--num-workers", type=int, default=6)
 
     # Templates / SJT behavior
     p.add_argument("--template-key", type=str, default="gpt")
@@ -528,7 +598,6 @@ def parse_args() -> argparse.Namespace:
 
     return args
 
-
 def main() -> None:
     args = parse_args()
 
@@ -553,7 +622,6 @@ def main() -> None:
         print(f"Pushed to hub -> {args.target_hub_repo_id} (config={args.target_hub_config})")
     else:
         print("Skipping hub push (debug mode or push disabled).")
-
 
 if __name__ == "__main__":
     main()
