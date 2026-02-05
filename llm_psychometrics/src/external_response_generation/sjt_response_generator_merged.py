@@ -26,6 +26,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
+
+os.environ["HF_HOME"] = "/workspace/mounted/.cache"
 import transformers
 from datasets import Dataset, DatasetDict, load_dataset
 from jinja2 import Template
@@ -37,6 +39,7 @@ from utils_v0 import list_to_str
 from prompt_templates.sjt_base_prompt_templates import sjt_base_prompt_templates
 from prompt_templates.sjt_persona_prompt_templates import sjt_persona_prompt_templates
 from utils.vllm_utils import VLLMServerManager
+
 
 
 # =========================
@@ -361,6 +364,7 @@ class SJTResponseRunner:
                 batch_size=self.args.batch_size,
                 num_workers=self.args.num_workers,
                 guided_choices=SJT_ANSWER_CHOICES,
+                cache_enabled=False
             )
 
             # Normalize / record
@@ -501,7 +505,7 @@ def parse_args() -> argparse.Namespace:
 
     # SJT dataset
     p.add_argument("--hf-sjt-path", type=str, default="thoughtworks/psychometric_sjts_analysis")
-    p.add_argument("--hf-sjt-config", type=str, default="expanded")
+    p.add_argument("--hf-sjt-config", type=str, default="restricted")
     p.add_argument("--hf-sjt-split", type=str, default="train")
 
     # Output

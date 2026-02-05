@@ -372,6 +372,7 @@ class HexacoResponseRunner:
             batch_size=self.mp_batch_size,
             num_workers=self.mp_workers,
             max_retries=self.max_retries,
+            cache_enabled=False,
             retry_backoff_s=self.retry_backoff_s,
         )
         return self._extract_texts(outputs)
