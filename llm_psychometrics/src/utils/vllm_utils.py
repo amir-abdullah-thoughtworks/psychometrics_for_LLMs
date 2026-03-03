@@ -378,6 +378,8 @@ class VLLMServerManager:
                     return text
 
                 token = _normalize(text)
+                self._log(f"Token: {token}"
+                          f"Choice Set: {choice_set}")
                 if token in choice_set:
                     if had_mismatch:
                         self._log(
@@ -503,7 +505,7 @@ class VLLMServerManager:
 
         args_list = [
             (
-                idx, self.base_url if idx % 2 == 0 else self.backup_url,
+                idx, self.base_url, # if idx % 2 == 0 else self.backup_url,
                 prompt, model, max_tokens, temperature,
                 max_retries, retry_backoff_s, guided_choices[idx], response_format
             )
@@ -713,11 +715,25 @@ def _mp_chat_one_worker_args(args):
 
 
 def make_math_prompts(n: int) -> list[str]:
-    return [f"What is {i} + {i+1}? Answer with ONLY the integer." for i in range(n)]
+    return [f"""What is {i} + {i+1}? Answer with reasoning along with the integer. Return output as a JSON
+            
+            {
+                "reasoning": "Step-by-step logic to reach the answer",
+                "answer": "int",
+                "confidence_score": [0-1]
+            }
+            
+            """ for i in range(n)]
 
 
 def main():
-    NUM_PROMPTS = 207
+    
+    class StructuredCOTResponse(BaseModel):
+        reasoning: str = Field(description="Step-by-step logic to reach the answer")
+        answer: float
+        confidence_score: float
+    
+    NUM_PROMPTS = 20
     MP_WORKERS = 100
     BATCH_SIZE = 100
 
@@ -725,9 +741,10 @@ def main():
     out_jsonl.parent.mkdir(parents=True, exist_ok=True)
 
     mgr = VLLMServerManager()
+    # mgr.ensure_fresh_server()
     prompts = make_math_prompts(NUM_PROMPTS)
 
-    guided_choices = [str(i) for i in range(1, 5000)]
+    guided_choices = [str(i) for i in range(1, 2*NUM_PROMPTS+1)]
 
     outputs = mgr.vllm_chat_batched(
         prompts=prompts,
