@@ -19,7 +19,7 @@ import random
 
 # Custom imports
 sys.path.append("../")
-from src.utils.vllm_utils import VLLMServerManager
+from utils.vllm_utils import VLLMServerManager
 
 vllm_client = OpenAI(
         base_url="http://127.0.0.1:8000/v1",
@@ -39,7 +39,7 @@ NO_ANSWER = "Do not wish to answer"
 # ----------------------------
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model-name", type=str, default="meta-llama/Llama-3.2-1B-Instruct",
+    parser.add_argument("--model-name", type=str, default="Qwen/Qwen2.5-7B-Instruct",
                         help="Model Name")
     parser.add_argument("--hf-token", type=str, default=None,
                         help="Huggingface token")
