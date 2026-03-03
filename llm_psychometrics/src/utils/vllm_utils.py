@@ -18,7 +18,7 @@ from typing import List, Optional, Union
 import sqlite3
 from contextlib import contextmanager
 from diskcache import Cache
-from datetime import datetime
+from datetime import datetime, UTC
 
 from diskcache import Cache, FanoutCache
 
@@ -418,7 +418,7 @@ class VLLMServerManager:
         return None
 
     def _log(self, msg: str):
-        ts = datetime.utcnow().isoformat()
+        ts = datetime.now(UTC).isoformat()
         with open(self.log_file, "a", encoding="utf-8") as f:
             f.write(f"[{ts}] {msg}\n")
 
@@ -717,7 +717,7 @@ def make_math_prompts(n: int) -> list[str]:
 
 
 def main():
-    NUM_PROMPTS = 2007
+    NUM_PROMPTS = 207
     MP_WORKERS = 100
     BATCH_SIZE = 100
 
