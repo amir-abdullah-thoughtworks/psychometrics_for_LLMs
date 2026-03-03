@@ -4,6 +4,7 @@ import psutil
 import socket
 import subprocess
 import hashlib
+import json
 import requests
 import sys
 import time
@@ -12,11 +13,13 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from pathlib import Path
 from tqdm import tqdm
-from typing import List, Optional
+from typing import List, Optional, Union
 import sqlite3
 from contextlib import contextmanager
 from diskcache import Cache
+from datetime import datetime
 
+from diskcache import Cache, FanoutCache
 
 class VLLMServerManager:
     """
@@ -35,6 +38,7 @@ class VLLMServerManager:
         self.host = host
         self.port = port
         self.base_url = f"http://{host}:{port}"
+        self.backup_url = f"http://{host}:8001"
         self.python_executable = python_executable
         self.server_extra_args = server_extra_args or []
         self.env = {**os.environ, **(env or {})}
@@ -224,10 +228,9 @@ class VLLMServerManager:
         cmd = [
             self.python_executable,
             "-m", "vllm.entrypoints.openai.api_server",
-            "--gpu-memory-utilization", "0.8",
-            "--max-num-batched-tokens", "70000",
-            "--max-num-seqs", "200",
-            "--enforce-eager", # Needed to prevent erroring out on cluster.
+            "--gpu-memory-utilization", "0.85",
+            "--max-num-batched-tokens", "10000",
+            "--max-num-seqs", "30",
             "--disable-log-requests",
             "--max-model-len", "2048",
             "--disable-log-stats",
@@ -295,6 +298,38 @@ class VLLMServerManager:
         return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+    def _normalize_guided_choices(
+            self,
+            prompts: List[str],
+            guided_choices: Optional[Union[List[str], List[Optional[List[str]]]]],
+    ) -> List[List[str]]:
+        """
+        Normalize guided choices into a per-prompt List[List[str]].
+        Supports:
+          - None -> [[]] * len(prompts)
+          - List[str] -> same choices for all prompts
+          - List[Optional[List[str]]] with len == len(prompts) -> per-prompt choices
+        """
+        n = len(prompts)
+        if guided_choices is None:
+            raise ValueError(f"No guided choices provided")
+            return [[] for _ in range(n)]
+
+        # Case A: shared list[str] for all prompts
+        if guided_choices and isinstance(guided_choices[0], str):  # type: ignore[index]
+            shared = list(guided_choices)  # type: ignore[assignment]
+            return [shared for _ in range(n)]
+
+        # Case B: per-prompt list
+        per = guided_choices  # type: ignore[assignment]
+        if len(per) != n:
+            raise ValueError(
+                f"guided_choices must be List[str] (shared) OR List[Optional[List[str]]] with len==len(prompts). "
+                f"Got len(guided_choices)={len(per)} vs len(prompts)={n}."
+            )
+        return [gc or [] for gc in per]
+
+
     def vllm_chat(
             self,
             prompt: str,
@@ -304,78 +339,168 @@ class VLLMServerManager:
             guided_choices: Optional[List[str]] = None,
     ) -> str:
         guided_choices = guided_choices or []
-        payload = {
-            "model": model,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-        }
-        # Only apply guided_choice if non-empty
-        if guided_choices:
-            payload["extra_body"] = {"guided_choice": guided_choices}
+        choice_set = {c.strip() for c in guided_choices}
 
-        resp = requests.post(
-            f"{self.base_url}/v1/chat/completions",
-            json=payload,
-            timeout=30,
-        )
-        resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"]
+        def _normalize(resp: str) -> str:
+            # strict + simple: first token only
+            return resp.strip().split(None, 1)[0]
 
+        last_err: Optional[Exception] = None
+        had_mismatch = False
 
-    def _chat_one(
-            self,
-            prompt: str,
-            model: str,
-            max_tokens: int,
-            temperature: float,
-            max_retries: int,
-            retry_backoff_s: float,
-            guided_choices: Optional[List[str]] = None,
-    ) -> str:
-        last_err = None
-        for attempt in range(max_retries):
+        for attempt in range(3):
             try:
-                return self.vllm_chat(
-                    prompt=prompt,
-                    model=model,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    guided_choices=guided_choices,
+                payload = {
+                    "model": model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                }
+
+                if guided_choices:
+                    payload["extra_body"] = {"guided_choice": guided_choices}
+
+                resp = requests.post(
+                    f"{self.base_url}/v1/chat/completions",
+                    json=payload
                 )
+                resp.raise_for_status()
+
+                text = resp.json()["choices"][0]["message"]["content"]
+
+                # No constraint → return raw
+                if not choice_set:
+                    return text
+
+                token = _normalize(text)
+                if token in choice_set:
+                    if had_mismatch:
+                        self._log(
+                            f"GUIDED_CHOICES_RECOVERED "
+                            f"attempt={attempt + 1} "
+                            f"token={token!r}"
+                        )
+                    return token
+
+                # Mismatch → retry
+                had_mismatch = True
+                last_err = ValueError(
+                    f"guided_choices mismatch: raw={text!r}, token={token!r}"
+                )
+                self._log(
+                    f"GUIDED_CHOICES_MISMATCH "
+                    f"attempt={attempt + 1} "
+                    f"raw={text!r} "
+                    f"token={token!r}"
+                )
+                time.sleep(0.01 * (2 ** attempt))
+
             except Exception as e:
                 last_err = e
-                time.sleep(retry_backoff_s * (2 ** attempt))
-        raise RuntimeError("vllm_chat failed") from last_err
+                self._log(
+                    f"VLLM_EXCEPTION "
+                    f"attempt={attempt + 1} "
+                    f"err={repr(e)} on payload "
+                    f"{json.dumps(payload, indent=4)}"
+                )
+                time.sleep(0.2 * (2 ** attempt))
 
+        self._log(
+            "GUIDED_CHOICES_FINAL_FAILURE "
+            f"retries=3"
+            f"last_err={repr(last_err)}"
+        )
+        return None
+
+    def _log(self, msg: str):
+        ts = datetime.utcnow().isoformat()
+        with open(self.log_file, "a", encoding="utf-8") as f:
+            f.write(f"[{ts}] {msg}\n")
+
+    def _open_cache(
+        self,
+        cache_dir: str,
+        cache_type: str = "fanout",   # "fanout" (recommended for multiproc) or "cache"
+        shards: int = 64,
+        timeout: float = 1.0,
+        **kwargs,
+    ):
+        """
+        Returns a diskcache cache instance.
+
+        FanoutCache is strongly preferred for multi-process writers/readers.
+        - cache_type="fanout": FanoutCache(cache_dir, shards=..., timeout=...)
+        - cache_type="cache":  Cache(cache_dir)
+        """
+        cache_type = (cache_type or "fanout").lower().strip()
+
+        if cache_type in {"fanout", "fanoutcache", "fan_out", "fan-out"}:
+            # FanoutCache expects a directory; it will create per-shard subdirs.
+            Path(cache_dir).mkdir(parents=True, exist_ok=True)
+            return FanoutCache(cache_dir, shards=int(shards), timeout=float(timeout), **kwargs)
+
+        if cache_type in {"cache", "diskcache"}:
+            Path(cache_dir).mkdir(parents=True, exist_ok=True)
+            return Cache(cache_dir, **kwargs)
+
+        raise ValueError(f"Unknown cache_type={cache_type!r}. Use 'fanout' or 'cache'.")
+
+    @staticmethod
+    def _cache_get_many(cache, keys: List[str]) -> dict[str, str]:
+        """
+        diskcache Cache supports __contains__/__getitem__.
+        FanoutCache supports .get similarly; safest is using .get with default.
+        """
+        out: dict[str, str] = {}
+        for k in keys:
+            v = cache.get(k, default=None)
+            if v is not None:
+                out[k] = v
+        return out
+
+    @staticmethod
+    def _cache_set_many(cache, items: List[tuple[str, str]]):
+        for k, v in items:
+            cache.set(k, v)
+
+    # ...
 
     def _mp_chat_chunk(
-            self,
-            prompts: List[str],
-            model: str,
-            max_tokens: int,
-            temperature: float,
-            num_workers: int,
-            max_retries: int,
-            retry_backoff_s: float,
-            pbar: Optional[tqdm] = None,
-            guided_choices: Optional[List[str]] = None,
-            # NEW (needed for diskcache write-through)
-            cache_dir: Optional[str] = None,
-            cache_keys: Optional[List[str]] = None,
+        self,
+        prompts: List[str],
+        model: str,
+        max_tokens: int,
+        temperature: float,
+        num_workers: int,
+        max_retries: int,
+        retry_backoff_s: float,
+        pbar: Optional[tqdm] = None,
+        guided_choices: Optional[List[List[str]]] = None,  # per-prompt
+        cache_dir: Optional[str] = None,
+        cache_keys: Optional[List[str]] = None,
+        # --- NEW ---
+        cache_type: str = "fanout",
+        cache_shards: int = 64,
+        cache_timeout: float = 1.0,
     ) -> List[str]:
         """
         Returns outputs in the exact same order as `prompts`.
 
-        If cache_dir+cache_keys are provided, writes (key -> output) to diskcache
-        after completion (in the parent process).
+        guided_choices: per-prompt List[List[str]] aligned with prompts.
         """
         n = len(prompts)
         results: List[Optional[str]] = [None] * n
 
-        guided_choices = guided_choices or []
+        guided_choices = guided_choices or [[] for _ in range(n)]
+        if len(guided_choices) != n:
+            raise ValueError("guided_choices must be the same length as prompts (per-prompt).")
+
         args_list = [
-            (idx, self.base_url, prompt, model, max_tokens, temperature, max_retries, retry_backoff_s, guided_choices)
+            (
+                idx, self.base_url if idx % 2 == 0 else self.backup_url,
+                prompt, model, max_tokens, temperature,
+                max_retries, retry_backoff_s, guided_choices[idx],
+            )
             for idx, prompt in enumerate(prompts)
         ]
 
@@ -406,65 +531,79 @@ class VLLMServerManager:
         if cache_dir is not None:
             if cache_keys is None or len(cache_keys) != len(out):
                 raise ValueError("cache_keys must be provided and match prompts length when cache is enabled.")
-            with Cache(cache_dir) as cache:
-                for k, v in zip(cache_keys, out):
-                    cache[k] = v
+
+            with self._open_cache(
+                cache_dir=cache_dir,
+                cache_type=cache_type,
+                shards=cache_shards,
+                timeout=cache_timeout,
+            ) as cache:
+                self._cache_set_many(cache, list(zip(cache_keys, out)))
 
         return out
 
-
     def vllm_chat_batched(
-            self,
-            prompts: List[str],
-            guided_choices: List[str] = None,
-            model: str = "Qwen/Qwen2.5-7B-Instruct",
-            max_tokens: int = 128,
-            temperature: float = 0.0,
-            batch_size: int = 100,
-            num_workers: int = 100,
-            max_retries: int = 3,
-            retry_backoff_s: float = 0.1,
-            chunk_max_retries: int = 2,
-            chunk_retry_backoff_s: float = 0.5,
-            # NEW:
-            cache_dir: Optional[str] = ".vllm_cache/diskcache",
-            cache_enabled: bool = True,
+        self,
+        prompts: List[str],
+        guided_choices: Optional[Union[List[str], List[Optional[List[str]]]]] = None,
+        model: str = "Qwen/Qwen2.5-7B-Instruct",
+        max_tokens: int = 128,
+        temperature: float = 0.0,
+        batch_size: int = 100,
+        num_workers: int = 100,
+        max_retries: int = 5,
+        retry_backoff_s: float = 0.1,
+        chunk_max_retries: int = 2,
+        chunk_retry_backoff_s: float = 0.5,
+        cache_dir: Optional[str] = ".vllm_cache/diskcache",
+        cache_enabled: bool = True,
+        # --- NEW ---
+        cache_type: str = "fanout",   # "fanout" recommended for multiproc
+        cache_shards: int = 64,
+        cache_timeout: float = 1.0,
     ) -> List[str]:
         outputs: List[str] = []
-        guided_choices = guided_choices or []
 
         total = len(prompts)
         cache_hits_total = 0
 
-        with tqdm(total=total, desc="vLLM completions", unit="req") as pbar:
+        per_prompt_guidance: List[List[str]] = self._normalize_guided_choices(prompts, guided_choices)
+
+        with tqdm(total=total, desc=f"vLLM completions for guided choices: {guided_choices}", unit="req") as pbar:
             for i in range(0, total, batch_size):
                 chunk = prompts[i: i + batch_size]
+                chunk_guidance = per_prompt_guidance[i: i + batch_size]
 
-                # Build keys for this chunk
                 chunk_keys = [
                     self._cache_key(
                         prompt=p,
                         model=model,
                         max_tokens=max_tokens,
                         temperature=temperature,
-                        guided_choices=guided_choices,
+                        guided_choices=gc,
                     )
-                    for p in chunk
+                    for p, gc in zip(chunk, chunk_guidance)
                 ]
 
                 # Read cache first
                 cached: dict[str, str] = {}
                 if cache_enabled and cache_dir:
-                    with Cache(cache_dir) as cache:
-                        cached = {k: cache[k] for k in chunk_keys if k in cache}
+                    with self._open_cache(
+                        cache_dir=cache_dir,
+                        cache_type=cache_type,
+                        shards=cache_shards,
+                        timeout=cache_timeout,
+                    ) as cache:
+                        cached = self._cache_get_many(cache, chunk_keys)
 
                 chunk_out: List[Optional[str]] = [None] * len(chunk)
 
                 miss_prompts: List[str] = []
                 miss_keys: List[str] = []
                 miss_positions: List[int] = []
+                miss_guidance: List[List[str]] = []
 
-                for j, (k, p) in enumerate(zip(chunk_keys, chunk)):
+                for j, (k, p, gc) in enumerate(zip(chunk_keys, chunk, chunk_guidance)):
                     if k in cached:
                         chunk_out[j] = cached[k]
                         cache_hits_total += 1
@@ -472,6 +611,7 @@ class VLLMServerManager:
                         miss_positions.append(j)
                         miss_prompts.append(p)
                         miss_keys.append(k)
+                        miss_guidance.append(gc)
 
                 # Fetch misses
                 if miss_prompts:
@@ -487,9 +627,13 @@ class VLLMServerManager:
                                 max_retries=max_retries,
                                 retry_backoff_s=retry_backoff_s,
                                 pbar=None,
-                                guided_choices=guided_choices,  # IMPORTANT
+                                guided_choices=miss_guidance,
                                 cache_dir=(cache_dir if (cache_enabled and cache_dir) else None),
                                 cache_keys=miss_keys,
+                                # --- pass through cache config ---
+                                cache_type=cache_type,
+                                cache_shards=cache_shards,
+                                cache_timeout=cache_timeout,
                             )
 
                             for pos, text in zip(miss_positions, miss_out):
@@ -507,10 +651,8 @@ class VLLMServerManager:
                     if last_err is not None:
                         raise last_err
                 else:
-                    # all hits
                     pbar.update(len(chunk))
 
-                # Sanity: no holes
                 missing = [idx for idx, r in enumerate(chunk_out) if r is None]
                 if missing:
                     raise RuntimeError(f"Internal error: missing chunk outputs at positions {missing[:10]}")
@@ -519,7 +661,7 @@ class VLLMServerManager:
 
         if cache_enabled and cache_dir:
             hits = cache_hits_total
-            print(f"[vllm_chat_batched] Cache hits: {hits}/{total} ({(100.0 * hits / max(1, total)):.1f}%)")
+            self._log(f"[vllm_chat_batched] Cache hits: {hits}/{total} ({(100.0 * hits / max(1, total)):.1f}%)")
 
         return outputs
 

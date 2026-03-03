@@ -53,6 +53,59 @@ def _load_existing_version_keys(version: str) -> Set[str]:
                 continue
     return keys
 
+def _extract_persona_core_seed_items(root: dict, section_name: str) -> List[Tuple[str, str]]:
+    pc = root.get("PersonaCore") or root.get("persona_core") or {}
+    sec = pc.get(section_name) or {}
+    if not isinstance(sec, dict):
+        return []
+
+    seed_items = sec.get("seed_items") or sec.get("items") or []
+    if not isinstance(seed_items, list):
+        return []
+
+    out: List[Tuple[str, str]] = []
+    for it in seed_items:
+        if isinstance(it, dict):
+            v = str(it.get("value", "")).strip()
+            e = str(it.get("explanation", "")).strip()
+            if v:
+                out.append((v, e))
+        else:
+            v = str(it).strip()
+            if v:
+                out.append((v, ""))
+    return out
+
+
+def _extract_persona_core_list(root: dict, section_name: str) -> List[str]:
+    pc = root.get("PersonaCore") or root.get("persona_core") or {}
+    sec = pc.get(section_name) or {}
+    if not isinstance(sec, dict):
+        return []
+
+    # values: [...]
+    raw = sec.get("values") or sec.get("titles")
+    if isinstance(raw, list) and raw:
+        vals = [str(x).strip() for x in raw if str(x).strip()]
+        if vals:
+            return vals
+
+    # items/seed_items: [{value: ...}, ...]
+    items = sec.get("items") or sec.get("seed_items") or []
+    if isinstance(items, list) and items:
+        vals = []
+        for it in items:
+            if isinstance(it, dict) and it.get("value"):
+                vals.append(str(it["value"]).strip())
+            else:
+                vals.append(str(it).strip())
+        vals = [v for v in vals if v]
+        if vals:
+            return vals
+
+    return []
+
+
 @dataclass(frozen=True)
 class Demographics:
     name: str
@@ -110,6 +163,73 @@ class PersonaGenerator:
         "summary_of_psychological_profile",
     ]
 
+    def _extract_persona_core_seed_items(root: dict, section_name: str) -> List[Tuple[str, str]]:
+        """
+        Reads:
+          PersonaCore:
+            <section_name>:
+              seed_items:
+                - {value: "...", explanation: "..."}
+        Returns list of (value, explanation).
+        """
+        pc = root.get("PersonaCore") or root.get("persona_core") or {}
+        sec = pc.get(section_name) or pc.get(_norm(section_name).title()) or {}
+        if not isinstance(sec, dict):
+            return []
+
+        seed_items = sec.get("seed_items") or sec.get("items") or []
+        if not isinstance(seed_items, list):
+            return []
+
+        out: List[Tuple[str, str]] = []
+        for it in seed_items:
+            if isinstance(it, dict):
+                v = str(it.get("value", "")).strip()
+                e = str(it.get("explanation", "")).strip()
+                if v:
+                    out.append((v, e))
+            else:
+                v = str(it).strip()
+                if v:
+                    out.append((v, ""))
+        return out
+
+    def _extract_persona_core_list(self, root: dict, section_name: str) -> List[str]:
+        """
+        Supports either:
+          PersonaCore:
+            ParliamentaryStyle:
+              items: [{value: ...}, ...]  OR
+              seed_items: [{value: ...}, ...] OR
+              values: [...]
+        Returns list[str].
+        """
+        pc = root.get("PersonaCore") or root.get("persona_core") or {}
+        sec = pc.get(section_name) or {}
+        if not isinstance(sec, dict):
+            return []
+
+        for key in ["values", "titles"]:
+            raw = sec.get(key)
+            if isinstance(raw, list) and raw:
+                vals = [str(x).strip() for x in raw if str(x).strip()]
+                if vals:
+                    return vals
+
+        items = sec.get("items") or sec.get("seed_items") or []
+        if isinstance(items, list) and items:
+            vals = []
+            for it in items:
+                if isinstance(it, dict) and it.get("value"):
+                    vals.append(str(it["value"]).strip())
+                else:
+                    vals.append(str(it).strip())
+            vals = [v for v in vals if v]
+            if vals:
+                return vals
+
+        return []
+
     def __init__(
         self,
         populated_seeds_yaml: str,
@@ -154,10 +274,29 @@ class PersonaGenerator:
             raise ValueError(f"Missing MemoirSummaries for: {missing}")
 
         # appearance / behavior categories
-        self.appearance_categories: Dict[str, List[str]] = root.get("AppearanceCategories") or {}
-        self.behavior_categories: Dict[str, List[str]] = root.get("BehaviorCategories") or {}
-        if not self.appearance_categories or not self.behavior_categories:
-            raise ValueError("AppearanceCategories/BehaviorCategories not found or empty.")
+        # PersonaCore-based appearance/behavior seeds
+        self.appearance_seed_items = _extract_persona_core_seed_items(root, "Appearance")
+        self.behavior_seed_items = _extract_persona_core_seed_items(root, "Behavior")
+        if not self.appearance_seed_items:
+            raise ValueError("PersonaCore.Appearance.seed_items missing/empty in seeds YAML")
+        if not self.behavior_seed_items:
+            raise ValueError("PersonaCore.Behavior.seed_items missing/empty in seeds YAML")
+
+        # PersonaCore-based parliamentary styles (parsed ONCE)
+        self.parliamentary_styles = _extract_persona_core_list(root, "ParliamentaryStyle")
+        if not self.parliamentary_styles:
+            raise ValueError("PersonaCore.ParliamentaryStyle missing/empty in seeds YAML")
+
+        if not self.appearance_seed_items:
+            raise ValueError("PersonaCore.Appearance.seed_items missing/empty in seeds YAML")
+        if not self.behavior_seed_items:
+            raise ValueError("PersonaCore.Behavior.seed_items missing/empty in seeds YAML")
+
+        # PersonaCore-based parliamentary style
+        self.parliamentary_styles = self._extract_persona_core_list(root, "ParliamentaryStyle")
+        if not self.parliamentary_styles:
+            # fall back to older schema if present
+            self.parliamentary_styles = self._extract_parliamentary_styles(root)
 
         # ---- officers (strict) ----
         self.df = pd.read_csv(balanced_officers_csv)
@@ -165,7 +304,8 @@ class PersonaGenerator:
         self._arch_offset = self._rng.randrange(len(self.archetypes))
         self._mem_offset = self._rng.randrange(len(self.memoir_titles))
     
-        required = {"sex", "age", "city", "state", "first_name", "last_name", "education_level", "marital_status"}
+        required = {"sex", "age", "city", "state", "first_name", "last_name", "education_level",
+                    "marital_status","ethnic_background"}
         miss = required - set(self.df.columns)
         if miss:
             raise ValueError(f"Missing required columns in CSV: {sorted(miss)}")
@@ -405,8 +545,19 @@ class PersonaGenerator:
         # CHANGED: dataclass-based demographics
         dem = self._pick_demographics_by_index(idx)
 
-        appearance_cat, appearance_examples = self._pick_appearance_random(idx)
-        behavior_cat, behavior_examples = self._pick_behavior_random(idx)
+        # PersonaCore-based appearance/behavior seeds
+        self.appearance_seed_items = self._extract_persona_core_seed_items(root, "Appearance")
+        self.behavior_seed_items = self._extract_persona_core_seed_items(root, "Behavior")
+        if not self.appearance_seed_items:
+            raise ValueError("PersonaCore.Appearance.seed_items missing/empty in seeds YAML")
+        if not self.behavior_seed_items:
+            raise ValueError("PersonaCore.Behavior.seed_items missing/empty in seeds YAML")
+
+        # PersonaCore-based parliamentary style
+        self.parliamentary_styles = self._extract_persona_core_list(root, "ParliamentaryStyle")
+        if not self.parliamentary_styles:
+            # fall back to older schema if present
+            self.parliamentary_styles = self._extract_parliamentary_styles(root)
 
         # dynamic schema with Literals of selected values (model sees exact values)
         SeededPersonaSchema = create_model(  # type: ignore[assignment]

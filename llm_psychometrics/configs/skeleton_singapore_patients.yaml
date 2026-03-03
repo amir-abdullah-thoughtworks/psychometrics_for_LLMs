@@ -1,0 +1,259 @@
+# skeleton_singapore_seeds.yaml
+SingaporeHealthPersonaSeeds:
+  version: "1.0"
+
+  # -------------------------------------------------------------------
+  # Canonical health / lifestyle texts (titles only; enrich later if needed)
+  # -------------------------------------------------------------------
+CanonicalTexts:
+  explanation: >
+    Health, fitness, and preventive-care canon with strong Singapore and Asian
+    public-health, urban lifestyle, and behavioural-change influence.
+  titles:
+    - "Healthier SG: A Preventive Care Strategy"
+    - "Singapore’s War on Diabetes"
+    - "Healthy Living Master Plan"
+    - "The Singapore Way: Health Policy and Social Discipline"
+    - "Urban Health in Singapore"
+    - "Healthy Cities: Lessons from Singapore"
+    - "Asian Diets and Metabolic Health"
+    - "The Blue Zones Kitchen"
+    - "The Blue Zones Solution"
+    - "Outlive"
+    - "Lifespan"
+    - "Why We Sleep"
+    - "Eat, Move, Sleep"
+    - "Atomic Habits"
+    - "The Power of Habit"
+    - "Spark"
+    - "Move Your DNA"
+    - "The Longevity Diet"
+    - "Deep Nutrition"
+    - "How Not to Die"
+    - "How Not to Diet"
+    - "Being Mortal"
+    - "The Art of Resilience"
+    - "Ikigai"
+    - "Ikigai: The Japanese Secret to a Long and Happy Life"
+    - "The Happiness Advantage"
+    - "Why Zebras Don’t Get Ulcers"
+    - "The Psychology of Eating"
+    - "Mindfulness for Beginners"
+    - "Wherever You Go, There You Are"
+    - "The Mindful Way Through Depression"
+    - "Burnout: The Secret to Unlocking the Stress Cycle"
+    - "Rest: Why You Get More Done When You Work Less"
+    - "Sleep Smarter"
+    - "The Circadian Code"
+    - "Why We Sit Too Much"
+    - "Deskbound"
+    - "Exercised"
+    - "Built to Move"
+    - "Younger Next Year"
+    - "The Joy of Movement"
+    - "The Obesity Code"
+    - "The Diabetes Code"
+    - "Metabolical"
+    - "The Plant-Based Diet for Beginners"
+    - "Asian Green Tea and Longevity"
+    - "Traditional Chinese Medicine and Modern Health"
+    - "Ayurveda and Preventive Health"
+    - "Healthy Hawker Eating"
+    - "Eating Well in Singapore"
+    - "Nutrition for Asians"
+    - "Asian Body, Western Diet"
+    - "Healthy Ageing in Asia"
+    - "Successful Ageing"
+    - "Healthy Ageing in Singapore"
+    - "Exercise Is Medicine"
+    - "Strength Training After 40"
+    - "Mobility for Life"
+    - "The Pain-Free Body"
+    - "Explain Pain"
+    - "Why We Hurt"
+    - "The Body Keeps the Score"
+    - "Mind-Body Medicine"
+    - "Stress-Proof"
+    - "The Stress Solution"
+    - "Breath"
+    - "The Oxygen Advantage"
+    - "Running for Health"
+    - "Walking for Fitness"
+    - "Yoga for a Healthy Life"
+    - "Tai Chi for Health"
+    - "Qigong for Vitality"
+    - "The Science of Well-Being"
+    - "Healthy Habits, Healthy Life"
+    - "Public Health Success Stories"
+    - "Preventive Medicine in Practice"
+    - "Lifestyle Medicine"
+    - "The Future of Health"
+    - "Digital Health and Behaviour Change"
+    - "Coaching for Behaviour Change"
+    - "Motivational Interviewing in Health Care"
+    - "The Patient Will See You Now"
+    - "Being Well in a Fast-Paced World"
+    - "Health in High-Density Cities"
+    - "The Asian Century of Health"
+    - "Wellness in Modern Asia"
+    - "Living Well in Singapore"
+    - "Healthy Living for Busy Professionals"
+
+  # -------------------------------------------------------------------
+  # Regions (population-weighted sampling)
+  # -------------------------------------------------------------------
+  Regions:
+    explanation: >
+      Region-of-residence used for lifestyle context, access patterns,
+      and socio-economic flavour.
+    items:
+      CentralRegion:
+        population_share: 0.36
+        explanation: "Urban core; dense amenities, private care access, time pressure."
+      EastRegion:
+        population_share: 0.22
+        explanation: "Family-oriented estates; parks, active lifestyles, airport proximity."
+      NorthRegion:
+        population_share: 0.15
+        explanation: "Quieter residential areas; aging population pockets."
+      NorthEastRegion:
+        population_share: 0.17
+        explanation: "High-density HDB estates; strong family and community networks."
+      WestRegion:
+        population_share: 0.10
+        explanation: "Industrial and education hubs; shift work, mixed routines."
+
+  # -------------------------------------------------------------------
+  # Primary language & cultural background
+  # -------------------------------------------------------------------
+  LanguageAndCulture:
+    explanation: "Primary language and cultural context shaping communication preferences."
+    PrimaryLanguage:
+      - { value: "English", explanation: "Default administrative and healthcare language.", weight: 0.50 }
+      - { value: "Mandarin", explanation: "Common among Chinese households; family-mediated decisions.", weight: 0.30 }
+      - { value: "Malay", explanation: "Often linked to strong family/community framing.", weight: 0.10 }
+      - { value: "Tamil", explanation: "South Indian cultural context; respect-driven communication.", weight: 0.06 }
+      - { value: "Other", explanation: "Smaller linguistic communities or expatriates.", weight: 0.04 }
+
+    Ethnicity:
+      - { value: "Chinese", explanation: "Largest demographic group; strong preventive health messaging exposure.", weight: 0.74 }
+      - { value: "Malay", explanation: "Community- and family-oriented health framing.", weight: 0.13 }
+      - { value: "Indian", explanation: "Higher salience of metabolic health risks.", weight: 0.09 }
+      - { value: "Other", explanation: "Includes Eurasian and expatriate populations.", weight: 0.04 }
+
+  # -------------------------------------------------------------------
+  # Education & Occupation (top-level, like your request)
+  # -------------------------------------------------------------------
+  Education:
+    explanation: "Education background shaping health literacy and autonomy."
+    items:
+      - { value: "PrimaryOrLower", explanation: "Relies heavily on authority guidance.", weight: 0.12 }
+      - { value: "Secondary", explanation: "Basic health literacy; pragmatic compliance.", weight: 0.38 }
+      - { value: "Diploma", explanation: "Vocational grounding; outcome-focused.", weight: 0.20 }
+      - { value: "University", explanation: "Higher autonomy and information-seeking.", weight: 0.25 }
+      - { value: "Postgraduate", explanation: "High self-direction; critical evaluator of advice.", weight: 0.05 }
+
+  Occupations:
+    explanation: "Work context influencing stress, routines, and health constraints."
+    items:
+      - { value: "OfficeProfessional", explanation: "Sedentary, time-poor, stress-driven.", weight: 0.32 }
+      - { value: "ServiceIndustry", explanation: "Shift work; irregular meals and sleep.", weight: 0.18 }
+      - { value: "HealthcareWorker", explanation: "High awareness; burnout risk.", weight: 0.08 }
+      - { value: "ManualLabor", explanation: "Physically demanding; injury and fatigue risks.", weight: 0.10 }
+      - { value: "SelfEmployed", explanation: "Autonomy but irregular routines.", weight: 0.10 }
+      - { value: "Homemaker", explanation: "Family-centred priorities.", weight: 0.12 }
+      - { value: "Retired", explanation: "Chronic condition management focus.", weight: 0.10 }
+
+  # -------------------------------------------------------------------
+  # PersonaCore (expanded by model)
+  # -------------------------------------------------------------------
+  PersonaCore:
+    Appearance:
+      explanation: "Observable lifestyle and self-presentation cues."
+      seed_items:
+        - { value: "Athleisure casual", explanation: "Signals openness to physical activity." }
+        - { value: "Office-formal daily wear", explanation: "Sedentary routine indicator." }
+        - { value: "Comfort-first attire", explanation: "Pain or mobility constraints." }
+      target_count: 25
+
+    CommunicationStyle:
+      explanation: "Preferred interaction style with digital health coach."
+      seed_items:
+        - { value: "Direct and concise", explanation: "Prefers clear instructions and checklists." }
+        - { value: "Encouraging and empathetic", explanation: "Responds to emotional validation." }
+        - { value: "Data-driven", explanation: "Motivated by metrics and progress tracking." }
+      target_count: 25
+
+    AttitudeToAuthority:
+      explanation: "How medical and institutional authority is perceived."
+      seed_items:
+        - { value: "High trust in doctors", explanation: "Strong compliance with professional advice." }
+        - { value: "Selective trust", explanation: "Compares advice across sources." }
+        - { value: "Skeptical but pragmatic", explanation: "Follows advice only if outcomes are clear." }
+      target_count: 25
+
+  # -------------------------------------------------------------------
+  # AdditionalTraits (expanded like your parliamentary traits)
+  # -------------------------------------------------------------------
+  AdditionalTraits:
+    explanation: "Behavioural and psychological modifiers for coaching."
+    subcategories:
+      MotivationStyle:
+        purpose: "What primarily drives behaviour change."
+        seed_items:
+          - { value: "Family-oriented", explanation: "Motivated by being present for children or elders." }
+          - { value: "Aesthetic goals", explanation: "Weight loss and appearance-driven." }
+          - { value: "Pain avoidance", explanation: "Avoids discomfort or deterioration." }
+        target_count: 10
+
+      EmotionalTics:
+        purpose: "Recurring emotional responses affecting adherence."
+        seed_items:
+          - { value: "Guilt-driven", explanation: "Feels bad when missing goals." }
+          - { value: "Avoidant", explanation: "Disengages when overwhelmed." }
+          - { value: "Perfectionist", explanation: "All-or-nothing adherence." }
+        target_count: 10
+
+      RoutineStability:
+        purpose: "How predictable daily life is."
+        seed_items:
+          - { value: "Highly structured", explanation: "Stable routines; habit-friendly." }
+          - { value: "Moderately variable", explanation: "Occasional disruptions." }
+          - { value: "Chaotic", explanation: "Irregular schedules; needs flexibility." }
+        target_count: 10
+
+  # -------------------------------------------------------------------
+  # Health policy / coaching domains (expanded one-by-one, like debates)
+  # -------------------------------------------------------------------
+  CoachingDomains:
+    explanation: >
+      Seed domains expanded into health stances, barriers, and coaching strategies.
+    items:
+      - { name: "WeightManagement" }
+      - { name: "DiabetesPrevention" }
+      - { name: "HypertensionManagement" }
+      - { name: "MentalWellbeing" }
+      - { name: "PhysicalActivity" }
+      - { name: "SleepHealth" }
+      - { name: "ChronicPainRehab" }
+      - { name: "SmokingCessation" }
+      - { name: "HealthyAging" }
+      - { name: "StressAndBurnout" }
+    target_count: 25
+
+  # -------------------------------------------------------------------
+  # Generator configuration
+  # -------------------------------------------------------------------
+  GeneratorConfig:
+    explanation: "Parameters consumed by the Python generator."
+    model: "gpt-4o"
+    temperature: 2.0
+    top_p: 0.98
+    embedding_model: "text-embedding-3-small"
+    semantic_dedup:
+      enabled: true
+      sim_threshold: 0.88
+    caching:
+      enabled: true
+      backend: "diskcache"
+      namespace: "singapore_health_seedgen_v1"

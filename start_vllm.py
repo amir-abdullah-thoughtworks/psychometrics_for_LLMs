@@ -64,8 +64,7 @@ vllm_mgr = VLLMServerManager(
     host=host,
     port=port,
     timeout_s=180,
-    kill_existing=True,
+    kill_existing=False,
     server_extra_args=server_extra_args,
 )
 vllm_mgr.ensure_fresh_server()
-
