@@ -26,12 +26,11 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
-
 os.environ["HF_HOME"] = "/workspace/mounted/.cache"
 import transformers
 from datasets import Dataset, DatasetDict, load_dataset
 from jinja2 import Template
-from pydantic import BaseModel, RootModel
+from pydantic import BaseModel, RootModel, Field
 from tqdm import tqdm
 
 # --- Custom imports (keep as-is in your repo) ---
@@ -41,6 +40,11 @@ from prompt_templates.sjt_persona_prompt_templates import sjt_persona_prompt_tem
 from utils.vllm_utils import VLLMServerManager
 
 
+
+class StructuredCOTResponse(BaseModel):
+    reasoning: str = Field(description="Step-by-step logic to reach the answer")
+    answer: float
+    confidence_score: float
 
 # =========================
 # Constants
@@ -410,6 +414,7 @@ class SJTResponseRunner:
                 batch_size=self.args.batch_size,
                 num_workers=self.args.num_workers,
                 guided_choices=SJT_ANSWER_CHOICES,
+                response_format=StructuredCOTResponse,
                 cache_enabled=True,
                 cache_type='diskcache'
 
@@ -554,7 +559,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--num-workers", type=int, default=6)
 
     # Templates / SJT behavior
-    p.add_argument("--template-key", type=str, default="gpt")
+    p.add_argument("--template-key", type=str, default="gpt_cot")
     p.add_argument("--use-persona-template", action=argparse.BooleanOptionalAction, default=True)
     p.add_argument("--answer-shuffle", action=argparse.BooleanOptionalAction, default=True)
 

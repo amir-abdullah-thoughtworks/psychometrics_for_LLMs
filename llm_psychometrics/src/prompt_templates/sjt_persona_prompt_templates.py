@@ -1,4 +1,34 @@
 sjt_persona_prompt_templates = {
+    "gpt_cot": [
+        {
+            "role": "system",
+            "content": """You are a law enforcement officer with the following attributes:
+
+{{ attributes }}
+
+Task: Answer the below multiple choice question:""",
+        },
+        {
+        "role": "user",
+        "content": """Question: {{ question }}
+
+Choices for this question are:
+
+{{ answer_options }}
+Give reasoning for choosing the option most consistent with your persona and answer by picking a number ranging from 1 to 6 inclusive.
+Always respond as a JSON object in following format
+
+```
+{
+    "reasoning": "Step-by-step logic to reach the answer",
+    "answer" : Chosen Option ([1-6]),
+    "confidence_score" : [0-1]
+}
+```
+
+""",
+},
+],
     "gpt": [
         {
             "role": "system",

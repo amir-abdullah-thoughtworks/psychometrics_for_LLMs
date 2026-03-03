@@ -9,6 +9,7 @@ import requests
 import sys
 import time
 from dataclasses import dataclass
+from pydantic import BaseModel, Field
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from pathlib import Path
@@ -337,6 +338,7 @@ class VLLMServerManager:
             max_tokens: int = 128,
             temperature: float = 0.0,
             guided_choices: Optional[List[str]] = None,
+            response_format: Optional[BaseModel] = None
     ) -> str:
         guided_choices = guided_choices or []
         choice_set = {c.strip() for c in guided_choices}
@@ -359,6 +361,9 @@ class VLLMServerManager:
 
                 if guided_choices:
                     payload["extra_body"] = {"guided_choice": guided_choices}
+                    
+                if response_format:
+                    payload['response_format'] = response_format
 
                 resp = requests.post(
                     f"{self.base_url}/v1/chat/completions",
@@ -476,6 +481,7 @@ class VLLMServerManager:
         retry_backoff_s: float,
         pbar: Optional[tqdm] = None,
         guided_choices: Optional[List[List[str]]] = None,  # per-prompt
+        response_format: Optional[BaseModel] = None,
         cache_dir: Optional[str] = None,
         cache_keys: Optional[List[str]] = None,
         # --- NEW ---
@@ -499,7 +505,7 @@ class VLLMServerManager:
             (
                 idx, self.base_url if idx % 2 == 0 else self.backup_url,
                 prompt, model, max_tokens, temperature,
-                max_retries, retry_backoff_s, guided_choices[idx],
+                max_retries, retry_backoff_s, guided_choices[idx], response_format
             )
             for idx, prompt in enumerate(prompts)
         ]
@@ -546,6 +552,7 @@ class VLLMServerManager:
         self,
         prompts: List[str],
         guided_choices: Optional[Union[List[str], List[Optional[List[str]]]]] = None,
+        response_format: Optional[BaseModel] = None,
         model: str = "Qwen/Qwen2.5-7B-Instruct",
         max_tokens: int = 128,
         temperature: float = 0.0,
@@ -628,6 +635,7 @@ class VLLMServerManager:
                                 retry_backoff_s=retry_backoff_s,
                                 pbar=None,
                                 guided_choices=miss_guidance,
+                                response_format=response_format,
                                 cache_dir=(cache_dir if (cache_enabled and cache_dir) else None),
                                 cache_keys=miss_keys,
                                 # --- pass through cache config ---
@@ -676,6 +684,7 @@ def _mp_chat_one_worker(
     max_retries: int,
     retry_backoff_s: float,
     guided_choices: Optional[List[str]],
+    response_format: Optional[BaseModel]
 ) -> tuple[int, str]:
     mgr = VLLMServerManager(
         host=base_url.split("://", 1)[1].split(":", 1)[0],
@@ -690,6 +699,7 @@ def _mp_chat_one_worker(
                 max_tokens=max_tokens,
                 temperature=temperature,
                 guided_choices=guided_choices,
+                response_format=response_format
             )
             return idx, text
         except Exception as e:
