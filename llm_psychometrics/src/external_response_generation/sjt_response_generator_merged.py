@@ -28,7 +28,9 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 
 os.environ["HF_HOME"] = "/workspace/mounted/.cache"
 import transformers
+from transformers import AutoTokenizer
 from datasets import Dataset, DatasetDict, load_dataset
+from huggingface_hub import login
 from jinja2 import Template
 from pydantic import BaseModel, RootModel, Field
 from tqdm import tqdm
@@ -43,8 +45,7 @@ from utils.vllm_utils import VLLMServerManager
 
 class StructuredCOTResponse(BaseModel):
     reasoning: str = Field(description="Step-by-step logic to reach the answer")
-    answer: float
-    confidence_score: float
+    answer: list
 
 # =========================
 # Constants
@@ -236,7 +237,8 @@ def build_source_meta(args: argparse.Namespace) -> Dict[str, Any]:
         "n_times": int(getattr(args, "n_times", 1)),
         "model": getattr(args, "model", None),
         "max_tokens": int(getattr(args, "max_tokens", 1)),
-        "temperature": float(getattr(args, "temperature", 0.0)),
+        "temperature": float(getattr(args, "temperature", 0.3)),
+        "top_p": float(getattr(args, "top_p", 0.9)),
     }
 
 def flatten_results_for_hub(exp: ExperimentResults, source_meta: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -411,6 +413,7 @@ class SJTResponseRunner:
                 model=self.args.model,
                 max_tokens=self.args.max_tokens,
                 temperature=self.args.temperature,
+                top_p=self.args.top_p,
                 batch_size=self.args.batch_size,
                 num_workers=self.args.num_workers,
                 guided_choices=SJT_ANSWER_CHOICES,
@@ -422,6 +425,7 @@ class SJTResponseRunner:
 
             # Normalize / record
             iter_answers: List[str] = []
+            iter_answer_reasoning: List[str] = []
             iter_norm: List[Optional[str]] = []
             iter_idx: List[List[int]] = []
             iter_guided: List[List[str]] = []
@@ -478,7 +482,8 @@ class SJTResponseRunner:
             sjt_ds = load_dataset(self.args.hf_sjt_path, name=self.args.hf_sjt_config)[self.args.hf_sjt_split]
         else:
             sjt_ds = load_dataset(self.args.hf_sjt_path)[self.args.hf_sjt_split]
-
+        
+        print(f"Loaded {len(sjt_ds)} SJTs")
         # Select SJTs: debug => sample; no-debug => ALL
         if self.args.debug:
             sjt_count = min(self.args.n_sjtsample, len(sjt_ds))
@@ -552,9 +557,11 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
 
     # vLLM settings
-    p.add_argument("--model", type=str, default="Qwen/Qwen2.5-7B-Instruct")
-    p.add_argument("--max-tokens", type=int, default=1)
-    p.add_argument("--temperature", type=float, default=0.0)
+    # p.add_argument("--model", type=str, default="Qwen/Qwen2.5-7B-Instruct")
+    p.add_argument("--model", type=str, default="Qwen/Qwen3-4B-Instruct-2507")
+    p.add_argument("--max-tokens", type=int, default=300)
+    p.add_argument("--temperature", type=float, default=0.3)
+    p.add_argument("--top-p", type=float, default=0.9)
     p.add_argument("--batch-size", type=int, default=500)
     p.add_argument("--num-workers", type=int, default=6)
 
@@ -584,7 +591,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--hf-sjt-split", type=str, default="train")
 
     # Output
-    p.add_argument("--out-json", type=str, default="outputs/police_sjt_results.json")
+    p.add_argument("--out-json", type=str, default="/outputs/police_sjt_results.json")
 
     # Hub push (only in no-debug)
     p.add_argument("--push-to-hub", action=argparse.BooleanOptionalAction, default=True)
@@ -611,6 +618,8 @@ def main() -> None:
     # NOTE: assumes you already have a running vLLM OpenAI-compatible server,
     # and VLLMServerManager is configured to talk to it.
     mgr = VLLMServerManager()
+    mgr.ensure_fresh_server()
+    mgr.hello_world_check()
 
     runner = SJTResponseRunner(args=args, mgr=mgr)
     results = runner.run()
@@ -623,6 +632,12 @@ def main() -> None:
 
     # Push to hub only in no-debug mode
     if args.push_to_hub:
+        hf_token = os.getenv("HF_TOKEN")
+        if hf_token:
+            login(token=hf_token)
+        else:
+            print("HF_TOKEN environment variable not set. Using other authentication methods or running anonymously.")
+
         push_results_to_hub(results, args)
         print(f"Pushed to hub -> {args.target_hub_repo_id} (config={args.target_hub_config})")
     else:
