@@ -36,7 +36,7 @@ class VLLMServerManager:
                  python_executable: str = sys.executable,
                  server_extra_args=None, env=None,
                  log_file: str = "/outputs/vllm_server.log",
-                 timeout_s: int = 400, kill_existing: bool = True):
+                 timeout_s: int = 500, kill_existing: bool = True):
         self.model = model
         self.host = host
         self.port = port
@@ -335,40 +335,6 @@ class VLLMServerManager:
             )
         return [gc or [] for gc in per]
 
-
-    def call_llm_mode(self, payload, N=5, choice_set=None):
-        def _normalize(resp: str) -> str:
-            # strict + simple: first token only
-            return resp.strip().split(None, 1)[0]
-        
-        results = []  # (token, raw_text)
-
-        for _ in range(N):
-            resp = requests.post(
-                f"{self.base_url}/v1/chat/completions",
-                json=payload
-            )
-            resp.raise_for_status()
-
-            text = resp.json()["choices"][0]["message"]["content"]
-
-            # No constraint → treat raw text as token
-            if not choice_set:
-                token = text
-            else:
-                token = _normalize(text)
-
-            results.append((token, text))
-
-        tokens = [t for t, _ in results]
-        counts = Counter(tokens)
-
-        mode_token, _ = counts.most_common(1)[0]
-
-        # return first raw response corresponding to modal token
-        for token, raw in results:
-            if token == mode_token:
-                return raw, mode_token
     
     def vllm_chat(
             self,
@@ -383,7 +349,9 @@ class VLLMServerManager:
         guided_choices = guided_choices or []
         choice_set = {c.strip() for c in guided_choices}
 
-        
+        def _normalize(resp: str) -> str:
+            # strict + simple: first token only
+            return resp.strip().split(None, 1)[0]
 
         last_err: Optional[Exception] = None
         had_mismatch = False
@@ -410,27 +378,27 @@ class VLLMServerManager:
                                                     }
                                                 }
 
-                # resp = requests.post(
-                #     f"{self.base_url}/v1/chat/completions",
-                #     json=payload
-                # )
-                # resp.raise_for_status()
+                resp = requests.post(
+                    f"{self.base_url}/v1/chat/completions",
+                    json=payload
+                )
+                resp.raise_for_status()
 
-                # text = resp.json()["choices"][0]["message"]["content"]
+                text = resp.json()["choices"][0]["message"]["content"]
                 
-                # self._log(
-                #     f"RAW OUTPUT "
-                #     f"attempt={attempt + 1} "
-                #     f"raw={text!r} "
-                # )
+                self._log(
+                    f"RAW OUTPUT "
+                    f"attempt={attempt + 1} "
+                    f"raw={text!r} "
+                )
 
-                # # No constraint → return raw
-                # if not choice_set:
-                #     return text
+                # No constraint → return raw
+                if not choice_set:
+                    return text
 
-                # token = _normalize(text)
+                token = _normalize(text)
                 
-                text, token = self.call_llm_mode(payload=payload, N=5, choice_set=choice_set)
+                # text, token = self.call_llm_mode(payload=payload, N=5, choice_set=choice_set)
                 # token = str(np.argmax(json.loads(text)['answer']).item())
                 # token = str(json.loads(text)['answer'][0])
                 # token = str(json.loads(text)['answer'])

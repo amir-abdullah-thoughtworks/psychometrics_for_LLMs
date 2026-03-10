@@ -350,9 +350,10 @@ class SJTResponseRunner:
           displayed_options: List[str] length 6 (possibly shuffled)
           permutation: List[int] length 6 mapping displayed position -> canonical index
         """
+        
         if not self.args.answer_shuffle:
             return canonical_options[:], list(range(6))
-
+        
         perm = list(range(6))
         rng = random.Random(seed) if seed is not None else random
         rng.shuffle(perm)
@@ -401,7 +402,8 @@ class SJTResponseRunner:
             for sjt in sjts:
                 seed = prompt_seed_int(
                     str(persona_hash or persona_uuid or "base_model"),
-                    str(sjt.hash_id)
+                    str(sjt.hash_id),
+                    str(t)
                 )
                 displayed, perm = self._make_shuffled_options(sjt.options_canonical, seed=seed)
                 displayed_options_list.append(displayed)
@@ -570,7 +572,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--answer-shuffle", action=argparse.BooleanOptionalAction, default=True)
 
     # Experiment sizing
-    p.add_argument("--n-times", type=int, default=1)
+    p.add_argument("--n-times", type=int, default=5)
     p.add_argument("--n-personasample", type=int, default=10)
     p.add_argument("--n-sjtsample", type=int, default=10)
 
@@ -602,7 +604,7 @@ def parse_args() -> argparse.Namespace:
 
     # Debug-mode overrides (exactly as you described)
     if args.debug:
-        args.n_times = 1
+        args.n_times = 5
         args.n_personasample = 10
         args.n_sjtsample = 10
         args.answer_shuffle = True
