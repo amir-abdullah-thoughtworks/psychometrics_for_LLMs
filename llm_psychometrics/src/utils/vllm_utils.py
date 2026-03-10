@@ -9,6 +9,7 @@ import requests
 import sys
 import time
 from dataclasses import dataclass
+from collections import Counter
 from pydantic import BaseModel, Field
 import numpy as np
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -30,12 +31,12 @@ class VLLMServerManager:
     - Starts a fresh server on host:port for the requested model.
     - Waits until /v1/models responds.
     """
-    def __init__(self, model: str = "Qwen/Qwen3-4B-Instruct-2507",
+    def __init__(self, model: str = "google/gemma-3-4b-it",
                  host: str = "127.0.0.1", port: int = 8000,
                  python_executable: str = sys.executable,
                  server_extra_args=None, env=None,
                  log_file: str = "/outputs/vllm_server.log",
-                 timeout_s: int = 300, kill_existing: bool = True):
+                 timeout_s: int = 400, kill_existing: bool = True):
         self.model = model
         self.host = host
         self.port = port
@@ -335,10 +336,44 @@ class VLLMServerManager:
         return [gc or [] for gc in per]
 
 
+    def call_llm_mode(self, payload, N=5, choice_set=None):
+        def _normalize(resp: str) -> str:
+            # strict + simple: first token only
+            return resp.strip().split(None, 1)[0]
+        
+        results = []  # (token, raw_text)
+
+        for _ in range(N):
+            resp = requests.post(
+                f"{self.base_url}/v1/chat/completions",
+                json=payload
+            )
+            resp.raise_for_status()
+
+            text = resp.json()["choices"][0]["message"]["content"]
+
+            # No constraint → treat raw text as token
+            if not choice_set:
+                token = text
+            else:
+                token = _normalize(text)
+
+            results.append((token, text))
+
+        tokens = [t for t, _ in results]
+        counts = Counter(tokens)
+
+        mode_token, _ = counts.most_common(1)[0]
+
+        # return first raw response corresponding to modal token
+        for token, raw in results:
+            if token == mode_token:
+                return raw, mode_token
+    
     def vllm_chat(
             self,
             prompt: str,
-            model: str = "Qwen/Qwen3-4B-Instruct-2507",
+            model: str = "google/gemma-3-4b-it",
             max_tokens: int = 128,
             temperature: float = 0.0,
             top_p: float = 0.0,
@@ -348,9 +383,7 @@ class VLLMServerManager:
         guided_choices = guided_choices or []
         choice_set = {c.strip() for c in guided_choices}
 
-        def _normalize(resp: str) -> str:
-            # strict + simple: first token only
-            return resp.strip().split(None, 1)[0]
+        
 
         last_err: Optional[Exception] = None
         had_mismatch = False
@@ -377,27 +410,29 @@ class VLLMServerManager:
                                                     }
                                                 }
 
-                resp = requests.post(
-                    f"{self.base_url}/v1/chat/completions",
-                    json=payload
-                )
-                resp.raise_for_status()
+                # resp = requests.post(
+                #     f"{self.base_url}/v1/chat/completions",
+                #     json=payload
+                # )
+                # resp.raise_for_status()
 
-                text = resp.json()["choices"][0]["message"]["content"]
+                # text = resp.json()["choices"][0]["message"]["content"]
                 
-                self._log(
-                    f"RAW OUTPUT "
-                    f"attempt={attempt + 1} "
-                    f"raw={text!r} "
-                )
+                # self._log(
+                #     f"RAW OUTPUT "
+                #     f"attempt={attempt + 1} "
+                #     f"raw={text!r} "
+                # )
 
-                # No constraint → return raw
-                if not choice_set:
-                    return text
+                # # No constraint → return raw
+                # if not choice_set:
+                #     return text
 
                 # token = _normalize(text)
+                
+                text, token = self.call_llm_mode(payload=payload, N=5, choice_set=choice_set)
                 # token = str(np.argmax(json.loads(text)['answer']).item())
-                token = str(json.loads(text)['answer'][0])
+                # token = str(json.loads(text)['answer'][0])
                 # token = str(json.loads(text)['answer'])
                 self._log(f"Token: {token}"
                           f"Choice Set: {choice_set}")
@@ -578,7 +613,7 @@ class VLLMServerManager:
         prompts: List[str],
         guided_choices: Optional[Union[List[str], List[Optional[List[str]]]]] = None,
         response_format: Optional[BaseModel] = None,
-        model: str = "Qwen/Qwen3-4B-Instruct-2507",
+        model: str = "google/gemma-3-4b-it",
         max_tokens: int = 128,
         temperature: float = 0.0,
         top_p: float = 0.0,
@@ -775,7 +810,7 @@ def main():
 
     outputs = mgr.vllm_chat_batched(
         prompts=prompts,
-        model="Qwen/Qwen3-4B-Instruct-2507",
+        model="google/gemma-3-4b-it",
         max_tokens=128,
         temperature=0.0,
         batch_size=BATCH_SIZE,
@@ -792,7 +827,7 @@ def main():
                         "prompt": prompt,
                         "prompt_hash": mgr.stable_hash(prompt),
                         "response": response,
-                        "model": "Qwen/Qwen3-4B-Instruct-2507",
+                        "model": "google/gemma-3-4b-it",
                     },
                     ensure_ascii=False,
                 )

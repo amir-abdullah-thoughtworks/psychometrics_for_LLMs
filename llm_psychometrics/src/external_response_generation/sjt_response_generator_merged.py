@@ -417,7 +417,6 @@ class SJTResponseRunner:
                 batch_size=self.args.batch_size,
                 num_workers=self.args.num_workers,
                 guided_choices=SJT_ANSWER_CHOICES,
-                response_format=StructuredCOTResponse,
                 cache_enabled=True,
                 cache_type='diskcache'
 
@@ -557,16 +556,16 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
 
     # vLLM settings
-    # p.add_argument("--model", type=str, default="Qwen/Qwen2.5-7B-Instruct")
-    p.add_argument("--model", type=str, default="Qwen/Qwen3-4B-Instruct-2507")
-    p.add_argument("--max-tokens", type=int, default=300)
+    # p.add_argument("--model", type=str, default="Qwen/Qwen3-4B-Instruct-2507")
+    p.add_argument("--model", type=str, default="google/gemma-3-4b-it")
+    p.add_argument("--max-tokens", type=int, default=1)
     p.add_argument("--temperature", type=float, default=0.3)
     p.add_argument("--top-p", type=float, default=0.9)
     p.add_argument("--batch-size", type=int, default=500)
     p.add_argument("--num-workers", type=int, default=6)
 
     # Templates / SJT behavior
-    p.add_argument("--template-key", type=str, default="gpt_cot")
+    p.add_argument("--template-key", type=str, default="gpt")
     p.add_argument("--use-persona-template", action=argparse.BooleanOptionalAction, default=True)
     p.add_argument("--answer-shuffle", action=argparse.BooleanOptionalAction, default=True)
 
@@ -614,6 +613,12 @@ def main() -> None:
     args = parse_args()
 
     os.makedirs(os.path.dirname(args.out_json) or ".", exist_ok=True)
+    
+    hf_token = os.getenv("HF_TOKEN")
+    if hf_token:
+        login(token=hf_token)
+    else:
+        print("HF_TOKEN environment variable not set. Using other authentication methods or running anonymously.")
 
     # NOTE: assumes you already have a running vLLM OpenAI-compatible server,
     # and VLLMServerManager is configured to talk to it.
@@ -632,11 +637,7 @@ def main() -> None:
 
     # Push to hub only in no-debug mode
     if args.push_to_hub:
-        hf_token = os.getenv("HF_TOKEN")
-        if hf_token:
-            login(token=hf_token)
-        else:
-            print("HF_TOKEN environment variable not set. Using other authentication methods or running anonymously.")
+        
 
         push_results_to_hub(results, args)
         print(f"Pushed to hub -> {args.target_hub_repo_id} (config={args.target_hub_config})")
