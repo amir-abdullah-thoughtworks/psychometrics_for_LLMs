@@ -67,7 +67,7 @@ volume = modal.Volume.from_name("my-outputs", create_if_missing=True)
 
 
 
-@app.function(image=vllm_image, gpu="A100", timeout=10000, volumes={"/outputs": volume},secrets=[modal.Secret.from_name("LLMPsychometrics")])
+@app.function(image=vllm_image, gpu="A100", timeout=86400, volumes={"/outputs": volume},secrets=[modal.Secret.from_name("LLMPsychometrics")])
 def run_my_script():
     import os
     import sys

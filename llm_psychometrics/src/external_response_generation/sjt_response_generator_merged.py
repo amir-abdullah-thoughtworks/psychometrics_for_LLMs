@@ -484,12 +484,14 @@ class SJTResponseRunner:
         else:
             sjt_ds = load_dataset(self.args.hf_sjt_path)[self.args.hf_sjt_split]
         
-        print(f"Loaded {len(sjt_ds)} SJTs")
+        
         # Select SJTs: debug => sample; no-debug => ALL
         if self.args.debug:
             sjt_count = min(self.args.n_sjtsample, len(sjt_ds))
         else:
             sjt_count = len(sjt_ds)
+        
+        print(f"Loaded {sjt_count} SJTs")
 
         sjts: List[SJTSpec] = [extract_sjt_spec(sjt_ds[i], i) for i in range(sjt_count)]
 
@@ -512,6 +514,8 @@ class SJTResponseRunner:
             persona_count = min(self.args.n_personasample, len(persona_ds))
         else:
             persona_count = len(persona_ds)
+            
+        print(f"Loaded {persona_count} Personas")
 
         truncated_count = 0
 
@@ -577,18 +581,18 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--n-sjtsample", type=int, default=10)
 
     # Debug default ON (your preference)
-    p.add_argument("--debug", action=argparse.BooleanOptionalAction, default=True)
+    p.add_argument("--debug", action=argparse.BooleanOptionalAction, default=False)
 
     # Persona source
     p.add_argument("--persona-source", type=str, choices=["hf", "base_model"], default="hf")
 
     p.add_argument("--hf-persona-path", type=str, default="thoughtworks/psychometric_personas")
-    p.add_argument("--hf-persona-config", type=str, default="test_sample")
+    p.add_argument("--hf-persona-config", type=str, default="analysis")
     p.add_argument("--hf-persona-split", type=str, default="train")
 
     # SJT dataset
     p.add_argument("--hf-sjt-path", type=str, default="thoughtworks/psychometric_sjts_analysis")
-    p.add_argument("--hf-sjt-config", type=str, default="debug")
+    p.add_argument("--hf-sjt-config", type=str, default="analysis")
     p.add_argument("--hf-sjt-split", type=str, default="train")
 
     # Output
@@ -596,8 +600,8 @@ def parse_args() -> argparse.Namespace:
 
     # Hub push (only in no-debug)
     p.add_argument("--push-to-hub", action=argparse.BooleanOptionalAction, default=True)
-    p.add_argument("--target-hub-repo-id", type=str, default="thoughtworks/psychometric_personas_responses")
-    p.add_argument("--target-hub-config", type=str, default="debug")
+    p.add_argument("--target-hub-repo-id", type=str, default="thoughtworks/gemma_psychometrics_personas_responses")
+    p.add_argument("--target-hub-config", type=str, default="analysis_base")
     p.add_argument("--target-hub-split", type=str, default="train")
 
     args = p.parse_args()
