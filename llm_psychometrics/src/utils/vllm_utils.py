@@ -759,7 +759,7 @@ def main():
     out_jsonl.parent.mkdir(parents=True, exist_ok=True)
 
     mgr = VLLMServerManager()
-    mgr.ensure_fresh_server()
+    # mgr.ensure_fresh_server()
     prompts = make_math_prompts(NUM_PROMPTS)
 
     guided_choices = [str(i) for i in range(1, 2*NUM_PROMPTS+1)]
@@ -771,8 +771,7 @@ def main():
         temperature=0.0,
         batch_size=BATCH_SIZE,
         num_workers=MP_WORKERS,
-        guided_choices=guided_choices,
-        response_format=StructuredCOTResponse
+        guided_choices=guided_choices
     )
 
     with out_jsonl.open("w", encoding="utf-8") as f:
