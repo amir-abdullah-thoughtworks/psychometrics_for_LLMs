@@ -15,14 +15,21 @@ Task: Answer the below multiple choice question:""",
 Choices for this question are:
 
 {{ answer_options }}
-Give reasoning for choosing the option most consistent with your persona and answer by picking a number ranging from 1 to 6 inclusive.
-Always respond as a JSON object in following format
+
+Return a list of Ranked options.
+Rank all options from 1 to 6, where the first number represents the option most consistent with your persona and the last number represents the least consistent.
+Give consice reasoning for ranking the options according to how consistent they are with your persona.
+Keep the reasoning limited to 1-2 lines in total.
+
+Do not default to procedural or conservative choices.
+Evaluate each option independently relative to the persona.
+
+Always respond as a JSON object in the following format:
 
 ```
 {
-    "reasoning": "Step-by-step logic to reach the answer",
-    "answer" : Chosen Option ([1-6]),
-    "confidence_score" : [0-1]
+    "reasoning": "reasoning used to determine the ranking",
+    "answer": [first_choice, second_choice, third_choice, fourth_choice, fifth_choice, sixth_choice]
 }
 ```
 

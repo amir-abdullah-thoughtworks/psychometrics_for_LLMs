@@ -9,7 +9,9 @@ import requests
 import sys
 import time
 from dataclasses import dataclass
+from collections import Counter
 from pydantic import BaseModel, Field
+import numpy as np
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from pathlib import Path
@@ -33,12 +35,13 @@ class VLLMServerManager:
     - Starts a fresh server on host:port for the requested model.
     - Waits until /v1/models responds.
     """
+
     def __init__(self, model: str = default_model,
                  host: str = "127.0.0.1", port: int = 8000,
                  python_executable: str = sys.executable,
                  server_extra_args=None, env=None,
-                 log_file: str = "vllm_server.log",
-                 timeout_s: int = 180, kill_existing: bool = True):
+                 log_file: str = "/outputs/vllm_server.log",
+                 timeout_s: int = 500, kill_existing: bool = True):
         self.model = model
         self.host = host
         self.port = port
@@ -66,6 +69,7 @@ class VLLMServerManager:
             model: str,
             max_tokens: int,
             temperature: float,
+            top_p: float,
             guided_choices: Optional[List[str]] = None,
     ) -> str:
         guided_choices = guided_choices or []
@@ -74,6 +78,7 @@ class VLLMServerManager:
             "model": model,
             "max_tokens": int(max_tokens),
             "temperature": float(temperature),
+            "top_p": float(top_p),
             "guided_choices": guided_choices,
         }
         blob = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
@@ -240,6 +245,7 @@ class VLLMServerManager:
             "--host", self.host,
             "--port", str(self.port),
             "--dtype", "bfloat16",
+            "> /outputs/vllm_server.log",
         ] + self.server_extra_args
 
         stdout = open(self.log_file, "a", buffering=1, encoding="utf-8")
@@ -330,13 +336,14 @@ class VLLMServerManager:
             )
         return [gc or [] for gc in per]
 
-
+    
     def vllm_chat(
             self,
             prompt: str,
             model: str = default_model,
             max_tokens: int = 128,
             temperature: float = 0.0,
+            top_p: float = 0.0,
             guided_choices: Optional[List[str]] = None,
             response_format: Optional[BaseModel] = None
     ) -> str:
@@ -357,13 +364,20 @@ class VLLMServerManager:
                     "messages": [{"role": "user", "content": prompt}],
                     "max_tokens": max_tokens,
                     "temperature": temperature,
+                    "top_p": top_p,
                 }
 
                 if guided_choices:
                     payload["extra_body"] = {"guided_choice": guided_choices}
                     
                 if response_format:
-                    payload['response_format'] = response_format
+                    payload['response_format'] = {
+                                                    "type": "json_schema",
+                                                    "json_schema": {
+                                                        "name": response_format.__name__,
+                                                        "schema": response_format.model_json_schema()
+                                                    }
+                                                }
 
                 resp = requests.post(
                     f"{self.base_url}/v1/chat/completions",
@@ -372,12 +386,23 @@ class VLLMServerManager:
                 resp.raise_for_status()
 
                 text = resp.json()["choices"][0]["message"]["content"]
+                
+                self._log(
+                    f"RAW OUTPUT "
+                    f"attempt={attempt + 1} "
+                    f"raw={text!r} "
+                )
 
                 # No constraint → return raw
                 if not choice_set:
                     return text
 
                 token = _normalize(text)
+                
+                # text, token = self.call_llm_mode(payload=payload, N=5, choice_set=choice_set)
+                # token = str(np.argmax(json.loads(text)['answer']).item())
+                # token = str(json.loads(text)['answer'][0])
+                # token = str(json.loads(text)['answer'])
                 self._log(f"Token: {token}"
                           f"Choice Set: {choice_set}")
                 if token in choice_set:
@@ -407,6 +432,7 @@ class VLLMServerManager:
                 self._log(
                     f"VLLM_EXCEPTION "
                     f"attempt={attempt + 1} "
+                    f"err={text or None} as output "
                     f"err={repr(e)} on payload "
                     f"{json.dumps(payload, indent=4)}"
                 )
@@ -478,6 +504,7 @@ class VLLMServerManager:
         model: str,
         max_tokens: int,
         temperature: float,
+        top_p: float,
         num_workers: int,
         max_retries: int,
         retry_backoff_s: float,
@@ -506,7 +533,7 @@ class VLLMServerManager:
         args_list = [
             (
                 idx, self.base_url, # if idx % 2 == 0 else self.backup_url,
-                prompt, model, max_tokens, temperature,
+                prompt, model, max_tokens, temperature,top_p,
                 max_retries, retry_backoff_s, guided_choices[idx], response_format
             )
             for idx, prompt in enumerate(prompts)
@@ -558,6 +585,7 @@ class VLLMServerManager:
         model: str = default_model,
         max_tokens: int = 128,
         temperature: float = 0.0,
+        top_p: float = 0.0,
         batch_size: int = 100,
         num_workers: int = 100,
         max_retries: int = 5,
@@ -589,6 +617,7 @@ class VLLMServerManager:
                         model=model,
                         max_tokens=max_tokens,
                         temperature=temperature,
+                        top_p=top_p,
                         guided_choices=gc,
                     )
                     for p, gc in zip(chunk, chunk_guidance)
@@ -632,6 +661,7 @@ class VLLMServerManager:
                                 model=model,
                                 max_tokens=max_tokens,
                                 temperature=temperature,
+                                top_p=top_p,
                                 num_workers=num_workers,
                                 max_retries=max_retries,
                                 retry_backoff_s=retry_backoff_s,
@@ -683,6 +713,7 @@ def _mp_chat_one_worker(
     model: str,
     max_tokens: int,
     temperature: float,
+    top_p: float,
     max_retries: int,
     retry_backoff_s: float,
     guided_choices: Optional[List[str]],
@@ -700,6 +731,7 @@ def _mp_chat_one_worker(
                 model=model,
                 max_tokens=max_tokens,
                 temperature=temperature,
+                top_p=top_p,
                 guided_choices=guided_choices,
                 response_format=response_format
             )
@@ -707,11 +739,12 @@ def _mp_chat_one_worker(
         except Exception as e:
             last_err = e
             time.sleep(retry_backoff_s * (2 ** attempt))
-    raise RuntimeError(f"vllm_chat failed for idx={idx}") from last_err
+    raise RuntimeError(f"vllm_chat failed for idx={idx}, error={last_err}") from last_err
 
 
 def _mp_chat_one_worker_args(args):
     return _mp_chat_one_worker(*args)
+
 
 def make_math_prompts(n: int) -> list[str]:
     return [f"""What is {i} + {i+1}? Give answer only.""" for i in range(n)]
@@ -738,7 +771,8 @@ def main():
         temperature=0.0,
         batch_size=BATCH_SIZE,
         num_workers=MP_WORKERS,
-        guided_choices=guided_choices
+        guided_choices=guided_choices,
+        response_format=StructuredCOTResponse
     )
 
     with out_jsonl.open("w", encoding="utf-8") as f:
