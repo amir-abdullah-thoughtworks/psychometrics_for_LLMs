@@ -20,6 +20,10 @@ from contextlib import contextmanager
 from diskcache import Cache
 from datetime import datetime, UTC
 
+
+# default_model = ""Qwen/Qwen2.5-7B-Instruct"
+default_model = "google/gemma-3-4b-it"
+
 from diskcache import Cache, FanoutCache
 
 class VLLMServerManager:
@@ -29,7 +33,7 @@ class VLLMServerManager:
     - Starts a fresh server on host:port for the requested model.
     - Waits until /v1/models responds.
     """
-    def __init__(self, model: str = "Qwen/Qwen2.5-7B-Instruct",
+    def __init__(self, model: str = default_model,
                  host: str = "127.0.0.1", port: int = 8000,
                  python_executable: str = sys.executable,
                  server_extra_args=None, env=None,
@@ -188,11 +192,6 @@ class VLLMServerManager:
         except requests.RequestException:
             pass
 
-        try:
-            r = requests.get(f"{self.base_url}/v1/models", timeout=2)
-            return r.status_code == 200
-        except requests.RequestException:
-            return False
 
     def _kill_existing_servers(self):
         pids = []
@@ -242,6 +241,7 @@ class VLLMServerManager:
             "--port", str(self.port),
             "--dtype", "bfloat16",
         ] + self.server_extra_args
+
         stdout = open(self.log_file, "a", buffering=1, encoding="utf-8")
         self._proc = subprocess.Popen(cmd, stdout=stdout, stderr=stdout, env=self.env, start_new_session=True)
 
@@ -334,7 +334,7 @@ class VLLMServerManager:
     def vllm_chat(
             self,
             prompt: str,
-            model: str = "Qwen/Qwen2.5-7B-Instruct",
+            model: str = default_model,
             max_tokens: int = 128,
             temperature: float = 0.0,
             guided_choices: Optional[List[str]] = None,
@@ -555,7 +555,7 @@ class VLLMServerManager:
         prompts: List[str],
         guided_choices: Optional[Union[List[str], List[Optional[List[str]]]]] = None,
         response_format: Optional[BaseModel] = None,
-        model: str = "Qwen/Qwen2.5-7B-Instruct",
+        model: str = default_model,
         max_tokens: int = 128,
         temperature: float = 0.0,
         batch_size: int = 100,
@@ -713,25 +713,10 @@ def _mp_chat_one_worker(
 def _mp_chat_one_worker_args(args):
     return _mp_chat_one_worker(*args)
 
-
 def make_math_prompts(n: int) -> list[str]:
-    return [f"""What is {i} + {i+1}? Answer with reasoning along with the integer. Return output as a JSON
-            
-            {
-                "reasoning": "Step-by-step logic to reach the answer",
-                "answer": "int",
-                "confidence_score": [0-1]
-            }
-            
-            """ for i in range(n)]
-
+    return [f"""What is {i} + {i+1}? Give answer only.""" for i in range(n)]
 
 def main():
-    
-    class StructuredCOTResponse(BaseModel):
-        reasoning: str = Field(description="Step-by-step logic to reach the answer")
-        answer: float
-        confidence_score: float
     
     NUM_PROMPTS = 20
     MP_WORKERS = 100
@@ -741,14 +726,14 @@ def main():
     out_jsonl.parent.mkdir(parents=True, exist_ok=True)
 
     mgr = VLLMServerManager()
-    # mgr.ensure_fresh_server()
+    mgr.ensure_fresh_server()
     prompts = make_math_prompts(NUM_PROMPTS)
 
     guided_choices = [str(i) for i in range(1, 2*NUM_PROMPTS+1)]
 
     outputs = mgr.vllm_chat_batched(
         prompts=prompts,
-        model="Qwen/Qwen2.5-7B-Instruct",
+        model=default_model,
         max_tokens=128,
         temperature=0.0,
         batch_size=BATCH_SIZE,
@@ -764,7 +749,7 @@ def main():
                         "prompt": prompt,
                         "prompt_hash": mgr.stable_hash(prompt),
                         "response": response,
-                        "model": "Qwen/Qwen2.5-7B-Instruct",
+                        "model": default_model,
                     },
                     ensure_ascii=False,
                 )
