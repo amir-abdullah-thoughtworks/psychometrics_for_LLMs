@@ -593,7 +593,7 @@ class VLLMServerManager:
         max_retries: int = 5,
         retry_backoff_s: float = 0.1,
         chunk_max_retries: int = 2,
-        chunk_retry_backoff_s: float = 0.5,
+        chunk_retry_backoff_s: float = 0.05,
         cache_dir: Optional[str] = ".vllm_cache/diskcache",
         cache_enabled: bool = True,
         # --- NEW ---
