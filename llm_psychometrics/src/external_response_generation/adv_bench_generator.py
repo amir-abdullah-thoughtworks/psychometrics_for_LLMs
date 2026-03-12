@@ -366,7 +366,7 @@ def main():
     runner = PersonaPromptRunner(
         prompt_generator=prompt_gen,
         persona_dataset_id="thoughtworks/psychometric_personas",
-        persona_config="analysis",
+        persona_config="test_sample",
         out_jsonl=Path("outputs/gemma_advbench_persona_responses"),
         hub_repo_id="thoughtworks/gemma_psychometric_personas_responses",
         hub_split_name="advbench",
