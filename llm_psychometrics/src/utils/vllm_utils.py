@@ -358,6 +358,8 @@ class VLLMServerManager:
         had_mismatch = False
 
         for attempt in range(3):
+            text = None
+            payload = None
             try:
                 payload = {
                     "model": model,
