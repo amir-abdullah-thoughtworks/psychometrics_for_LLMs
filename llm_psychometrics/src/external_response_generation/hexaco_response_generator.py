@@ -115,6 +115,7 @@ class HexacoResponseRunner:
         self.model: str = args.model_name
         self.max_tokens: int = args.max_tokens
         self.temperature: float = args.temperature
+        self.top_p: float = args.top_p
         self.mp_batch_size: int = args.mp_batch_size
         self.mp_workers: int = args.mp_workers
         self.max_retries: int = args.max_retries
@@ -167,6 +168,7 @@ class HexacoResponseRunner:
         # vLLM generation params
         parser.add_argument("--max-tokens", type=int, default=16)
         parser.add_argument("--temperature", type=float, default=0.3)
+        parser.add_argument("--top-p", type=float, default=0.9)
 
         # batching inside vllm_chat_batched
         parser.add_argument("--mp-batch-size", type=int, default=256)
@@ -375,6 +377,7 @@ class HexacoResponseRunner:
             model=self.model,
             max_tokens=self.max_tokens,
             temperature=self.temperature,
+            top_p=self.top_p,
             batch_size=self.mp_batch_size,
             num_workers=self.mp_workers,
             max_retries=self.max_retries,

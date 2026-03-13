@@ -42,7 +42,7 @@ class VLLMServerManager:
                  host: str = "127.0.0.1", port: int = 8000,
                  python_executable: str = sys.executable,
                  server_extra_args=None, env=None,
-                 log_file: str = "outputs/vllm_server.log",
+                 log_file: str = "/outputs/vllm_server.log",
                  timeout_s: int = 500, kill_existing: bool = True):
         self.model = model
         self.host = host
