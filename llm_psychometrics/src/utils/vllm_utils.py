@@ -373,7 +373,7 @@ class VLLMServerManager:
                     "top_p": top_p,
                 }
 
-                if guided_choices:
+                if guided_choices and guided_choices[0]:
                     payload["extra_body"] = {"guided_choice": guided_choices}
                     
                 if response_format:
@@ -389,7 +389,12 @@ class VLLMServerManager:
                     f"{self.base_url}/v1/chat/completions",
                     json=payload
                 )
-                resp.raise_for_status()
+                if not resp.ok:
+                    raise RuntimeError(
+                        f"status={resp.status_code} body={resp.text}\n"
+                        f"payload_preview={json.dumps(payload, ensure_ascii=False)[:3000]}"
+                    )
+                    resp.raise_for_status()
 
                 text = resp.json()["choices"][0]["message"]["content"]
                 
@@ -442,7 +447,7 @@ class VLLMServerManager:
                     f"err={repr(e)} on payload "
                     f"{json.dumps(payload, indent=4)}"
                 )
-                time.sleep(0.2 * (2 ** attempt))
+                time.sleep(0.01 * (2 ** attempt))
 
         self._log(
             "GUIDED_CHOICES_FINAL_FAILURE "
