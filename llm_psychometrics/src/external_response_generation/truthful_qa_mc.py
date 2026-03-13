@@ -600,13 +600,11 @@ class TruthfulQAMCResponseRunner:
     def run(self) -> ExperimentResults:
         results: Dict[str, PersonaRunConfig] = {}
 
-        if self.args.hf_truthfulqa_config:
-            truth_ds = load_dataset(
-                self.args.hf_truthfulqa_path,
-                name=self.args.hf_truthfulqa_config,
-            )[self.args.hf_truthfulqa_split]
-        else:
-            truth_ds = load_dataset(self.args.hf_truthfulqa_path)[self.args.hf_truthfulqa_split]
+        truth_ds = load_dataset(
+            "parquet",
+            data_files={"validation": "hf://datasets/EleutherAI/truthful_qa_mc@refs/convert/parquet/multiple_choice/validation/0000.parquet"},
+            split="validation",
+        )
 
         if self.args.debug:
             question_count = min(self.args.n_truthfulqa_sample, len(truth_ds))
@@ -749,6 +747,7 @@ def parse_args() -> argparse.Namespace:
         args.answer_shuffle = True
 
     return args
+
 
 def main() -> None:
     args = parse_args()
