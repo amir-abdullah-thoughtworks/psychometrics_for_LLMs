@@ -40,7 +40,7 @@ class VLLMServerManager:
                  host: str = "127.0.0.1", port: int = 8000,
                  python_executable: str = sys.executable,
                  server_extra_args=None, env=None,
-                 log_file: str = "/outputs/vllm_server.log",
+                 log_file: str = "outputs/vllm_server.log",
                  timeout_s: int = 500, kill_existing: bool = True):
         self.model = model
         self.host = host
@@ -446,10 +446,10 @@ class VLLMServerManager:
 
         self._log(
             "GUIDED_CHOICES_FINAL_FAILURE "
-            f"retries=3"
+            f"retries=3 "
             f"last_err={repr(last_err)}"
         )
-        return None
+        raise RuntimeError(f"vllm_chat failed after 3 attempts: {last_err}") from last_err
 
     def _log(self, msg: str):
         ts = datetime.now(UTC).isoformat()
