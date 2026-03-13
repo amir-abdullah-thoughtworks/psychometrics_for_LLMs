@@ -719,7 +719,7 @@ def parse_args() -> argparse.Namespace:
     # Persona source
     p.add_argument("--persona-source", type=str, choices=["hf", "base_model"], default="hf")
     p.add_argument("--hf-persona-path", type=str, default="thoughtworks/psychometric_personas")
-    p.add_argument("--hf-persona-config", type=str, default="analysis")
+    p.add_argument("--hf-persona-config", type=str, default="test_sample")
     p.add_argument("--hf-persona-split", type=str, default="train")
 
     # TruthfulQA dataset
@@ -760,7 +760,7 @@ def main() -> None:
         login(token=hf_token)
 
     mgr = VLLMServerManager()
-    mgr.ensure_fresh_server()
+    # mgr.ensure_fresh_server()
     mgr.hello_world_check()
 
     # -------------------------------------------------------
