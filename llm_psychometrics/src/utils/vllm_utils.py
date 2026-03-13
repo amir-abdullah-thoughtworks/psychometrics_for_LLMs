@@ -250,6 +250,10 @@ class VLLMServerManager:
 
         stdout = open(self.log_file, "a", buffering=1, encoding="utf-8")
         self._proc = subprocess.Popen(cmd, stdout=stdout, stderr=stdout, env=self.env, start_new_session=True)
+        log_path = Path(self.log_file)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+
+        stdout = log_path.open("a", buffering=1, encoding="utf-8")
 
     def hello_world_check(self, model_override: str | None = None) -> str:
         """
@@ -449,8 +453,13 @@ class VLLMServerManager:
 
     def _log(self, msg: str):
         ts = datetime.now(UTC).isoformat()
-        with open(self.log_file, "a", encoding="utf-8") as f:
+
+        log_path = Path(self.log_file)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with log_path.open("a", encoding="utf-8") as f:
             f.write(f"[{ts}] {msg}\n")
+
 
     def _open_cache(
         self,
