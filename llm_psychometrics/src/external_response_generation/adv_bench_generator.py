@@ -226,11 +226,11 @@ class PersonaPromptRunner:
     persona_config: str
     persona_revision: Optional[str] = None
 
-    out_jsonl: Path = Path("outputs/advbench_persona_responses")
-    hub_repo_id: str = "thoughtworks/psychometric_personas_responses"
+    out_jsonl: Path = Path("outputs/gemma_advbench_persona_responses")
+    hub_repo_id: str = "thoughtworks/gemma_psychometric_personas_responses"
     hub_split_name: str = "advbench_v2"
 
-    model: str = "Qwen/Qwen2.5-7B-Instruct"
+    model: str = "google/gemma-3-4b-it"
     max_completion_tokens: int = 512
     temperature: float = 0.7
     mp_batch_size: int = 100
@@ -366,11 +366,11 @@ def main():
     runner = PersonaPromptRunner(
         prompt_generator=prompt_gen,
         persona_dataset_id="thoughtworks/psychometric_personas",
-        persona_config="expanded",
-        out_jsonl=Path("outputs/advbench_persona_responses"),
-        hub_repo_id="thoughtworks/psychometric_personas_responses",
+        persona_config="test_sample",
+        out_jsonl=Path("outputs/gemma_advbench_persona_responses"),
+        hub_repo_id="thoughtworks/gemma_psychometric_personas_responses",
         hub_split_name="advbench",
-        model="Qwen/Qwen2.5-7B-Instruct",
+        model="google/gemma-3-4b-it",
         max_completion_tokens=512,
         temperature=0,
         mp_batch_size=800,

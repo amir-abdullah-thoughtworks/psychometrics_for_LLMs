@@ -26,12 +26,13 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
-
 os.environ["HF_HOME"] = "/workspace/mounted/.cache"
 import transformers
+from transformers import AutoTokenizer
 from datasets import Dataset, DatasetDict, load_dataset
+from huggingface_hub import login
 from jinja2 import Template
-from pydantic import BaseModel, RootModel
+from pydantic import BaseModel, RootModel, Field
 from tqdm import tqdm
 
 # --- Custom imports (keep as-is in your repo) ---
@@ -41,6 +42,10 @@ from prompt_templates.sjt_persona_prompt_templates import sjt_persona_prompt_tem
 from utils.vllm_utils import VLLMServerManager
 
 
+
+class StructuredCOTResponse(BaseModel):
+    reasoning: str = Field(description="Step-by-step logic to reach the answer")
+    answer: list
 
 # =========================
 # Constants
@@ -232,7 +237,8 @@ def build_source_meta(args: argparse.Namespace) -> Dict[str, Any]:
         "n_times": int(getattr(args, "n_times", 1)),
         "model": getattr(args, "model", None),
         "max_tokens": int(getattr(args, "max_tokens", 1)),
-        "temperature": float(getattr(args, "temperature", 0.0)),
+        "temperature": float(getattr(args, "temperature", 0.3)),
+        "top_p": float(getattr(args, "top_p", 0.9)),
     }
 
 def flatten_results_for_hub(exp: ExperimentResults, source_meta: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -344,9 +350,10 @@ class SJTResponseRunner:
           displayed_options: List[str] length 6 (possibly shuffled)
           permutation: List[int] length 6 mapping displayed position -> canonical index
         """
+        
         if not self.args.answer_shuffle:
             return canonical_options[:], list(range(6))
-
+        
         perm = list(range(6))
         rng = random.Random(seed) if seed is not None else random
         rng.shuffle(perm)
@@ -395,7 +402,8 @@ class SJTResponseRunner:
             for sjt in sjts:
                 seed = prompt_seed_int(
                     str(persona_hash or persona_uuid or "base_model"),
-                    str(sjt.hash_id)
+                    str(sjt.hash_id),
+                    str(t)
                 )
                 displayed, perm = self._make_shuffled_options(sjt.options_canonical, seed=seed)
                 displayed_options_list.append(displayed)
@@ -407,6 +415,7 @@ class SJTResponseRunner:
                 model=self.args.model,
                 max_tokens=self.args.max_tokens,
                 temperature=self.args.temperature,
+                top_p=self.args.top_p,
                 batch_size=self.args.batch_size,
                 num_workers=self.args.num_workers,
                 guided_choices=SJT_ANSWER_CHOICES,
@@ -417,6 +426,7 @@ class SJTResponseRunner:
 
             # Normalize / record
             iter_answers: List[str] = []
+            iter_answer_reasoning: List[str] = []
             iter_norm: List[Optional[str]] = []
             iter_idx: List[List[int]] = []
             iter_guided: List[List[str]] = []
@@ -473,12 +483,15 @@ class SJTResponseRunner:
             sjt_ds = load_dataset(self.args.hf_sjt_path, name=self.args.hf_sjt_config)[self.args.hf_sjt_split]
         else:
             sjt_ds = load_dataset(self.args.hf_sjt_path)[self.args.hf_sjt_split]
-
+        
+        
         # Select SJTs: debug => sample; no-debug => ALL
         if self.args.debug:
             sjt_count = min(self.args.n_sjtsample, len(sjt_ds))
         else:
             sjt_count = len(sjt_ds)
+        
+        print(f"Loaded {sjt_count} SJTs")
 
         sjts: List[SJTSpec] = [extract_sjt_spec(sjt_ds[i], i) for i in range(sjt_count)]
 
@@ -501,6 +514,8 @@ class SJTResponseRunner:
             persona_count = min(self.args.n_personasample, len(persona_ds))
         else:
             persona_count = len(persona_ds)
+            
+        print(f"Loaded {persona_count} Personas")
 
         truncated_count = 0
 
@@ -547,9 +562,11 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
 
     # vLLM settings
-    p.add_argument("--model", type=str, default="Qwen/Qwen2.5-7B-Instruct")
+    # p.add_argument("--model", type=str, default="Qwen/Qwen3-4B-Instruct-2507")
+    p.add_argument("--model", type=str, default="google/gemma-3-4b-it")
     p.add_argument("--max-tokens", type=int, default=1)
-    p.add_argument("--temperature", type=float, default=0.0)
+    p.add_argument("--temperature", type=float, default=0.3)
+    p.add_argument("--top-p", type=float, default=0.9)
     p.add_argument("--batch-size", type=int, default=500)
     p.add_argument("--num-workers", type=int, default=6)
 
@@ -559,39 +576,39 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--answer-shuffle", action=argparse.BooleanOptionalAction, default=True)
 
     # Experiment sizing
-    p.add_argument("--n-times", type=int, default=1)
+    p.add_argument("--n-times", type=int, default=5)
     p.add_argument("--n-personasample", type=int, default=10)
     p.add_argument("--n-sjtsample", type=int, default=10)
 
     # Debug default ON (your preference)
-    p.add_argument("--debug", action=argparse.BooleanOptionalAction, default=True)
+    p.add_argument("--debug", action=argparse.BooleanOptionalAction, default=False)
 
     # Persona source
     p.add_argument("--persona-source", type=str, choices=["hf", "base_model"], default="hf")
 
     p.add_argument("--hf-persona-path", type=str, default="thoughtworks/psychometric_personas")
-    p.add_argument("--hf-persona-config", type=str, default="expanded")
+    p.add_argument("--hf-persona-config", type=str, default="analysis")
     p.add_argument("--hf-persona-split", type=str, default="train")
 
     # SJT dataset
     p.add_argument("--hf-sjt-path", type=str, default="thoughtworks/psychometric_sjts_analysis")
-    p.add_argument("--hf-sjt-config", type=str, default="restricted")
+    p.add_argument("--hf-sjt-config", type=str, default="analysis")
     p.add_argument("--hf-sjt-split", type=str, default="train")
 
     # Output
-    p.add_argument("--out-json", type=str, default="outputs/police_sjt_results.json")
+    p.add_argument("--out-json", type=str, default="/outputs/police_sjt_results.json")
 
     # Hub push (only in no-debug)
     p.add_argument("--push-to-hub", action=argparse.BooleanOptionalAction, default=True)
-    p.add_argument("--target-hub-repo-id", type=str, default="thoughtworks/psychometric_personas_responses")
-    p.add_argument("--target-hub-config", type=str, default="police_sjt")
+    p.add_argument("--target-hub-repo-id", type=str, default="thoughtworks/gemma_psychometrics_personas_responses")
+    p.add_argument("--target-hub-config", type=str, default="analysis_base")
     p.add_argument("--target-hub-split", type=str, default="train")
 
     args = p.parse_args()
 
     # Debug-mode overrides (exactly as you described)
     if args.debug:
-        args.n_times = 1
+        args.n_times = 5
         args.n_personasample = 10
         args.n_sjtsample = 10
         args.answer_shuffle = True
@@ -602,10 +619,18 @@ def main() -> None:
     args = parse_args()
 
     os.makedirs(os.path.dirname(args.out_json) or ".", exist_ok=True)
+    
+    hf_token = os.getenv("HF_TOKEN")
+    if hf_token:
+        login(token=hf_token)
+    else:
+        print("HF_TOKEN environment variable not set. Using other authentication methods or running anonymously.")
 
     # NOTE: assumes you already have a running vLLM OpenAI-compatible server,
     # and VLLMServerManager is configured to talk to it.
     mgr = VLLMServerManager()
+    mgr.ensure_fresh_server()
+    mgr.hello_world_check()
 
     runner = SJTResponseRunner(args=args, mgr=mgr)
     results = runner.run()
@@ -618,6 +643,8 @@ def main() -> None:
 
     # Push to hub only in no-debug mode
     if args.push_to_hub:
+        
+
         push_results_to_hub(results, args)
         print(f"Pushed to hub -> {args.target_hub_repo_id} (config={args.target_hub_config})")
     else:
