@@ -28,6 +28,8 @@ default_model = "google/gemma-3-4b-it"
 
 from diskcache import Cache, FanoutCache
 
+likert_scale = ["Strongly Disagree","Disagree", "Neutral", "Agree", "Strongly Agree"]
+
 class VLLMServerManager:
     """
     Minimal manager for a local vLLM OpenAI-compatible server.
@@ -40,7 +42,7 @@ class VLLMServerManager:
                  host: str = "127.0.0.1", port: int = 8000,
                  python_executable: str = sys.executable,
                  server_extra_args=None, env=None,
-                 log_file: str = "outputs/vllm_server.log",
+                 log_file: str = "/outputs/vllm_server.log",
                  timeout_s: int = 500, kill_existing: bool = True):
         self.model = model
         self.host = host
@@ -408,7 +410,11 @@ class VLLMServerManager:
                 if not choice_set:
                     return text
 
-                token = _normalize(text)
+                if text.strip() in likert_scale:
+                    token = text.strip()
+                else:
+                    token = _normalize(text)
+                
                 
                 # text, token = self.call_llm_mode(payload=payload, N=5, choice_set=choice_set)
                 # token = str(np.argmax(json.loads(text)['answer']).item())
@@ -440,12 +446,19 @@ class VLLMServerManager:
 
             except Exception as e:
                 last_err = e
+                response_body = None
+                if 'resp' in locals():
+                    try:
+                        response_body = resp.text
+                    except:
+                        pass
+
                 self._log(
                     f"VLLM_EXCEPTION "
                     f"attempt={attempt + 1} "
-                    f"err={text or None} as output "
-                    f"err={repr(e)} on payload "
-                    f"{json.dumps(payload, indent=4)}"
+                    f"err={repr(e)} "
+                    f"response={response_body} "
+                    f"payload={json.dumps(payload, indent=4)}"
                 )
                 time.sleep(0.01 * (2 ** attempt))
 

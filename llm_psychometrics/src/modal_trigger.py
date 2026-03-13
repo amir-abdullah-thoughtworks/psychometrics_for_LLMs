@@ -80,7 +80,8 @@ def run_my_script():
     print(os.listdir())
     os.chdir("/root/my_project")
     sys.path.append(str(Path(__file__).parent))
-    from external_response_generation.sjt_response_generator_merged import main
+    # from external_response_generation.sjt_response_generator_merged import main
+    from external_response_generation.hexaco_response_generator import main
 
     main()
 
