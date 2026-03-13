@@ -237,7 +237,7 @@ class VLLMServerManager:
             "--max-num-batched-tokens", "10000",
             "--max-num-seqs", "30",
             "--disable-log-requests",
-            "--max-model-len", "2048",
+            "--max-model-len", "4096",
             "--disable-log-stats",
             "--enable-chunked-prefill",
             "--tensor-parallel-size", "1",
