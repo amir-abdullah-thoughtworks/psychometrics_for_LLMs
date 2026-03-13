@@ -347,7 +347,7 @@ class VLLMServerManager:
             model: str = default_model,
             max_tokens: int = 128,
             temperature: float = 0.0,
-            top_p: float = 0.0,
+            top_p: float = 1.0,
             guided_choices: Optional[List[str]] = None,
             response_format: Optional[BaseModel] = None
     ) -> str:
@@ -601,7 +601,7 @@ class VLLMServerManager:
         model: str = default_model,
         max_tokens: int = 128,
         temperature: float = 0.0,
-        top_p: float = 0.0,
+        top_p: float = 1.0,
         batch_size: int = 100,
         num_workers: int = 100,
         max_retries: int = 5,
