@@ -22,6 +22,10 @@ from contextlib import contextmanager
 from diskcache import Cache
 from datetime import datetime, UTC
 
+
+# default_model = ""Qwen/Qwen2.5-7B-Instruct"
+default_model = "google/gemma-3-4b-it"
+
 from diskcache import Cache, FanoutCache
 
 likert_scale = ["Strongly Disagree","Disagree", "Neutral", "Agree", "Strongly Agree"]
@@ -33,12 +37,13 @@ class VLLMServerManager:
     - Starts a fresh server on host:port for the requested model.
     - Waits until /v1/models responds.
     """
-    def __init__(self, model: str = "google/gemma-3-4b-it",
+
+    def __init__(self, model: str = default_model,
                  host: str = "127.0.0.1", port: int = 8000,
                  python_executable: str = sys.executable,
                  server_extra_args=None, env=None,
-                 log_file: str = "/outputs/vllm_server.log",
-                 timeout_s: int = 1000, kill_existing: bool = True):
+                 log_file: str = "outputs/vllm_server.log",
+                 timeout_s: int = 500, kill_existing: bool = True):
         self.model = model
         self.host = host
         self.port = port
@@ -194,11 +199,6 @@ class VLLMServerManager:
         except requests.RequestException:
             pass
 
-        try:
-            r = requests.get(f"{self.base_url}/v1/models", timeout=2)
-            return r.status_code == 200
-        except requests.RequestException:
-            return False
 
     def _kill_existing_servers(self):
         pids = []
@@ -239,7 +239,7 @@ class VLLMServerManager:
             "--max-num-batched-tokens", "10000",
             "--max-num-seqs", "30",
             "--disable-log-requests",
-            "--max-model-len", "2048",
+            "--max-model-len", "4096",
             "--disable-log-stats",
             "--enable-chunked-prefill",
             "--tensor-parallel-size", "1",
@@ -249,8 +249,13 @@ class VLLMServerManager:
             "--dtype", "bfloat16",
             "> /outputs/vllm_server.log",
         ] + self.server_extra_args
+
         stdout = open(self.log_file, "a", buffering=1, encoding="utf-8")
         self._proc = subprocess.Popen(cmd, stdout=stdout, stderr=stdout, env=self.env, start_new_session=True)
+        log_path = Path(self.log_file)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+
+        stdout = log_path.open("a", buffering=1, encoding="utf-8")
 
     def hello_world_check(self, model_override: str | None = None) -> str:
         """
@@ -320,7 +325,7 @@ class VLLMServerManager:
         """
         n = len(prompts)
         if guided_choices is None:
-            raise ValueError(f"No guided choices provided")
+            print(f"No guided choices provided")
             return [[] for _ in range(n)]
 
         # Case A: shared list[str] for all prompts
@@ -341,10 +346,10 @@ class VLLMServerManager:
     def vllm_chat(
             self,
             prompt: str,
-            model: str = "google/gemma-3-4b-it",
+            model: str = default_model,
             max_tokens: int = 128,
-            temperature: float = 0.9,
-            top_p: float = 0.3,
+            temperature: float = 0.0,
+            top_p: float = 1.0,
             guided_choices: Optional[List[str]] = None,
             response_format: Optional[BaseModel] = None
     ) -> str:
@@ -359,6 +364,8 @@ class VLLMServerManager:
         had_mismatch = False
 
         for attempt in range(3):
+            text = None
+            payload = None
             try:
                 payload = {
                     "model": model,
@@ -368,7 +375,7 @@ class VLLMServerManager:
                     "top_p": top_p,
                 }
 
-                if guided_choices:
+                if guided_choices and guided_choices[0]:
                     payload["extra_body"] = {"guided_choice": guided_choices}
                     
                 if response_format:
@@ -384,12 +391,12 @@ class VLLMServerManager:
                     f"{self.base_url}/v1/chat/completions",
                     json=payload
                 )
-                self._log(
-                    f"RESPONSE "
-                    f"attempt={attempt + 1} "
-                    f"raw={resp.reason} "
-                )
-                resp.raise_for_status()
+                if not resp.ok:
+                    raise RuntimeError(
+                        f"status={resp.status_code} body={resp.text}\n"
+                        f"payload_preview={json.dumps(payload, ensure_ascii=False)[:3000]}"
+                    )
+                    resp.raise_for_status()
 
                 text = resp.json()["choices"][0]["message"]["content"]
                 
@@ -453,19 +460,24 @@ class VLLMServerManager:
                     f"response={response_body} "
                     f"payload={json.dumps(payload, indent=4)}"
                 )
-                time.sleep(0.2 * (2 ** attempt))
+                time.sleep(0.01 * (2 ** attempt))
 
         self._log(
             "GUIDED_CHOICES_FINAL_FAILURE "
-            f"retries=3"
+            f"retries=3 "
             f"last_err={repr(last_err)}"
         )
-        return None
+        raise RuntimeError(f"vllm_chat failed after 3 attempts: {last_err}") from last_err
 
     def _log(self, msg: str):
         ts = datetime.now(UTC).isoformat()
-        with open(self.log_file, "a", encoding="utf-8") as f:
+
+        log_path = Path(self.log_file)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with log_path.open("a", encoding="utf-8") as f:
             f.write(f"[{ts}] {msg}\n")
+
 
     def _open_cache(
         self,
@@ -599,16 +611,16 @@ class VLLMServerManager:
         prompts: List[str],
         guided_choices: Optional[Union[List[str], List[Optional[List[str]]]]] = None,
         response_format: Optional[BaseModel] = None,
-        model: str = "google/gemma-3-4b-it",
+        model: str = default_model,
         max_tokens: int = 128,
-        temperature: float = 0.3,
-        top_p: float = 0.9,
+        temperature: float = 0.0,
+        top_p: float = 1.0,
         batch_size: int = 100,
         num_workers: int = 100,
         max_retries: int = 5,
         retry_backoff_s: float = 0.1,
         chunk_max_retries: int = 2,
-        chunk_retry_backoff_s: float = 0.5,
+        chunk_retry_backoff_s: float = 0.05,
         cache_dir: Optional[str] = ".vllm_cache/diskcache",
         cache_enabled: bool = True,
         # --- NEW ---
@@ -763,21 +775,9 @@ def _mp_chat_one_worker_args(args):
     return _mp_chat_one_worker(*args)
 
 
-
 def make_math_prompts(n: int) -> list[str]:
-    return [f"""What is {i} + {i+1}? Answer with reasoning along with the integer. Return output as a JSON
-            
-            {{
-                "reasoning": "Step-by-step logic to reach the answer",
-                "answer": "int"
-            }}
-            
-            """ for i in range(n)]
+    return [f"""What is {i} + {i+1}? Give answer only.""" for i in range(n)]
 
-class StructuredCOTResponse(BaseModel):
-        reasoning: str = Field(description="Step-by-step logic to reach the answer")
-        answer: float
-        
 def main():
     
     NUM_PROMPTS = 20
@@ -788,21 +788,19 @@ def main():
     out_jsonl.parent.mkdir(parents=True, exist_ok=True)
 
     mgr = VLLMServerManager()
-    mgr.ensure_fresh_server()
-    mgr.hello_world_check()
+    # mgr.ensure_fresh_server()
     prompts = make_math_prompts(NUM_PROMPTS)
 
     guided_choices = [str(i) for i in range(1, 2*NUM_PROMPTS+1)]
 
     outputs = mgr.vllm_chat_batched(
         prompts=prompts,
-        model="google/gemma-3-4b-it",
+        model=default_model,
         max_tokens=128,
         temperature=0.0,
         batch_size=BATCH_SIZE,
         num_workers=MP_WORKERS,
-        guided_choices=guided_choices,
-        response_format=StructuredCOTResponse
+        guided_choices=guided_choices
     )
 
     with out_jsonl.open("w", encoding="utf-8") as f:
@@ -813,7 +811,7 @@ def main():
                         "prompt": prompt,
                         "prompt_hash": mgr.stable_hash(prompt),
                         "response": response,
-                        "model": "google/gemma-3-4b-it",
+                        "model": default_model,
                     },
                     ensure_ascii=False,
                 )
