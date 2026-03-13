@@ -24,6 +24,8 @@ from datetime import datetime, UTC
 
 from diskcache import Cache, FanoutCache
 
+likert_scale = ["Strongly Disagree","Disagree", "Neutral", "Agree", "Strongly Agree"]
+
 class VLLMServerManager:
     """
     Minimal manager for a local vLLM OpenAI-compatible server.
@@ -36,7 +38,7 @@ class VLLMServerManager:
                  python_executable: str = sys.executable,
                  server_extra_args=None, env=None,
                  log_file: str = "/outputs/vllm_server.log",
-                 timeout_s: int = 500, kill_existing: bool = True):
+                 timeout_s: int = 1000, kill_existing: bool = True):
         self.model = model
         self.host = host
         self.port = port
@@ -341,8 +343,8 @@ class VLLMServerManager:
             prompt: str,
             model: str = "google/gemma-3-4b-it",
             max_tokens: int = 128,
-            temperature: float = 0.0,
-            top_p: float = 0.0,
+            temperature: float = 0.9,
+            top_p: float = 0.3,
             guided_choices: Optional[List[str]] = None,
             response_format: Optional[BaseModel] = None
     ) -> str:
@@ -382,6 +384,11 @@ class VLLMServerManager:
                     f"{self.base_url}/v1/chat/completions",
                     json=payload
                 )
+                self._log(
+                    f"RESPONSE "
+                    f"attempt={attempt + 1} "
+                    f"raw={resp.reason} "
+                )
                 resp.raise_for_status()
 
                 text = resp.json()["choices"][0]["message"]["content"]
@@ -396,7 +403,11 @@ class VLLMServerManager:
                 if not choice_set:
                     return text
 
-                token = _normalize(text)
+                if text.strip() in likert_scale:
+                    token = text.strip()
+                else:
+                    token = _normalize(text)
+                
                 
                 # text, token = self.call_llm_mode(payload=payload, N=5, choice_set=choice_set)
                 # token = str(np.argmax(json.loads(text)['answer']).item())
@@ -428,12 +439,19 @@ class VLLMServerManager:
 
             except Exception as e:
                 last_err = e
+                response_body = None
+                if 'resp' in locals():
+                    try:
+                        response_body = resp.text
+                    except:
+                        pass
+
                 self._log(
                     f"VLLM_EXCEPTION "
                     f"attempt={attempt + 1} "
-                    f"err={text or None} as output "
-                    f"err={repr(e)} on payload "
-                    f"{json.dumps(payload, indent=4)}"
+                    f"err={repr(e)} "
+                    f"response={response_body} "
+                    f"payload={json.dumps(payload, indent=4)}"
                 )
                 time.sleep(0.2 * (2 ** attempt))
 
@@ -583,8 +601,8 @@ class VLLMServerManager:
         response_format: Optional[BaseModel] = None,
         model: str = "google/gemma-3-4b-it",
         max_tokens: int = 128,
-        temperature: float = 0.0,
-        top_p: float = 0.0,
+        temperature: float = 0.3,
+        top_p: float = 0.9,
         batch_size: int = 100,
         num_workers: int = 100,
         max_retries: int = 5,

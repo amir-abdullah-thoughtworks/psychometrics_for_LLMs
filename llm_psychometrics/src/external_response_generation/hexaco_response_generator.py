@@ -46,7 +46,7 @@ from tqdm import tqdm
 
 THIS_FILE = Path(__file__).resolve()
 # this file is at: root/src/external_response_generation/hexaco_response_generator.py
-ROOT_DIR = THIS_FILE.parents[2]  # external_response_generation -> src -> root
+ROOT_DIR = THIS_FILE.parents[1]  # external_response_generation -> src -> root
 
 
 DATA_DIR = ROOT_DIR / "data"
@@ -137,16 +137,16 @@ class HexacoResponseRunner:
     def parse_args() -> argparse.Namespace:
         parser = argparse.ArgumentParser()
 
-        parser.add_argument("--model-name", type=str, default="Qwen/Qwen2.5-7B-Instruct")
+        parser.add_argument("--model-name", type=str, default="google/gemma-3-4b-it")
 
         parser.add_argument(
             "--persona-source",
             type=str,
-            default="huggingface",
+            default="base_model",
             help="Source of Persona (huggingface | base_model | personallm_paper | local)",
         )
         parser.add_argument("--hf-persona-path", type=str, default="thoughtworks/psychometric_personas")
-        parser.add_argument("--hf-persona-config", type=str, default="expanded")
+        parser.add_argument("--hf-persona-config", type=str, default="analysis")
         parser.add_argument("--n-personasample", type=int, default=1)
 
         # question generation options
@@ -159,14 +159,14 @@ class HexacoResponseRunner:
         parser.add_argument("--batching", action="store_true")
         parser.add_argument("--batch-size", type=int, default=5)
 
-        parser.add_argument("--n-times", type=int, default=1)
+        parser.add_argument("--n-times", type=int, default=5)
 
         # Outdir default: repo-root/outputs (safe and consistent)
         parser.add_argument("--out-dir", type=str, default=str(ROOT_DIR / "outputs"))
 
         # vLLM generation params
         parser.add_argument("--max-tokens", type=int, default=16)
-        parser.add_argument("--temperature", type=float, default=0.0)
+        parser.add_argument("--temperature", type=float, default=0.3)
 
         # batching inside vllm_chat_batched
         parser.add_argument("--mp-batch-size", type=int, default=256)
@@ -179,7 +179,7 @@ class HexacoResponseRunner:
         # manager connection details (we do NOT start any server here)
         parser.add_argument("--vllm-host", type=str, default="127.0.0.1")
         parser.add_argument("--vllm-port", type=int, default=8000)
-        parser.add_argument("--vllm-timeout-s", type=int, default=180)
+        parser.add_argument("--vllm-timeout-s", type=int, default=400)
 
         parser.add_argument(
             "--debug", action=argparse.BooleanOptionalAction,
@@ -193,13 +193,19 @@ class HexacoResponseRunner:
 
         parser.add_argument(
             "--hub-repo", type=str,
-            default="thoughtworks/psychometric_test_responses",
+            default="thoughtworks/gemma_psychometrics_personas_responses",
             help="HF dataset repo to push to.",
+        )
+        
+        parser.add_argument(
+            "--hub-config", type=str,
+            default="hexaco_base",
+            help="HF dataset config to push to.",
         )
 
         parser.add_argument(
             "--hub-split", type=str,
-            default="hexaco", help="Split name to push under.",
+            default="train", help="Split name to push under.",
         )
 
         return parser.parse_args()
@@ -380,8 +386,7 @@ class HexacoResponseRunner:
     def push_results_to_hub(
             self,
             results: HexacoExperimentResults,
-            repo_id: str,
-            split_name: str = "hexaco",
+            args: argparse.Namespace
     ) -> None:
         """
         Push to HF datasets hub under the provided split name.
@@ -393,38 +398,43 @@ class HexacoResponseRunner:
 
         for persona_id, run_result in results.root.items():
             cfg = run_result.config
-
-            rows.append(
-                {
-                    "persona_id": persona_id,
-                    "persona_hash": cfg.persona_hash,
-                    "model_name": cfg.model_name,
-                    "paraphrase": cfg.paraphrase,
-                    "likert_scale_mode": cfg.likert_scale_mode,
-                    "refusal_allowed": cfg.refusal_allowed,
-                    "n_times": len(run_result.answers),
-                    "n_questions": (len(run_result.answers[0]) if run_result.answers else 0),
-                    # Audit / reproducibility payloads (nested lists are OK in HF datasets)
-                    "answers": run_result.answers,
-                    "raw_prompts": cfg.raw_prompts,
-                    "guided_choices": cfg.guided_choices,
-                    "likert_orders": cfg.likert_orders,
-                    # minimal metadata
-                    "created_at_utc": now_iso,
-                    "persona_source": self.args.persona_source,
-                    "hf_persona_path": getattr(self.args, "hf_persona_path", None),
-                    "hf_persona_config": getattr(self.args, "hf_persona_config", None),
-                    "debug": bool(self.args.debug),
-                }
-            )
-
+            answers = run_result.answers
+            for t in range(len(answers)):
+                for rp in range(len(cfg.raw_prompts[t])):
+                    rows.append(
+                        {
+                            "persona_id": persona_id,
+                            "persona_hash": cfg.persona_hash,
+                            "model_name": cfg.model_name,
+                            "paraphrase": cfg.paraphrase,
+                            "likert_scale_mode": cfg.likert_scale_mode,
+                            "refusal_allowed": cfg.refusal_allowed,
+                            "iter": t,
+                            "n_questions": (len(answers[0]) if answers else 0),
+                            # Audit / reproducibility payloads (nested lists are OK in HF datasets)
+                            "answers": answers[t][rp],
+                            "raw_prompts": cfg.raw_prompts[t][rp],
+                            "guided_choices": cfg.guided_choices[t][rp],
+                            "likert_orders": cfg.likert_orders[t][rp],
+                            # minimal metadata
+                            "created_at_utc": now_iso,
+                            "persona_source": self.args.persona_source,
+                            "hf_persona_path": getattr(self.args, "hf_persona_path", None),
+                            "hf_persona_config": getattr(self.args, "hf_persona_config", None),
+                            "debug": bool(self.args.debug),
+                        }
+                    )
+        
+        
         ds = Dataset.from_list(rows)
-        dsd = DatasetDict({split_name: ds})
+        dsd = DatasetDict({self.args.hub_split: ds})
 
         # This will create/update the dataset repo and overwrite that split content.
         # Requires HF auth via huggingface-cli login or HF_TOKEN env var.
-        dsd.push_to_hub(repo_id)
-        print(f"Pushed {len(rows)} rows to HF dataset {repo_id} split '{split_name}'")
+        dsd.push_to_hub(
+            repo_id=self.args.hub_repo,
+            config_name=self.args.hub_config)
+        print(f"Pushed {len(rows)} rows to HF dataset {self.args.hub_repo}, config: '{self.args.hub_config}' split: '{self.args.hub_split}'")
 
     # ----------------------------
     # Prompt building (fresh Likert shuffle per answer)
@@ -589,8 +599,7 @@ class HexacoResponseRunner:
         if getattr(self.args, "push_to_hub", True):
             self.push_results_to_hub(
                 results=results,
-                repo_id=self.args.hub_repo,
-                split_name=self.args.hub_split,
+                args=self.args
             )
 
         return str(out_file)
@@ -610,7 +619,9 @@ def main():
         kill_existing=False,     # do not kill anything
         server_extra_args=[],    # do not start anything
     )
-
+    
+    mgr.ensure_fresh_server()
+    mgr.hello_world_check()
     runner = HexacoResponseRunner(args=args, mgr=mgr)
     runner.run()
 
