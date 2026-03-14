@@ -397,12 +397,13 @@ class VLLMServerManager:
                     resp.raise_for_status()
 
                 text = resp.json()["choices"][0]["message"]["content"]
-                
-                self._log(
-                    f"RAW OUTPUT "
-                    f"attempt={attempt + 1} "
-                    f"raw={text!r} "
-                )
+
+                if attempt > 0:
+                    self._log(
+                        f"RAW OUTPUT "
+                        f"attempt={attempt + 1} "
+                        f"raw={text!r} "
+                    )
 
                 # No constraint → return raw
                 if not choice_set:
@@ -414,8 +415,9 @@ class VLLMServerManager:
                 # token = str(np.argmax(json.loads(text)['answer']).item())
                 # token = str(json.loads(text)['answer'][0])
                 # token = str(json.loads(text)['answer'])
-                self._log(f"Token: {token}"
-                          f"Choice Set: {choice_set}")
+                if attempt > 0:
+                    self._log(f"Token: {token}"
+                              f"Choice Set: {choice_set}")
                 if token in choice_set:
                     if had_mismatch:
                         self._log(
@@ -460,7 +462,7 @@ class VLLMServerManager:
         ts = datetime.now(UTC).isoformat()
 
         log_path = Path(self.log_file)
-        log_path.parent.mkdir(parents=True, exist_ok=True)
+        # log_path.parent.mkdir(parents=True, exist_ok=True)
 
         with log_path.open("a", encoding="utf-8") as f:
             f.write(f"[{ts}] {msg}\n")
