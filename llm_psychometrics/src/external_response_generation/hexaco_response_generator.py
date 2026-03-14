@@ -138,7 +138,7 @@ class HexacoResponseRunner:
     def parse_args() -> argparse.Namespace:
         parser = argparse.ArgumentParser()
 
-        parser.add_argument("--model-name", type=str, default="Qwen/Qwen2.5-7B-Instruct")
+        parser.add_argument("--model-name", type=str, default="google/gemma-3-4b")
 
         parser.add_argument(
             "--persona-source",
