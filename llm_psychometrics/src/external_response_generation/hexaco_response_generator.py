@@ -17,13 +17,17 @@ This version:
     ROOT_DIR/configs/...
     ROOT_DIR/data/...
     ROOT_DIR/psychometric_tests/...
-- Keeps your existing imports, but makes them robust by inserting ROOT_DIR/src into sys.path
-  so `utils_v0`, `utils.vllm_utils`, `prompt_templates...` can be imported regardless of where you run from.
+- Keeps imports robust by inserting ROOT_DIR/src into sys.path.
+- Runs two conditions automatically:
+    1) persona-conditioned -> pushed to HF split: hexaco_analysis
+    2) base model only     -> pushed to HF split: hexaco_base
+- Defaults to 5 iterations.
 """
 
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import os
@@ -33,9 +37,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 import yaml
-from datasets import Dataset, load_dataset, DatasetDict
+from datasets import Dataset, DatasetDict, load_dataset
 from datetime import datetime, timezone
-import json
 from jinja2 import Template
 from pydantic import BaseModel, RootModel
 from tqdm import tqdm
@@ -47,7 +50,6 @@ from tqdm import tqdm
 THIS_FILE = Path(__file__).resolve()
 # this file is at: root/src/external_response_generation/hexaco_response_generator.py
 ROOT_DIR = THIS_FILE.parents[2]  # external_response_generation -> src -> root
-
 
 DATA_DIR = ROOT_DIR / "data"
 PSYCHOMETRIC_DIR = ROOT_DIR / "psychometric_tests"
@@ -99,9 +101,7 @@ class HexacoExperimentResults(RootModel[Dict[str, HexacoRunResult]]):
     persona_uuid (or 'base_model') -> HexacoRunResult
     """
     def to_jsonable(self) -> Dict[str, Any]:
-        # RootModel stores data in .root
         return {k: v.model_dump() for k, v in self.root.items()}
-
 
 
 # =========================
@@ -127,7 +127,8 @@ class HexacoResponseRunner:
     # ----------------------------
     # Hashing
     # ----------------------------
-    def stable_hash(self, text: str) -> str:
+    @staticmethod
+    def stable_hash(text: str) -> str:
         return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
     # ----------------------------
@@ -143,23 +144,30 @@ class HexacoResponseRunner:
             "--persona-source",
             type=str,
             default="huggingface",
+            choices=["huggingface", "base_model", "personallm_paper", "local"],
             help="Source of Persona (huggingface | base_model | personallm_paper | local)",
         )
         parser.add_argument("--hf-persona-path", type=str, default="thoughtworks/psychometric_personas")
-        parser.add_argument("--hf-persona-config", type=str, default="expanded")
+        parser.add_argument("--hf-persona-config", type=str, default="analysis")
+        parser.add_argument("--hf-persona-split", type=str, default="train")
         parser.add_argument("--n-personasample", type=int, default=1)
 
         # question generation options
         parser.add_argument("--paraphrase", action="store_true", help="Use paraphrased HEXACO questions")
         parser.add_argument("--inverted-likert", action="store_true", help="Invert Likert scale")
         parser.add_argument("--no-refusal", action="store_true", help="Disallow refusal option")
-        parser.add_argument("--likert-shuffle", action="store_false", help="Shuffle likert scale per answer (iid)")
+        parser.add_argument(
+            "--likert-shuffle",
+            action=argparse.BooleanOptionalAction,
+            default=True,
+            help="Shuffle likert scale per answer (default True)",
+        )
 
         # batching (kept to match old interface; we still do one question per prompt)
         parser.add_argument("--batching", action="store_true")
         parser.add_argument("--batch-size", type=int, default=5)
 
-        parser.add_argument("--n-times", type=int, default=1)
+        parser.add_argument("--n-times", type=int, default=5)
 
         # Outdir default: repo-root/outputs (safe and consistent)
         parser.add_argument("--out-dir", type=str, default=str(ROOT_DIR / "outputs"))
@@ -182,24 +190,38 @@ class HexacoResponseRunner:
         parser.add_argument("--vllm-timeout-s", type=int, default=180)
 
         parser.add_argument(
-            "--debug", action=argparse.BooleanOptionalAction,
-            default=True, help="Debug mode (default True): only run/push first 10 personas.",
+            "--debug",
+            action=argparse.BooleanOptionalAction,
+            default=True,
+            help="Debug mode (default True): only run/push first 10 personas.",
         )
 
         parser.add_argument(
-            "--push-to-hub", action=argparse.BooleanOptionalAction,
-            default=True, help="Push results to Hugging Face Hub (default True).",
+            "--push-to-hub",
+            action=argparse.BooleanOptionalAction,
+            default=True,
+            help="Push results to Hugging Face Hub (default True).",
         )
 
         parser.add_argument(
-            "--hub-repo", type=str,
+            "--hub-repo",
+            type=str,
             default="thoughtworks/psychometric_test_responses",
             help="HF dataset repo to push to.",
         )
 
         parser.add_argument(
-            "--hub-split", type=str,
-            default="hexaco", help="Split name to push under.",
+            "--analysis-split",
+            type=str,
+            default="hexaco_analysis",
+            help="HF split name for persona-conditioned runs.",
+        )
+
+        parser.add_argument(
+            "--base-split",
+            type=str,
+            default="hexaco_base",
+            help="HF split name for base-model runs.",
         )
 
         return parser.parse_args()
@@ -224,6 +246,10 @@ class HexacoResponseRunner:
     def _batch_list(lst: List[Any], n: int):
         for i in range(0, len(lst), n):
             yield lst[i: i + n]
+
+    @staticmethod
+    def _clone_args(args: argparse.Namespace) -> argparse.Namespace:
+        return argparse.Namespace(**vars(args).copy())
 
     # ----------------------------
     # Templates
@@ -253,7 +279,7 @@ class HexacoResponseRunner:
         return "\n\n".join(lines)
 
     # ----------------------------
-    # Data loading (NOW PATH-ROBUST)
+    # Data loading
     # ----------------------------
     def load_questions_and_likert(self) -> Tuple[List[str], List[str]]:
         gen_cfg_path = CONFIGS_DIR / "generation_config.yaml"
@@ -269,7 +295,6 @@ class HexacoResponseRunner:
         with q_para_path.open("r", encoding="utf-8") as f:
             paraphrased_question_list = yaml.safe_load(f)
 
-        # Likert scale
         if self.args.inverted_likert:
             print("Inverting Likert")
             likert_scale = inverse_likert(generation_config["likert_scale"].copy())
@@ -303,15 +328,16 @@ class HexacoResponseRunner:
             hf_config = self.args.hf_persona_config
             hf_persona_dataset = load_dataset(self.args.hf_persona_path, name=hf_config)
 
-            persona_datasets_total = hf_persona_dataset["train"]
+            split = getattr(self.args, "hf_persona_split", "train")
+            persona_datasets_total = hf_persona_dataset[split]
             print(
-                f"Loaded {len(persona_datasets_total)} Personas from {self.args.hf_persona_path} and config {hf_config}"
+                f"Loaded {len(persona_datasets_total)} Personas from "
+                f"{self.args.hf_persona_path} config={hf_config} split={split}"
             )
             return persona_datasets_total
 
         if self.args.persona_source == "personallm_paper":
             print("Using Persona LLM Paper Personas")
-            # NOW: root-relative path
             paper_json = DATA_DIR / "persona_llm_paper_seed_combinations.json"
             persona_datasets_total = self._read_json(paper_json)
 
@@ -323,9 +349,7 @@ class HexacoResponseRunner:
         if self.args.persona_source == "base_model":
             return None
 
-        # local YAML personas
         print("Using Local Personas")
-        # NOW: root-relative path
         local_yaml = CONFIGS_DIR / "personas_v2.yaml"
         with local_yaml.open("r", encoding="utf-8") as f:
             local_personas = yaml.safe_load(f)
@@ -378,16 +402,15 @@ class HexacoResponseRunner:
         return self._extract_texts(outputs)
 
     def push_results_to_hub(
-            self,
-            results: HexacoExperimentResults,
-            repo_id: str,
-            split_name: str = "hexaco",
+        self,
+        results: HexacoExperimentResults,
+        repo_id: str,
+        split_name: str,
     ) -> None:
         """
         Push to HF datasets hub under the provided split name.
         One row per persona, storing config + answers + audit fields.
         """
-        # Convert the structured results dict into row-wise dataset
         rows: List[Dict[str, Any]] = []
         now_iso = datetime.now(timezone.utc).isoformat()
 
@@ -404,30 +427,26 @@ class HexacoResponseRunner:
                     "refusal_allowed": cfg.refusal_allowed,
                     "n_times": len(run_result.answers),
                     "n_questions": (len(run_result.answers[0]) if run_result.answers else 0),
-                    # Audit / reproducibility payloads (nested lists are OK in HF datasets)
                     "answers": run_result.answers,
                     "raw_prompts": cfg.raw_prompts,
                     "guided_choices": cfg.guided_choices,
                     "likert_orders": cfg.likert_orders,
-                    # minimal metadata
                     "created_at_utc": now_iso,
                     "persona_source": self.args.persona_source,
                     "hf_persona_path": getattr(self.args, "hf_persona_path", None),
                     "hf_persona_config": getattr(self.args, "hf_persona_config", None),
+                    "hf_persona_split": getattr(self.args, "hf_persona_split", None),
                     "debug": bool(self.args.debug),
                 }
             )
 
         ds = Dataset.from_list(rows)
         dsd = DatasetDict({split_name: ds})
-
-        # This will create/update the dataset repo and overwrite that split content.
-        # Requires HF auth via huggingface-cli login or HF_TOKEN env var.
         dsd.push_to_hub(repo_id)
         print(f"Pushed {len(rows)} rows to HF dataset {repo_id} split '{split_name}'")
 
     # ----------------------------
-    # Prompt building (fresh Likert shuffle per answer)
+    # Prompt building
     # ----------------------------
     def build_prompts_for_questions(
         self,
@@ -485,15 +504,12 @@ class HexacoResponseRunner:
 
         if self.args.debug:
             print("[DEBUG] Limiting to first 10 personas for generation + push.")
-            # persona_datasets could be a HF Dataset or list of dicts
             try:
-                # HF Dataset supports select
                 if hasattr(personas_iter, "select"):
                     personas_iter = personas_iter.select(range(min(10, len(personas_iter))))
                 else:
                     personas_iter = list(personas_iter)[:10]
             except Exception:
-                # safe fallback
                 personas_iter = list(personas_iter)[:10]
 
         print(f"Processing {len(personas_iter)} personas")
@@ -514,21 +530,21 @@ class HexacoResponseRunner:
             likert_mode = "normal"
 
         for persona in tqdm(personas_iter, desc="Personas"):
-            persona_str = persona["persona_string"]
             persona_id = persona.get("uuid", "base_model")
-            persona_hash = None if persona_id == "base_model" else persona["persona_hash"]
+            persona_str = persona.get("persona_string", "")
+            persona_hash = None if persona_id == "base_model" else persona.get("persona_hash")
 
             repeated_answers: List[List[str]] = []
             repeated_raw_prompts: List[List[str]] = []
             repeated_guided: List[List[List[str]]] = []
             repeated_likert_orders: List[List[List[str]]] = []
 
-            for _ in tqdm(range(self.args.n_times), desc="Iterations"):
+            for _ in tqdm(range(self.args.n_times), desc="Iterations", leave=False):
                 all_prompts: List[str] = []
                 all_guided: List[List[str]] = []
                 all_likert_orders: List[List[str]] = []
 
-                for q_batch in tqdm(self._batch_list(question_list, self.args.batch_size), desc="Batches"):
+                for q_batch in tqdm(self._batch_list(question_list, self.args.batch_size), desc="Batches", leave=False):
                     prompts_text, guided_choices_list, likert_orders_list = self.build_prompts_for_questions(
                         hexaco_template=hexaco_template,
                         question_batch=q_batch,
@@ -559,17 +575,28 @@ class HexacoResponseRunner:
                 guided_choices=repeated_guided,
                 likert_orders=repeated_likert_orders,
             )
-            results[persona_id] = HexacoRunResult(config=cfg, answers=repeated_answers)
+            results[str(persona_id)] = HexacoRunResult(config=cfg, answers=repeated_answers)
 
         return HexacoExperimentResults(results)
 
     # ----------------------------
-    # Orchestrate
+    # Single-condition run
     # ----------------------------
-    def run(self) -> str:
-        print(f"Repo root: {ROOT_DIR}")
-        print(f"Model Used: {self.model}")
-        print(f"Writing Output in: {self.args.out_dir}")
+    def run_single_condition(
+        self,
+        *,
+        persona_source: str,
+        out_suffix: str,
+        hub_split: str,
+    ) -> str:
+        original_persona_source = self.args.persona_source
+        self.args.persona_source = persona_source
+
+        print(f"\n==============================")
+        print(f"Running condition: {hub_split}")
+        print(f"persona_source={persona_source}")
+        print(f"n_times={self.args.n_times}")
+        print(f"==============================\n")
 
         self.load_prompt_templates()
         question_list, likert_scale = self.load_questions_and_likert()
@@ -581,8 +608,8 @@ class HexacoResponseRunner:
             base_likert_scale=likert_scale,
         )
 
-        model_name_safe = self.model.replace(".", "_").split("/")[-1]
-        out_file = Path(self.args.out_dir) / f"{self.args.persona_source}_hexaco_answers_{model_name_safe}.json"
+        model_name_safe = self.model.replace(".", "_").replace("/", "__")
+        out_file = Path(self.args.out_dir) / f"{out_suffix}_{model_name_safe}.json"
         self._write_json(results.to_jsonable(), str(out_file))
         print(f"Results saved to {out_file}")
 
@@ -590,14 +617,40 @@ class HexacoResponseRunner:
             self.push_results_to_hub(
                 results=results,
                 repo_id=self.args.hub_repo,
-                split_name=self.args.hub_split,
+                split_name=hub_split,
             )
 
+        self.args.persona_source = original_persona_source
         return str(out_file)
+
+    # ----------------------------
+    # Orchestrate both runs
+    # ----------------------------
+    def run(self) -> Dict[str, str]:
+        print(f"Repo root: {ROOT_DIR}")
+        print(f"Model Used: {self.model}")
+        print(f"Writing Output in: {self.args.out_dir}")
+
+        analysis_out = self.run_single_condition(
+            persona_source="huggingface",
+            out_suffix="hexaco_analysis",
+            hub_split=self.args.analysis_split,
+        )
+
+        base_out = self.run_single_condition(
+            persona_source="base_model",
+            out_suffix="hexaco_base",
+            hub_split=self.args.base_split,
+        )
+
+        return {
+            "hexaco_analysis": analysis_out,
+            "hexaco_base": base_out,
+        }
 
 
 # =========================
-# Main (manager created here; does NOT start server)
+# Main
 # =========================
 def main():
     args = HexacoResponseRunner.parse_args()
@@ -607,12 +660,16 @@ def main():
         host=args.vllm_host,
         port=args.vllm_port,
         timeout_s=args.vllm_timeout_s,
-        kill_existing=False,     # do not kill anything
-        server_extra_args=[],    # do not start anything
+        kill_existing=False,
+        server_extra_args=[],
     )
 
     runner = HexacoResponseRunner(args=args, mgr=mgr)
-    runner.run()
+    outputs = runner.run()
+
+    print("\nDone.")
+    for k, v in outputs.items():
+        print(f"{k}: {v}")
 
 
 if __name__ == "__main__":
