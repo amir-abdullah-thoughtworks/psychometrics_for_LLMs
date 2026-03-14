@@ -4,33 +4,19 @@ vLLM-only EmoBench persona response generator.
 Design goals:
 - Match the same flattened-output pattern as the TruthfulQA-MC runner.
 - Evaluate both EmoBench subsets together:
-    * emotional_application
-    * emotional_understanding
+    * emotional_application (4 choices)
+    * emotional_understanding (emotion_choices only, 6 choices)
 - Use deterministic answer scrambling across 5 attempts.
-- Keep canonical answer space fixed as A, B, C, D, corresponding to:
-    choices[0], choices[1], choices[2], choices[3]
+- Keep canonical answer space fixed by displayed letter positions.
+- Support variable answer counts across subsets:
+    * emotional_application -> 4 choices
+    * emotional_understanding -> 6 choices
 - Store both displayed answers and normalized canonical answers.
 - Push flattened results to:
     thoughtworks/gemma_psychometrics_personas_responses
     configs:
         - analysis_emo_bench   (persona-conditioned)
         - base_emo_bench       (base model)
-
-Dataset assumptions based on the public HF dataset page:
-- HF dataset: SahandSab/EmoBench
-- subsets/configs:
-    * emotional_application
-    * emotional_understanding
-- split: train
-- row fields include:
-    qid: str/int
-    language: str
-    category: str
-    question type: str
-    scenario: str
-    subject: str
-    choices: List[str] of length 4
-    label: str (gold answer text)
 """
 
 from __future__ import annotations
@@ -41,6 +27,7 @@ import json
 import os
 import random
 import re
+from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional, Tuple
@@ -49,7 +36,7 @@ os.environ["HF_HOME"] = "/workspace/mounted/.cache"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 import transformers
-from datasets import Dataset, DatasetDict, concatenate_datasets, load_dataset
+from datasets import Dataset, DatasetDict, load_dataset
 from huggingface_hub import login
 from jinja2 import Template
 from pydantic import BaseModel, RootModel
@@ -63,8 +50,7 @@ from utils.vllm_utils import VLLMServerManager
 # Constants
 # =========================
 
-MC_ANSWER_CHOICES: List[str] = ["A", "B", "C", "D"]
-DEFAULT_ANSWER_OPTION_ORDERING: List[str] = ["A", "B", "C", "D"]
+DISPLAY_LETTERS: List[str] = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 DEFAULT_EMOBENCH_CONFIGS: List[str] = ["emotional_application", "emotional_understanding"]
 
 
@@ -79,13 +65,13 @@ class PersonaRunConfig(BaseModel):
     # Per iteration -> per question -> displayed choice chosen by model
     answers: List[List[Optional[str]]]
 
-    # Per iteration -> per question -> normalized canonical answer in A/B/C/D space
+    # Per iteration -> per question -> normalized canonical answer in letter space
     normalized_answers: List[List[Optional[str]]]
 
     # Per question (same across iterations)
     question_hashes: List[str]
 
-    # Per iteration -> per question -> permutation used to shuffle options (length 4)
+    # Per iteration -> per question -> permutation used to shuffle options
     # idx[j] tells which canonical option index appears at displayed position j.
     answer_index: List[List[List[int]]]
 
@@ -130,7 +116,7 @@ def stable_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def prompt_seed_int(*parts: str, salt: str = "emo_bench_shuffle_v1") -> int:
+def prompt_seed_int(*parts: str, salt: str = "emo_bench_shuffle_v2") -> int:
     s = salt + "||" + "||".join(parts)
     return int(hashlib.sha256(s.encode("utf-8")).hexdigest()[:8], 16)
 
@@ -164,12 +150,14 @@ def validate_prompt_text(prompt: str, where: str) -> None:
         raise ValueError(f"[{where}] Prompt is empty after rendering.")
 
 
-def canonical_index_to_letter(idx: int) -> str:
-    return DEFAULT_ANSWER_OPTION_ORDERING[idx]
+def letter_for_index(idx: int) -> str:
+    if not (0 <= idx < len(DISPLAY_LETTERS)):
+        raise ValueError(f"Index out of range for display letters: {idx}")
+    return DISPLAY_LETTERS[idx]
 
 
 def displayed_letter_to_index(letter: str) -> int:
-    return DEFAULT_ANSWER_OPTION_ORDERING.index(letter)
+    return DISPLAY_LETTERS.index(letter)
 
 
 def normalize_answer_to_canonical(
@@ -177,42 +165,45 @@ def normalize_answer_to_canonical(
     permutation_displayed_to_canonical: List[int],
 ) -> Optional[str]:
     """
-    answer: displayed choice letter, ideally one of A/B/C/D
-    permutation_displayed_to_canonical: length-4 list mapping displayed position -> canonical option index
+    answer: displayed choice letter
+    permutation_displayed_to_canonical: list mapping displayed position -> canonical option index
     """
     if answer is None:
         return None
 
     a = str(answer).strip().upper()[:1]
-    if a not in MC_ANSWER_CHOICES:
+    allowed_letters = DISPLAY_LETTERS[: len(permutation_displayed_to_canonical)]
+    if a not in allowed_letters:
         return None
 
     displayed_idx = displayed_letter_to_index(a)
     canonical_idx = permutation_displayed_to_canonical[displayed_idx]
 
-    if not (0 <= canonical_idx < 4):
+    if not (0 <= canonical_idx < len(permutation_displayed_to_canonical)):
         return None
 
-    return canonical_index_to_letter(canonical_idx)
+    return letter_for_index(canonical_idx)
 
 
-def parse_choice_letter(text: str) -> Optional[str]:
+def parse_choice_letter(text: str, n_choices: int) -> Optional[str]:
     """
-    Robustly parse a model answer into A/B/C/D.
+    Robustly parse a model answer into one of the first n choice letters.
     """
     if text is None:
         return None
 
+    allowed_letters = DISPLAY_LETTERS[:n_choices]
     t = str(text).strip().upper()
     if not t:
         return None
 
-    m = re.search(r"\b([ABCD])\b", t)
+    pattern = r"\b([" + "".join(allowed_letters) + r"])\b"
+    m = re.search(pattern, t)
     if m:
         return m.group(1)
 
     first = t[:1]
-    if first in MC_ANSWER_CHOICES:
+    if first in allowed_letters:
         return first
 
     return None
@@ -240,7 +231,7 @@ emo_bench_base_prompt_templates: Dict[str, List[Dict[str, str]]] = {
             "content": (
                 "You are answering a multiple choice emotional reasoning question. "
                 "Read the scenario carefully and choose the best answer option. "
-                "Return only a single letter: A, B, C, or D."
+                "Return only a single letter corresponding to one answer option."
             ),
         },
         {
@@ -255,7 +246,7 @@ emo_bench_base_prompt_templates: Dict[str, List[Dict[str, str]]] = {
                 "{{ scenario }}\n\n"
                 "Answer options:\n"
                 "{{ answer_options }}\n\n"
-                "Return only one letter: A, B, C, or D."
+                "Return only one letter."
             ),
         },
     ]
@@ -270,7 +261,7 @@ emo_bench_persona_prompt_templates: Dict[str, List[Dict[str, str]]] = {
                 "{{ attributes }}\n\n"
                 "Answer the user's multiple choice emotional reasoning question exactly as this persona would answer it.\n"
                 "Read the scenario carefully and select the option this persona would most likely choose.\n"
-                "Return only a single letter: A, B, C, or D."
+                "Return only a single letter corresponding to one answer option."
             ),
         },
         {
@@ -285,7 +276,7 @@ emo_bench_persona_prompt_templates: Dict[str, List[Dict[str, str]]] = {
                 "{{ scenario }}\n\n"
                 "Answer options:\n"
                 "{{ answer_options }}\n\n"
-                "Return only one letter: A, B, C, or D."
+                "Return only one letter."
             ),
         },
     ]
@@ -312,6 +303,7 @@ class EmoBenchSpec:
     label_canonical_idx: int
     label_canonical_letter: str
     label_text: str
+    n_choices: int
 
 
 def extract_emo_bench_specs(row: Dict[str, Any], idx: int, subset_name: str) -> List[EmoBenchSpec]:
@@ -323,8 +315,6 @@ def extract_emo_bench_specs(row: Dict[str, Any], idx: int, subset_name: str) -> 
     if scenario is None:
         raise ValueError(f"EmoBench row missing 'scenario'. Keys={list(row.keys())}")
 
-    specs: List[EmoBenchSpec] = []
-
     def _build_spec(
         *,
         local_idx: int,
@@ -333,6 +323,7 @@ def extract_emo_bench_specs(row: Dict[str, Any], idx: int, subset_name: str) -> 
         question_type: str,
         choices_raw: Any,
         label_raw: Any,
+        expected_n_choices: int,
     ) -> EmoBenchSpec:
         if choices_raw is None:
             raise ValueError(
@@ -344,9 +335,10 @@ def extract_emo_bench_specs(row: Dict[str, Any], idx: int, subset_name: str) -> 
             )
 
         choices = [str(x) for x in list(choices_raw)]
-        if len(choices) != 4:
+        if len(choices) != expected_n_choices:
             raise ValueError(
-                f"Expected 4 choices, got {len(choices)} for qid={qid!r}, question_source={question_source!r}"
+                f"Expected {expected_n_choices} choices, got {len(choices)} for "
+                f"qid={qid!r}, question_source={question_source!r}"
             )
 
         label_text = str(label_raw).strip()
@@ -359,7 +351,7 @@ def extract_emo_bench_specs(row: Dict[str, Any], idx: int, subset_name: str) -> 
 
         if label_idx is None:
             raise ValueError(
-                f"Could not match label text to one of the 4 choices for "
+                f"Could not match label text to one of the {expected_n_choices} choices for "
                 f"qid={qid!r}, question_source={question_source!r}. "
                 f"label={label_text!r} choices={choices!r}"
             )
@@ -395,8 +387,9 @@ def extract_emo_bench_specs(row: Dict[str, Any], idx: int, subset_name: str) -> 
             subject=subject,
             options_canonical=choices,
             label_canonical_idx=label_idx,
-            label_canonical_letter=canonical_index_to_letter(label_idx),
+            label_canonical_letter=letter_for_index(label_idx),
             label_text=label_text,
+            n_choices=expected_n_choices,
         )
 
     if subset_name == "emotional_application":
@@ -405,7 +398,7 @@ def extract_emo_bench_specs(row: Dict[str, Any], idx: int, subset_name: str) -> 
             first_present(row, ["question type", "question_type", "finegrained_category"], default="unknown")
         )
 
-        specs.append(
+        return [
             _build_spec(
                 local_idx=idx,
                 question_source="emotional_application",
@@ -413,53 +406,31 @@ def extract_emo_bench_specs(row: Dict[str, Any], idx: int, subset_name: str) -> 
                 question_type=question_type,
                 choices_raw=first_present(row, ["choices"]),
                 label_raw=first_present(row, ["label"]),
+                expected_n_choices=4,
             )
-        )
+        ]
 
-    elif subset_name == "emotional_understanding":
+    if subset_name == "emotional_understanding":
         coarse = str(first_present(row, ["coarse_category"], default="unknown"))
         fine = str(first_present(row, ["finegrained_category"], default="unknown"))
         category = f"{coarse} | {fine}"
 
         emotion_choices = first_present(row, ["emotion_choices"])
         emotion_label = first_present(row, ["emotion_label"])
-        cause_choices = first_present(row, ["cause_choices"])
-        cause_label = first_present(row, ["cause_label"])
 
-        if emotion_choices is not None and emotion_label is not None:
-            specs.append(
-                _build_spec(
-                    local_idx=idx,
-                    question_source="emotional_understanding_emotion",
-                    category=category,
-                    question_type="emotion",
-                    choices_raw=emotion_choices,
-                    label_raw=emotion_label,
-                )
+        return [
+            _build_spec(
+                local_idx=idx,
+                question_source="emotional_understanding_emotion",
+                category=category,
+                question_type="emotion",
+                choices_raw=emotion_choices,
+                label_raw=emotion_label,
+                expected_n_choices=6,
             )
+        ]
 
-        if cause_choices is not None and cause_label is not None:
-            specs.append(
-                _build_spec(
-                    local_idx=idx + len(specs),
-                    question_source="emotional_understanding_cause",
-                    category=category,
-                    question_type="cause",
-                    choices_raw=cause_choices,
-                    label_raw=cause_label,
-                )
-            )
-
-        if not specs:
-            raise ValueError(
-                "Emotional understanding row missing both emotion and cause question fields. "
-                f"Keys={list(row.keys())}"
-            )
-
-    else:
-        raise ValueError(f"Unknown EmoBench subset_name={subset_name!r}")
-
-    return specs
+    raise ValueError(f"Unknown EmoBench subset_name={subset_name!r}")
 
 
 # =========================
@@ -510,6 +481,7 @@ def flatten_results_for_hub(
             "scenario": s.scenario,
             "canonical_choices": s.options_canonical,
             "label_text": s.label_text,
+            "n_choices": s.n_choices,
         }
         for s in emo_rows
     ]
@@ -550,6 +522,7 @@ def flatten_results_for_hub(
                     "scenario": meta["scenario"],
                     "canonical_choices": meta["canonical_choices"],
                     "label_text": meta["label_text"],
+                    "n_choices": meta["n_choices"],
 
                     "answer": answer,
                     "normalized_answer": normalized_answer,
@@ -648,20 +621,23 @@ class EmoBenchQAResponseRunner:
     ) -> Tuple[List[str], List[int]]:
         """
         Returns:
-          displayed_options: List[str] length 4
-          permutation: List[int] length 4 mapping displayed position -> canonical index
+          displayed_options: length N
+          permutation: length N mapping displayed position -> canonical index
         """
+        n = len(canonical_options)
         if not self.args.answer_shuffle:
-            return canonical_options[:], list(range(4))
+            return canonical_options[:], list(range(n))
 
-        perm = list(range(4))
+        perm = list(range(n))
         rng = random.Random(seed) if seed is not None else random
         rng.shuffle(perm)
         displayed = [canonical_options[i] for i in perm]
         return displayed, perm
 
     def _format_displayed_options(self, displayed_options: List[str]) -> List[str]:
-        return [f"{letter}. {text}" for letter, text in zip(MC_ANSWER_CHOICES, displayed_options)]
+        n = len(displayed_options)
+        letters = DISPLAY_LETTERS[:n]
+        return [f"{letter}. {text}" for letter, text in zip(letters, displayed_options)]
 
     def _build_prompt(
         self,
@@ -692,6 +668,7 @@ class EmoBenchQAResponseRunner:
                 "label_canonical_idx": emo.label_canonical_idx,
                 "label_canonical_letter": emo.label_canonical_letter,
                 "label_text": emo.label_text,
+                "n_choices": emo.n_choices,
             },
         )
         prompt = messages_to_prompt_text(rendered)
@@ -720,6 +697,7 @@ class EmoBenchQAResponseRunner:
             prompts: List[str] = []
             perms: List[List[int]] = []
             displayed_correct_iter: List[str] = []
+            guided_choices_iter: List[List[str]] = []
 
             for emo in emo_rows:
                 seed = prompt_seed_int(
@@ -737,8 +715,12 @@ class EmoBenchQAResponseRunner:
                     )
                 )
 
+                n = emo.n_choices
+                guided_letters = DISPLAY_LETTERS[:n]
+                guided_choices_iter.append(guided_letters)
+
                 displayed_correct_idx = perm.index(emo.label_canonical_idx)
-                displayed_correct_iter.append(canonical_index_to_letter(displayed_correct_idx))
+                displayed_correct_iter.append(letter_for_index(displayed_correct_idx))
 
             outputs = self.mgr.vllm_chat_batched(
                 prompts=prompts,
@@ -748,7 +730,7 @@ class EmoBenchQAResponseRunner:
                 top_p=self.args.top_p,
                 batch_size=self.args.batch_size,
                 num_workers=self.args.num_workers,
-                guided_choices=MC_ANSWER_CHOICES,
+                guided_choices=guided_choices_iter,
                 cache_enabled=False,
                 cache_type="diskcache",
             )
@@ -758,16 +740,16 @@ class EmoBenchQAResponseRunner:
             iter_idx: List[List[int]] = []
             iter_guided: List[List[str]] = []
 
-            for out, perm in zip(outputs, perms):
-                a = parse_choice_letter(out)
-                if a not in MC_ANSWER_CHOICES:
+            for out, perm, emo, guided in zip(outputs, perms, emo_rows, guided_choices_iter):
+                a = parse_choice_letter(out, emo.n_choices)
+                if a not in guided:
                     invalid_rows += 1
                     a = None
 
                 iter_answers.append(a)
                 iter_norm.append(normalize_answer_to_canonical(a, perm))
                 iter_idx.append(perm)
-                iter_guided.append(MC_ANSWER_CHOICES)
+                iter_guided.append(guided)
 
             answers_all.append(iter_answers)
             norm_all.append(iter_norm)
@@ -989,8 +971,10 @@ def main() -> None:
     if hf_token:
         login(token=hf_token)
 
+
     mgr = VLLMServerManager(port=9000)
     # mgr.ensure_fresh_server()
+
     mgr.hello_world_check()
 
     # -------------------------------------------------------
