@@ -636,7 +636,7 @@ class VLLMServerManager:
 
         per_prompt_guidance: List[List[str]] = self._normalize_guided_choices(prompts, guided_choices)
 
-        desc = f"vLLM completions for guided choices: {guided_choices}" if guided_choices else "vLLM completions"
+        desc = f"vLLM completions for guided choices: {guided_choices[0]}" if guided_choices else "vLLM completions"
 
         with tqdm(total=total, desc=f"vLLM completions for guided choices: {guided_choices}", unit="req") as pbar:
             for i in range(0, total, batch_size):
