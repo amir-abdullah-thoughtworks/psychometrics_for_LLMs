@@ -237,7 +237,7 @@ class VLLMServerManager:
             "--max-num-batched-tokens", "10000",
             "--max-num-seqs", "30",
             "--disable-log-requests",
-            "--max-model-len", "4096",
+            "--max-model-len", "2048",
             "--disable-log-stats",
             "--enable-chunked-prefill",
             "--tensor-parallel-size", "1",
@@ -775,7 +775,8 @@ def main():
     out_jsonl.parent.mkdir(parents=True, exist_ok=True)
 
     mgr = VLLMServerManager()
-    # mgr.ensure_fresh_server()
+    mgr._start()
+    mgr.ensure_fresh_server()
     prompts = make_math_prompts(NUM_PROMPTS)
 
     guided_choices = [str(i) for i in range(1, 2*NUM_PROMPTS+1)]
