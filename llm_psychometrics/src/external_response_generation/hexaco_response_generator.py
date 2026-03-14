@@ -148,9 +148,9 @@ class HexacoResponseRunner:
             help="Source of Persona (huggingface | base_model | personallm_paper | local)",
         )
         parser.add_argument("--hf-persona-path", type=str, default="thoughtworks/psychometric_personas")
-        parser.add_argument("--hf-persona-config", type=str, default="test_sample")
+        parser.add_argument("--hf-persona-config", type=str, default="analysis")
         parser.add_argument("--hf-persona-split", type=str, default="train")
-        parser.add_argument("--n-personasample", type=int, default=1)
+        parser.add_argument("--n-personasample", type=int, default=500)
 
         # question generation options
         parser.add_argument("--paraphrase", action="store_true", help="Use paraphrased HEXACO questions")
@@ -192,7 +192,7 @@ class HexacoResponseRunner:
         parser.add_argument(
             "--debug",
             action=argparse.BooleanOptionalAction,
-            default=True,
+            default=False,
             help="Debug mode (default True): only run/push first 10 personas.",
         )
 
