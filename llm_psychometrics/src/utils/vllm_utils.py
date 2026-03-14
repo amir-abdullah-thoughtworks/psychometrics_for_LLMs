@@ -38,7 +38,7 @@ class VLLMServerManager:
     """
 
     def __init__(self, model: str = default_model,
-                 host: str = "127.0.0.1", port: int = 8000,
+                 host: str = "127.0.0.1", port: int = 9000,
                  python_executable: str = sys.executable,
                  server_extra_args=None, env=None,
                  log_file: str = "outputs/vllm_server.log",
@@ -780,7 +780,7 @@ def main():
 
     mgr = VLLMServerManager()
     mgr._start()
-    mgr.ensure_fresh_server()
+    # mgr.ensure_fresh_server()
     prompts = make_math_prompts(NUM_PROMPTS)
 
     guided_choices = [str(i) for i in range(1, 2*NUM_PROMPTS+1)]
