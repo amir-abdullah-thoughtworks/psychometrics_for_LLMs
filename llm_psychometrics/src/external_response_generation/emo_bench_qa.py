@@ -925,7 +925,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--temperature", type=float, default=0.0)
     p.add_argument("--top-p", type=float, default=1.0)
     p.add_argument("--batch-size", type=int, default=500)
-    p.add_argument("--num-workers", type=int, default=6)
+    p.add_argument("--num-workers", type=int, default=50)
 
     # Templates / behavior
     p.add_argument("--template-key", type=str, default="gpt")
@@ -935,7 +935,7 @@ def parse_args() -> argparse.Namespace:
     # Experiment sizing
     p.add_argument("--n-times", type=int, default=5)
     p.add_argument("--n-personasample", type=int, default=1000)
-    p.add_argument("--n-emo-bench-sample-per-config", type=int, default=10)
+    p.add_argument("--n-emo-bench-sample-per-config", type=int, default=5000)
 
     p.add_argument("--debug", action=argparse.BooleanOptionalAction, default=False)
 
@@ -989,7 +989,7 @@ def main() -> None:
     if hf_token:
         login(token=hf_token)
 
-    mgr = VLLMServerManager()
+    mgr = VLLMServerManager(port=9000)
     # mgr.ensure_fresh_server()
     mgr.hello_world_check()
 
