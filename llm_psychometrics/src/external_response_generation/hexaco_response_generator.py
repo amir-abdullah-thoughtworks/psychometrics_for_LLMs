@@ -204,7 +204,7 @@ class HexacoResponseRunner:
         parser.add_argument(
             "--hub-repo",
             type=str,
-            default="thoughtworks/gemma_psychometrics_responses",
+            default="thoughtworks/gemma_psychometrics_personas_responses",
             help="HF dataset repo to push to.",
         )
 
