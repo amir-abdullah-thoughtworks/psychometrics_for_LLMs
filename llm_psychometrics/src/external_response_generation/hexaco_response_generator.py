@@ -399,6 +399,8 @@ class HexacoResponseRunner:
             max_retries=self.max_retries,
             cache_enabled=False,
             retry_backoff_s=self.retry_backoff_s,
+            default_guided_choice=NO_ANSWER
+
         )
         return self._extract_texts(outputs)
 
