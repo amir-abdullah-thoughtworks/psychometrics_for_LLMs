@@ -664,7 +664,7 @@ class EmoBenchQAResponseRunner:
                 batch_size=self.args.batch_size,
                 num_workers=self.args.num_workers,
                 guided_choices=MC_ANSWER_CHOICES,
-                cache_enabled=True,
+                cache_enabled=False,
                 cache_type="diskcache",
             )
 
@@ -844,7 +844,7 @@ def parse_args() -> argparse.Namespace:
 
     # Experiment sizing
     p.add_argument("--n-times", type=int, default=5)
-    p.add_argument("--n-personasample", type=int, default=10)
+    p.add_argument("--n-personasample", type=int, default=1000)
     p.add_argument("--n-emo-bench-sample-per-config", type=int, default=10)
 
     p.add_argument("--debug", action=argparse.BooleanOptionalAction, default=False)
@@ -852,7 +852,7 @@ def parse_args() -> argparse.Namespace:
     # Persona source
     p.add_argument("--persona-source", type=str, choices=["hf", "base_model"], default="hf")
     p.add_argument("--hf-persona-path", type=str, default="thoughtworks/psychometric_personas")
-    p.add_argument("--hf-persona-config", type=str, default="analysis")
+    p.add_argument("--hf-persona-config", type=str, default="test_sample")
     p.add_argument("--hf-persona-split", type=str, default="train")
 
     # EmoBench dataset
@@ -912,7 +912,7 @@ def main() -> None:
     print("==============================\n")
 
     args.persona_source = "hf"
-    args.target_hub_config = "analysis_emo_bench_qa"
+    args.target_hub_config = "analysis_emo_bench"
 
     persona_runner = EmoBenchQAResponseRunner(args=args, mgr=mgr)
     persona_results, emo_rows = persona_runner.run()
@@ -926,7 +926,7 @@ def main() -> None:
 
     if args.push_to_hub:
         push_results_to_hub(persona_results, args, emo_rows)
-        print("Pushed persona config -> analysis_emo_bench_qa")
+        print("Pushed persona config -> analysis_emo_bench")
 
     # -------------------------------------------------------
     # RUN 2: BASE MODEL CONDITION (base_emo_bench_qa)
@@ -951,7 +951,7 @@ def main() -> None:
 
     if args.push_to_hub:
         push_results_to_hub(base_results, args, emo_rows)
-        print("Pushed base config -> base_emo_bench_qa")
+        print("Pushed base config -> base_emo_bench")
 
 
 if __name__ == "__main__":
