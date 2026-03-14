@@ -406,15 +406,21 @@ class HexacoResponseRunner:
         return self._extract_texts(outputs)
 
     def push_results_to_hub(
-        self,
-        results: HexacoExperimentResults,
-        repo_id: str,
-        config_name: str,
-        split_name: str = "train",
+            self,
+            results: HexacoExperimentResults,
+            repo_id: str,
+            config_name: str,
+            split_name: str = "train",
     ) -> None:
         """
         Push to HF datasets hub under the provided config name.
-        One row per persona, storing config + answers + audit fields.
+
+        Flattened format:
+        one row per persona x iteration x question
+
+        So each persona contributes:
+            n_questions * n_times
+        rows, rather than one giant nested row.
         """
         rows: List[Dict[str, Any]] = []
         now_iso = datetime.now(timezone.utc).isoformat()
@@ -422,33 +428,64 @@ class HexacoResponseRunner:
         for persona_id, run_result in results.root.items():
             cfg = run_result.config
 
-            rows.append(
-                {
-                    "persona_id": persona_id,
-                    "persona_hash": cfg.persona_hash,
-                    "model_name": cfg.model_name,
-                    "paraphrase": cfg.paraphrase,
-                    "likert_scale_mode": cfg.likert_scale_mode,
-                    "refusal_allowed": cfg.refusal_allowed,
-                    "n_times": len(run_result.answers),
-                    "n_questions": (len(run_result.answers[0]) if run_result.answers else 0),
-                    "answers": run_result.answers,
-                    "raw_prompts": cfg.raw_prompts,
-                    "guided_choices": cfg.guided_choices,
-                    "likert_orders": cfg.likert_orders,
-                    "created_at_utc": now_iso,
-                    "persona_source": self.args.persona_source,
-                    "hf_persona_path": getattr(self.args, "hf_persona_path", None),
-                    "hf_persona_config": getattr(self.args, "hf_persona_config", None),
-                    "hf_persona_split": getattr(self.args, "hf_persona_split", None),
-                    "debug": bool(self.args.debug),
-                }
-            )
+            n_iters = len(run_result.answers)
+
+            for iter_idx in range(n_iters):
+                iter_answers = run_result.answers[iter_idx]
+                iter_prompts = cfg.raw_prompts[iter_idx]
+                iter_guided = cfg.guided_choices[iter_idx]
+                iter_likert_orders = cfg.likert_orders[iter_idx]
+
+                if not (
+                        len(iter_answers)
+                        == len(iter_prompts)
+                        == len(iter_guided)
+                        == len(iter_likert_orders)
+                ):
+                    raise ValueError(
+                        f"Mismatched lengths for persona={persona_id}, iter={iter_idx}: "
+                        f"answers={len(iter_answers)}, prompts={len(iter_prompts)}, "
+                        f"guided={len(iter_guided)}, likert_orders={len(iter_likert_orders)}"
+                    )
+
+                for question_idx in range(len(iter_answers)):
+                    rows.append(
+                        {
+                            "persona_id": persona_id,
+                            "persona_hash": cfg.persona_hash,
+                            "model_name": cfg.model_name,
+                            "paraphrase": cfg.paraphrase,
+                            "likert_scale_mode": cfg.likert_scale_mode,
+                            "refusal_allowed": cfg.refusal_allowed,
+
+                            "iter": iter_idx,
+                            "question_idx": question_idx,
+                            "n_questions": len(iter_answers),
+
+                            # flattened per-question fields
+                            "answer": iter_answers[question_idx],
+                            "raw_prompt": iter_prompts[question_idx],
+                            "guided_choices": iter_guided[question_idx],
+                            "likert_order": iter_likert_orders[question_idx],
+
+                            # audit metadata
+                            "created_at_utc": now_iso,
+                            "persona_source": self.args.persona_source,
+                            "hf_persona_path": getattr(self.args, "hf_persona_path", None),
+                            "hf_persona_config": getattr(self.args, "hf_persona_config", None),
+                            "hf_persona_split": getattr(self.args, "hf_persona_split", None),
+                            "debug": bool(self.args.debug),
+                        }
+                    )
 
         ds = Dataset.from_list(rows)
         dsd = DatasetDict({split_name: ds})
         dsd.push_to_hub(repo_id, config_name=config_name)
-        print(f"Pushed {len(rows)} rows to HF dataset {repo_id} config '{config_name}' split '{split_name}'")
+
+        print(
+            f"Pushed {len(rows)} rows to HF dataset {repo_id} "
+            f"config '{config_name}' split '{split_name}'"
+        )
 
     # ----------------------------
     # Prompt building
