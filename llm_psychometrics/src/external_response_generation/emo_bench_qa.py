@@ -733,6 +733,7 @@ class EmoBenchQAResponseRunner:
                 guided_choices=guided_choices_iter,
                 cache_enabled=False,
                 cache_type="diskcache",
+                default_guided_choice="A"
             )
 
             iter_answers: List[Optional[str]] = []
