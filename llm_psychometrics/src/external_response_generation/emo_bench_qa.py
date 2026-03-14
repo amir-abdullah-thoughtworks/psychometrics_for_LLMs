@@ -300,6 +300,7 @@ emo_bench_persona_prompt_templates: Dict[str, List[Dict[str, str]]] = {
 class EmoBenchSpec:
     idx: int
     subset_name: str
+    question_source: str
     qid: str
     hash_id: str
     language: str
@@ -307,79 +308,158 @@ class EmoBenchSpec:
     question_type: str
     scenario: str
     subject: str
-    options_canonical: List[str]   # length 4, canonical A/B/C/D order
-    label_canonical_idx: int       # 0..3
-    label_canonical_letter: str    # A/B/C/D
+    options_canonical: List[str]
+    label_canonical_idx: int
+    label_canonical_letter: str
     label_text: str
 
 
-def extract_emo_bench_spec(row: Dict[str, Any], idx: int, subset_name: str) -> EmoBenchSpec:
+def extract_emo_bench_specs(row: Dict[str, Any], idx: int, subset_name: str) -> List[EmoBenchSpec]:
     qid = first_present(row, ["qid", "id"], default=str(idx))
     language = str(first_present(row, ["language"], default="unknown"))
-    category = str(first_present(row, ["category"], default="unknown"))
-    question_type = str(first_present(row, ["question type", "question_type"], default="unknown"))
     scenario = first_present(row, ["scenario"])
     subject = str(first_present(row, ["subject"], default=""))
-    choices = first_present(row, ["choices"])
-    label = first_present(row, ["label"])
 
     if scenario is None:
         raise ValueError(f"EmoBench row missing 'scenario'. Keys={list(row.keys())}")
-    if choices is None:
-        raise ValueError(f"EmoBench row missing 'choices'. Keys={list(row.keys())}")
-    if label is None:
-        raise ValueError(f"EmoBench row missing 'label'. Keys={list(row.keys())}")
 
-    choices = [str(x) for x in list(choices)]
-    if len(choices) != 4:
-        raise ValueError(f"Expected 4 choices, got {len(choices)} for qid={qid!r}")
+    specs: List[EmoBenchSpec] = []
 
-    label_text = str(label).strip()
+    def _build_spec(
+        *,
+        local_idx: int,
+        question_source: str,
+        category: str,
+        question_type: str,
+        choices_raw: Any,
+        label_raw: Any,
+    ) -> EmoBenchSpec:
+        if choices_raw is None:
+            raise ValueError(
+                f"EmoBench row missing choices for question_source={question_source}. Keys={list(row.keys())}"
+            )
+        if label_raw is None:
+            raise ValueError(
+                f"EmoBench row missing label for question_source={question_source}. Keys={list(row.keys())}"
+            )
 
-    label_idx: Optional[int] = None
-    for i, choice in enumerate(choices):
-        if choice.strip() == label_text:
-            label_idx = i
-            break
+        choices = [str(x) for x in list(choices_raw)]
+        if len(choices) != 4:
+            raise ValueError(
+                f"Expected 4 choices, got {len(choices)} for qid={qid!r}, question_source={question_source!r}"
+            )
 
-    if label_idx is None:
-        raise ValueError(
-            f"Could not match label text to one of the 4 choices for qid={qid!r}. "
-            f"label={label_text!r} choices={choices!r}"
+        label_text = str(label_raw).strip()
+
+        label_idx: Optional[int] = None
+        for i, choice in enumerate(choices):
+            if choice.strip() == label_text:
+                label_idx = i
+                break
+
+        if label_idx is None:
+            raise ValueError(
+                f"Could not match label text to one of the 4 choices for "
+                f"qid={qid!r}, question_source={question_source!r}. "
+                f"label={label_text!r} choices={choices!r}"
+            )
+
+        hash_basis = json.dumps(
+            {
+                "subset_name": subset_name,
+                "question_source": question_source,
+                "qid": str(qid),
+                "language": language,
+                "category": category,
+                "question_type": question_type,
+                "subject": subject,
+                "scenario": str(scenario),
+                "choices": choices,
+                "label": label_text,
+            },
+            sort_keys=True,
+            ensure_ascii=False,
+        )
+        hash_id = stable_hash(hash_basis)
+
+        return EmoBenchSpec(
+            idx=local_idx,
+            subset_name=subset_name,
+            question_source=question_source,
+            qid=str(qid),
+            hash_id=hash_id,
+            language=language,
+            category=category,
+            question_type=question_type,
+            scenario=str(scenario),
+            subject=subject,
+            options_canonical=choices,
+            label_canonical_idx=label_idx,
+            label_canonical_letter=canonical_index_to_letter(label_idx),
+            label_text=label_text,
         )
 
-    hash_basis = json.dumps(
-        {
-            "subset_name": subset_name,
-            "qid": str(qid),
-            "language": language,
-            "category": category,
-            "question_type": question_type,
-            "subject": subject,
-            "scenario": str(scenario),
-            "choices": choices,
-            "label": label_text,
-        },
-        sort_keys=True,
-        ensure_ascii=False,
-    )
-    hash_id = stable_hash(hash_basis)
+    if subset_name == "emotional_application":
+        category = str(first_present(row, ["category", "coarse_category"], default="unknown"))
+        question_type = str(
+            first_present(row, ["question type", "question_type", "finegrained_category"], default="unknown")
+        )
 
-    return EmoBenchSpec(
-        idx=idx,
-        subset_name=subset_name,
-        qid=str(qid),
-        hash_id=hash_id,
-        language=language,
-        category=category,
-        question_type=question_type,
-        scenario=str(scenario),
-        subject=subject,
-        options_canonical=choices,
-        label_canonical_idx=label_idx,
-        label_canonical_letter=canonical_index_to_letter(label_idx),
-        label_text=label_text,
-    )
+        specs.append(
+            _build_spec(
+                local_idx=idx,
+                question_source="emotional_application",
+                category=category,
+                question_type=question_type,
+                choices_raw=first_present(row, ["choices"]),
+                label_raw=first_present(row, ["label"]),
+            )
+        )
+
+    elif subset_name == "emotional_understanding":
+        coarse = str(first_present(row, ["coarse_category"], default="unknown"))
+        fine = str(first_present(row, ["finegrained_category"], default="unknown"))
+        category = f"{coarse} | {fine}"
+
+        emotion_choices = first_present(row, ["emotion_choices"])
+        emotion_label = first_present(row, ["emotion_label"])
+        cause_choices = first_present(row, ["cause_choices"])
+        cause_label = first_present(row, ["cause_label"])
+
+        if emotion_choices is not None and emotion_label is not None:
+            specs.append(
+                _build_spec(
+                    local_idx=idx,
+                    question_source="emotional_understanding_emotion",
+                    category=category,
+                    question_type="emotion",
+                    choices_raw=emotion_choices,
+                    label_raw=emotion_label,
+                )
+            )
+
+        if cause_choices is not None and cause_label is not None:
+            specs.append(
+                _build_spec(
+                    local_idx=idx + len(specs),
+                    question_source="emotional_understanding_cause",
+                    category=category,
+                    question_type="cause",
+                    choices_raw=cause_choices,
+                    label_raw=cause_label,
+                )
+            )
+
+        if not specs:
+            raise ValueError(
+                "Emotional understanding row missing both emotion and cause question fields. "
+                f"Keys={list(row.keys())}"
+            )
+
+    else:
+        raise ValueError(f"Unknown EmoBench subset_name={subset_name!r}")
+
+    return specs
 
 
 # =========================
@@ -421,6 +501,7 @@ def flatten_results_for_hub(
     question_meta = [
         {
             "subset_name": s.subset_name,
+            "question_source": s.question_source,
             "qid": s.qid,
             "language": s.language,
             "category": s.category,
@@ -459,8 +540,8 @@ def flatten_results_for_hub(
                     "iter": t,
 
                     "question_hash": q_hashes[qi],
-                    "question_source": meta["subset_name"],
                     "subset_name": meta["subset_name"],
+                    "question_source": meta["question_source"],
                     "qid": meta["qid"],
                     "language": meta["language"],
                     "category": meta["category"],
@@ -480,8 +561,7 @@ def flatten_results_for_hub(
 
                     "is_correct": (normalized_answer == canonical_correct_answer) if normalized_answer is not None else None,
                     "is_correct_displayed": (answer == displayed_correct_answer) if answer is not None else None,
-                    "is_correct_canonical": (
-                                normalized_answer == canonical_correct_answer) if normalized_answer is not None else None,
+                    "is_correct_canonical": (normalized_answer == canonical_correct_answer) if normalized_answer is not None else None,
 
                     "model_name": d["model_name"],
                     "run_timestamp_utc": _utc_now_iso(),
@@ -748,8 +828,13 @@ class EmoBenchQAResponseRunner:
             print(f"Using {limit} rows from EmoBench config={cfg_name}")
 
             for i in range(limit):
-                all_specs.append(extract_emo_bench_spec(ds[i], idx=idx, subset_name=cfg_name))
-                idx += 1
+                specs = extract_emo_bench_specs(ds[i], idx=idx, subset_name=cfg_name)
+                all_specs.extend(specs)
+                idx += len(specs)
+
+        print(f"Expanded to {len(all_specs)} total QA items after schema normalization")
+        counts = Counter(s.question_source for s in all_specs)
+        print(f"Question source counts: {dict(counts)}")
 
         return all_specs
 
