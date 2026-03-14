@@ -9,11 +9,10 @@ import traceback
 from pathlib import Path
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Literal, Optional, Set, Tuple
+from typing import List, Optional, Literal, Tuple, Dict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from huggingface_hub import HfFolder
 
-import hashlib
 import pandas as pd
 import yaml
 from tqdm import tqdm
@@ -26,12 +25,11 @@ from sentence_transformers import SentenceTransformer
 # --- add imports at top ---
 from typing import Set
 
+
 # --- add helpers (place near other utils) ---
 def _norm(s: Any) -> str:
     return " ".join(str(s or "").strip().lower().split())
 
-def stable_hash(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 def _load_existing_version_keys(version: str) -> Set[str]:
     """
@@ -53,58 +51,6 @@ def _load_existing_version_keys(version: str) -> Set[str]:
                 continue
     return keys
 
-def _extract_persona_core_seed_items(root: dict, section_name: str) -> List[Tuple[str, str]]:
-    pc = root.get("PersonaCore") or root.get("persona_core") or {}
-    sec = pc.get(section_name) or {}
-    if not isinstance(sec, dict):
-        return []
-
-    seed_items = sec.get("seed_items") or sec.get("items") or []
-    if not isinstance(seed_items, list):
-        return []
-
-    out: List[Tuple[str, str]] = []
-    for it in seed_items:
-        if isinstance(it, dict):
-            v = str(it.get("value", "")).strip()
-            e = str(it.get("explanation", "")).strip()
-            if v:
-                out.append((v, e))
-        else:
-            v = str(it).strip()
-            if v:
-                out.append((v, ""))
-    return out
-
-
-def _extract_persona_core_list(root: dict, section_name: str) -> List[str]:
-    pc = root.get("PersonaCore") or root.get("persona_core") or {}
-    sec = pc.get(section_name) or {}
-    if not isinstance(sec, dict):
-        return []
-
-    # values: [...]
-    raw = sec.get("values") or sec.get("titles")
-    if isinstance(raw, list) and raw:
-        vals = [str(x).strip() for x in raw if str(x).strip()]
-        if vals:
-            return vals
-
-    # items/seed_items: [{value: ...}, ...]
-    items = sec.get("items") or sec.get("seed_items") or []
-    if isinstance(items, list) and items:
-        vals = []
-        for it in items:
-            if isinstance(it, dict) and it.get("value"):
-                vals.append(str(it["value"]).strip())
-            else:
-                vals.append(str(it).strip())
-        vals = [v for v in vals if v]
-        if vals:
-            return vals
-
-    return []
-
 
 @dataclass(frozen=True)
 class Demographics:
@@ -116,6 +62,7 @@ class Demographics:
     bachelors_field: str
     ethnic_background: str
     marital_status: str
+
 
 # =========================
 # Persona Generator (Class)
@@ -163,86 +110,19 @@ class PersonaGenerator:
         "summary_of_psychological_profile",
     ]
 
-    def _extract_persona_core_seed_items(root: dict, section_name: str) -> List[Tuple[str, str]]:
-        """
-        Reads:
-          PersonaCore:
-            <section_name>:
-              seed_items:
-                - {value: "...", explanation: "..."}
-        Returns list of (value, explanation).
-        """
-        pc = root.get("PersonaCore") or root.get("persona_core") or {}
-        sec = pc.get(section_name) or pc.get(_norm(section_name).title()) or {}
-        if not isinstance(sec, dict):
-            return []
-
-        seed_items = sec.get("seed_items") or sec.get("items") or []
-        if not isinstance(seed_items, list):
-            return []
-
-        out: List[Tuple[str, str]] = []
-        for it in seed_items:
-            if isinstance(it, dict):
-                v = str(it.get("value", "")).strip()
-                e = str(it.get("explanation", "")).strip()
-                if v:
-                    out.append((v, e))
-            else:
-                v = str(it).strip()
-                if v:
-                    out.append((v, ""))
-        return out
-
-    def _extract_persona_core_list(self, root: dict, section_name: str) -> List[str]:
-        """
-        Supports either:
-          PersonaCore:
-            ParliamentaryStyle:
-              items: [{value: ...}, ...]  OR
-              seed_items: [{value: ...}, ...] OR
-              values: [...]
-        Returns list[str].
-        """
-        pc = root.get("PersonaCore") or root.get("persona_core") or {}
-        sec = pc.get(section_name) or {}
-        if not isinstance(sec, dict):
-            return []
-
-        for key in ["values", "titles"]:
-            raw = sec.get(key)
-            if isinstance(raw, list) and raw:
-                vals = [str(x).strip() for x in raw if str(x).strip()]
-                if vals:
-                    return vals
-
-        items = sec.get("items") or sec.get("seed_items") or []
-        if isinstance(items, list) and items:
-            vals = []
-            for it in items:
-                if isinstance(it, dict) and it.get("value"):
-                    vals.append(str(it["value"]).strip())
-                else:
-                    vals.append(str(it).strip())
-            vals = [v for v in vals if v]
-            if vals:
-                return vals
-
-        return []
-
     def __init__(
-        self,
-        populated_seeds_yaml: str,
-        balanced_officers_csv: str,
-        version: str,
-        model: str = "gpt-4.1-mini",
-        temperature: float = 2.0,
-        top_p: float = 0.98,
-        api_key: Optional[str] = None,
-        rng_seed: Optional[int] = None,
+            self,
+            populated_seeds_yaml: str,
+            balanced_officers_csv: str,
+            version: str,
+            model: str = "gpt-4.1-mini",
+            temperature: float = 2.0,
+            top_p: float = 0.98,
+            api_key: Optional[str] = None,
+            rng_seed: Optional[int] = None,
     ):
         self.version = version
-        self.client = OpenAI(api_key=api_key) if api_key else OpenAI()
+        self.client = OpenAI(api_key=api_key)
         self.model = model
         self.temperature = temperature
         self.top_p = top_p
@@ -274,38 +154,18 @@ class PersonaGenerator:
             raise ValueError(f"Missing MemoirSummaries for: {missing}")
 
         # appearance / behavior categories
-        # PersonaCore-based appearance/behavior seeds
-        self.appearance_seed_items = _extract_persona_core_seed_items(root, "Appearance")
-        self.behavior_seed_items = _extract_persona_core_seed_items(root, "Behavior")
-        if not self.appearance_seed_items:
-            raise ValueError("PersonaCore.Appearance.seed_items missing/empty in seeds YAML")
-        if not self.behavior_seed_items:
-            raise ValueError("PersonaCore.Behavior.seed_items missing/empty in seeds YAML")
-
-        # PersonaCore-based parliamentary styles (parsed ONCE)
-        self.parliamentary_styles = _extract_persona_core_list(root, "ParliamentaryStyle")
-        if not self.parliamentary_styles:
-            raise ValueError("PersonaCore.ParliamentaryStyle missing/empty in seeds YAML")
-
-        if not self.appearance_seed_items:
-            raise ValueError("PersonaCore.Appearance.seed_items missing/empty in seeds YAML")
-        if not self.behavior_seed_items:
-            raise ValueError("PersonaCore.Behavior.seed_items missing/empty in seeds YAML")
-
-        # PersonaCore-based parliamentary style
-        self.parliamentary_styles = self._extract_persona_core_list(root, "ParliamentaryStyle")
-        if not self.parliamentary_styles:
-            # fall back to older schema if present
-            self.parliamentary_styles = self._extract_parliamentary_styles(root)
+        self.appearance_categories: Dict[str, List[str]] = root.get("AppearanceCategories") or {}
+        self.behavior_categories: Dict[str, List[str]] = root.get("BehaviorCategories") or {}
+        if not self.appearance_categories or not self.behavior_categories:
+            raise ValueError("AppearanceCategories/BehaviorCategories not found or empty.")
 
         # ---- officers (strict) ----
         self.df = pd.read_csv(balanced_officers_csv)
 
         self._arch_offset = self._rng.randrange(len(self.archetypes))
         self._mem_offset = self._rng.randrange(len(self.memoir_titles))
-    
-        required = {"sex", "age", "city", "state", "first_name", "last_name", "education_level",
-                    "marital_status","ethnic_background"}
+
+        required = {"sex", "age", "city", "state", "first_name", "last_name", "education_level", "marital_status"}
         miss = required - set(self.df.columns)
         if miss:
             raise ValueError(f"Missing required columns in CSV: {sorted(miss)}")
@@ -378,7 +238,7 @@ class PersonaGenerator:
         if a.get("challenges"):
             c = a["challenges"]
             parts.append("Challenges: " + ("; ".join(c) if isinstance(c, list) else str(c)) + ".")
-        return " ".join(parts).strip() or f"Archetype: {a.get('name','(unspecified)')}."
+        return " ".join(parts).strip() or f"Archetype: {a.get('name', '(unspecified)')}."
 
     def get_row(self, idx: int):
         return self.df.iloc[idx]
@@ -460,80 +320,6 @@ class PersonaGenerator:
         vec = emb_model.encode([combined], convert_to_numpy=False)[0]
         return list(map(float, vec))
 
-    @staticmethod
-    def persona_row_to_string(row: dict) -> str:
-        """
-        Convert a persona dict into a line-separated "persona_string".
-
-        - Uses a preferred key order (labels prettified).
-        - Injects presenting problems right after mood_affect.
-        - Supports BOTH:
-            * `presenting_problems: List[str]` (your current schema), and
-            * numbered keys ("1","2",...) from older datasets.
-        """
-        preferred_order = [
-            "name",
-            "age",
-            "sex",
-            "location",
-            "ethnic_background",
-            "marital_status",
-            "appearance",
-            "behavior",
-            "speech",
-            "mood_affect",
-            "educational_vocational_history",
-            "medical_developmental_history",
-            "family_history",
-            "thought_content",
-            "insight_judgment",
-            "cognition",
-            "emotional_behavioral_functioning",
-            "social_functioning",
-            "summary_of_psychological_profile",
-        ]
-
-        def pretty_label(k: str) -> str:
-            return k.replace("_", " ").strip()
-
-        def clean_value(v: Any) -> str:
-            s = str(v).strip()
-            return " ".join(s.split())
-
-        # --- presenting problems (new schema: list[str]) ---
-        presenting_lines: list[str] = []
-        probs = row.get("presenting_problems")
-
-        if isinstance(probs, list):
-            probs = [clean_value(p) for p in probs if p is not None and str(p).strip()]
-            if probs:
-                presenting_lines.append("presenting_problems:")
-                presenting_lines.extend([f"- {p}" for p in probs])
-
-        # --- presenting problems (back-compat: numbered keys) ---
-        if not presenting_lines:
-            presenting = []
-            for k, v in row.items():
-                if isinstance(k, str) and k.isdigit():
-                    if v is not None and str(v).strip():
-                        presenting.append((int(k), clean_value(v)))
-            presenting.sort(key=lambda x: x[0])
-            if presenting:
-                presenting_lines.append("presenting_problems:")
-                presenting_lines.extend([f"- {p[1]}" for p in presenting])
-
-        lines: list[str] = []
-        for k in preferred_order:
-            if k in row and row[k] is not None and str(row[k]).strip():
-                lines.append(f"{pretty_label(k)}: {clean_value(row[k])}")
-
-            # inject presenting problems right after mood_affect
-            if k == "mood_affect" and presenting_lines:
-                lines.extend(presenting_lines)
-
-        return "\n".join(lines)
-
-
     # -------- main generation (with retries) --------
     def generate_one(self, idx: int) -> Optional[BaseModel]:
         archetype_name, archetype_desc = self._pick_archetype_by_index(idx)
@@ -545,19 +331,8 @@ class PersonaGenerator:
         # CHANGED: dataclass-based demographics
         dem = self._pick_demographics_by_index(idx)
 
-        # PersonaCore-based appearance/behavior seeds
-        self.appearance_seed_items = self._extract_persona_core_seed_items(root, "Appearance")
-        self.behavior_seed_items = self._extract_persona_core_seed_items(root, "Behavior")
-        if not self.appearance_seed_items:
-            raise ValueError("PersonaCore.Appearance.seed_items missing/empty in seeds YAML")
-        if not self.behavior_seed_items:
-            raise ValueError("PersonaCore.Behavior.seed_items missing/empty in seeds YAML")
-
-        # PersonaCore-based parliamentary style
-        self.parliamentary_styles = self._extract_persona_core_list(root, "ParliamentaryStyle")
-        if not self.parliamentary_styles:
-            # fall back to older schema if present
-            self.parliamentary_styles = self._extract_parliamentary_styles(root)
+        appearance_cat, appearance_examples = self._pick_appearance_random(idx)
+        behavior_cat, behavior_examples = self._pick_behavior_random(idx)
 
         # dynamic schema with Literals of selected values (model sees exact values)
         SeededPersonaSchema = create_model(  # type: ignore[assignment]
@@ -700,10 +475,6 @@ class PersonaGenerator:
                 out.memoir_summary = memoir_summary
                 d = out.model_dump()
                 d["uuid"] = row["uuid"]
-                persona_string = self.persona_row_to_string(d)
-                d["persona_string"] = persona_string
-                d["persona_hash"] = stable_hash(persona_string)
-
                 return d
             except Exception as e:
                 last_err = e
@@ -715,15 +486,16 @@ class PersonaGenerator:
             f.write(f"[warn] generation skipped for idx={idx}: {last_err}")
         return None
 
+
 def _worker_one(
-    i: int,
-    populated_seeds_yaml: str,
-    balanced_officers_csv: str,
-    model: str,
-    temperature: float,
-    top_p: float,
-    api_key: Optional[str],
-    base_seed: int,
+        i: int,
+        populated_seeds_yaml: str,
+        balanced_officers_csv: str,
+        model: str,
+        temperature: float,
+        top_p: float,
+        api_key: Optional[str],
+        base_seed: int,
 ) -> Optional[dict]:
     try:
         gen = PersonaGenerator(
@@ -741,12 +513,13 @@ def _worker_one(
         print(f"[warn] worker skipped idx={i}: {e}")
         return None
 
+
 def push_personas_to_hub(
-    records: List[dict],
-    repo_id: str,
-    hf_token: Optional[str],
-    private: bool,
-    commit_message: str,
+        records: List[dict],
+        repo_id: str,
+        hf_token: Optional[str],
+        private: bool,
+        commit_message: str,
 ):
     if hf_token:
         HfFolder.save_token(hf_token)
@@ -780,23 +553,24 @@ def push_personas_to_hub(
         commit_message=commit_message,
     )
 
+
 def run_batch(
-    populated_seeds_yaml: str,
-    balanced_officers_csv: str,
-    count: int,
-    out_jsonl: str,
-    version: str,
-    workers: int = 10,
-    model: str = "gpt-4.1-mini",
-    temperature: float = 2.0,
-    top_p: float = 0.98,
-    api_key: Optional[str] = None,
-    base_seed: int = 1337,
-    # HF settings
-    hf_repo_id: str = "thoughtworks/psychometric_personas_temp",
-    hf_token: Optional[str] = None,
-    hf_private: bool = True,
-    push_to_hub_flag: bool = True,
+        populated_seeds_yaml: str,
+        balanced_officers_csv: str,
+        count: int,
+        out_jsonl: str,
+        version: str,
+        workers: int = 10,
+        model: str = "gpt-4.1-mini",
+        temperature: float = 2.0,
+        top_p: float = 0.98,
+        api_key: Optional[str] = None,
+        base_seed: int = 1337,
+        # HF settings
+        hf_repo_id: str = "thoughtworks/psychometric_personas",
+        hf_token: Optional[str] = None,
+        hf_private: bool = True,
+        push_to_hub_flag: bool = True,
 ):
     """
     Concurrent generation (~threads). Before scheduling, checks ./{version}.jsonl
@@ -892,16 +666,17 @@ def run_batch(
         )
         print("Push complete.")
 
+
 def _thread_worker(
-    i: int,
-    populated_seeds_yaml: str,
-    balanced_officers_csv: str,
-    model: str,
-    temperature: float,
-    top_p: float,
-    api_key: Optional[str],
-    base_seed: int,
-    version: str,
+        i: int,
+        populated_seeds_yaml: str,
+        balanced_officers_csv: str,
+        model: str,
+        temperature: float,
+        top_p: float,
+        api_key: Optional[str],
+        base_seed: int,
+        version: str,
 ) -> Optional[dict]:
     """
     Thread worker: constructs its own PersonaGenerator (client per thread),
