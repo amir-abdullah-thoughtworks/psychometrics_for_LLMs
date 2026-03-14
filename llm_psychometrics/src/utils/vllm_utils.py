@@ -13,6 +13,7 @@ from collections import Counter
 from pydantic import BaseModel, Field
 import numpy as np
 from concurrent.futures import ProcessPoolExecutor, as_completed
+import string
 
 from pathlib import Path
 from tqdm import tqdm
@@ -356,6 +357,7 @@ class VLLMServerManager:
 
         def _normalize(resp: str) -> str:
             # strict + simple: first token only
+            resp = resp.translate(str.maketrans('', '', string.punctuation))
             return resp.strip()
 
         last_err: Optional[Exception] = None
