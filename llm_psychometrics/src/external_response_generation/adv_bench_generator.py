@@ -368,7 +368,7 @@ def main():
     runner = PersonaPromptRunner(
         prompt_generator=prompt_gen,
         persona_dataset_id="thoughtworks/psychometric_personas",
-        persona_config="test_sample",
+        persona_config="analysis",
         out_jsonl=Path("outputs/gemma_advbench_persona_responses"),
         hub_repo_id="thoughtworks/gemma_psychometrics_personas_responses",
         hub_config_name="advbench",
@@ -382,7 +382,7 @@ def main():
         limit_personas=3200,
     )
 
-    mgr = VLLMServerManager()
+    mgr = VLLMServerManager(port=9000)
     jsonl_path = runner.run(mgr)
 
     if not debug:
