@@ -400,6 +400,8 @@ class HexacoResponseRunner:
             cache_enabled=False,
             cache_type="diskcache",
             retry_backoff_s=self.retry_backoff_s,
+            default_guided_choice=NO_ANSWER
+
         )
         return self._extract_texts(outputs)
 
