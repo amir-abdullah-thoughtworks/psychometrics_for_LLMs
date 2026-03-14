@@ -13,8 +13,8 @@ Design goals:
 - Push flattened results to:
     thoughtworks/gemma_psychometrics_personas_responses
     configs:
-        - analysis_emo_bench_qa   (persona-conditioned)
-        - base_emo_bench_qa       (base model)
+        - analysis_emo_bench   (persona-conditioned)
+        - base_emo_bench       (base model)
 
 Dataset assumptions based on the public HF dataset page:
 - HF dataset: SahandSab/EmoBench
@@ -130,7 +130,7 @@ def stable_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def prompt_seed_int(*parts: str, salt: str = "emo_bench_qa_shuffle_v1") -> int:
+def prompt_seed_int(*parts: str, salt: str = "emo_bench_shuffle_v1") -> int:
     s = salt + "||" + "||".join(parts)
     return int(hashlib.sha256(s.encode("utf-8")).hexdigest()[:8], 16)
 
@@ -459,6 +459,7 @@ def flatten_results_for_hub(
                     "iter": t,
 
                     "question_hash": q_hashes[qi],
+                    "question_source": meta["subset_name"],
                     "subset_name": meta["subset_name"],
                     "qid": meta["qid"],
                     "language": meta["language"],
@@ -476,8 +477,12 @@ def flatten_results_for_hub(
                     "guided_choices": guided_choices[t][qi],
                     "displayed_correct_answer": displayed_correct_answer,
                     "canonical_correct_answer": canonical_correct_answer,
+
+                    "is_correct": (normalized_answer == canonical_correct_answer) if normalized_answer is not None else None,
                     "is_correct_displayed": (answer == displayed_correct_answer) if answer is not None else None,
-                    "is_correct_canonical": (normalized_answer == canonical_correct_answer) if normalized_answer is not None else None,
+                    "is_correct_canonical": (
+                                normalized_answer == canonical_correct_answer) if normalized_answer is not None else None,
+
                     "model_name": d["model_name"],
                     "run_timestamp_utc": _utc_now_iso(),
                     **source_meta,
@@ -867,7 +872,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--hf-emo-bench-language-filter", type=str, default="en")
 
     # Output
-    p.add_argument("--out-json", type=str, default="/outputs/emo_bench_qa_results.json")
+    p.add_argument("--out-json", type=str, default="/outputs/emo_bench_results.json")
 
     # Hub push
     p.add_argument("--push-to-hub", action=argparse.BooleanOptionalAction, default=True)
@@ -876,7 +881,7 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default="thoughtworks/gemma_psychometrics_personas_responses",
     )
-    p.add_argument("--target-hub-config", type=str, default="analysis_emo_bench_qa")
+    p.add_argument("--target-hub-config", type=str, default="analysis_emo_bench")
     p.add_argument("--target-hub-split", type=str, default="train")
 
     args = p.parse_args()
@@ -904,7 +909,7 @@ def main() -> None:
     mgr.hello_world_check()
 
     # -------------------------------------------------------
-    # RUN 1: PERSONA CONDITION (analysis_emo_bench_qa)
+    # RUN 1: PERSONA CONDITION (analysis_emo_bench)
     # -------------------------------------------------------
 
     print("\n==============================")
@@ -929,7 +934,7 @@ def main() -> None:
         print("Pushed persona config -> analysis_emo_bench")
 
     # -------------------------------------------------------
-    # RUN 2: BASE MODEL CONDITION (base_emo_bench_qa)
+    # RUN 2: BASE MODEL CONDITION (base_emo_bench)
     # -------------------------------------------------------
 
     print("\n==============================")
@@ -937,7 +942,7 @@ def main() -> None:
     print("==============================\n")
 
     args.persona_source = "base_model"
-    args.target_hub_config = "base_emo_bench_qa"
+    args.target_hub_config = "base_emo_bench"
 
     base_runner = EmoBenchQAResponseRunner(args=args, mgr=mgr)
     base_results, emo_rows = base_runner.run()
