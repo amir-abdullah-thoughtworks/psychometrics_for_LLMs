@@ -138,7 +138,7 @@ class HexacoResponseRunner:
     def parse_args() -> argparse.Namespace:
         parser = argparse.ArgumentParser()
 
-        parser.add_argument("--model-name", type=str, default="google/gemma-3-4b")
+        parser.add_argument("--model-name", type=str, default="google/gemma-3-4b-it")
 
         parser.add_argument(
             "--persona-source",
@@ -148,7 +148,7 @@ class HexacoResponseRunner:
             help="Source of Persona (huggingface | base_model | personallm_paper | local)",
         )
         parser.add_argument("--hf-persona-path", type=str, default="thoughtworks/psychometric_personas")
-        parser.add_argument("--hf-persona-config", type=str, default="analysis")
+        parser.add_argument("--hf-persona-config", type=str, default="test_sample")
         parser.add_argument("--hf-persona-split", type=str, default="train")
         parser.add_argument("--n-personasample", type=int, default=1)
 
