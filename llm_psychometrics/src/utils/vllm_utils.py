@@ -356,7 +356,7 @@ class VLLMServerManager:
 
         def _normalize(resp: str) -> str:
             # strict + simple: first token only
-            return resp.strip().split(None, 1)[0]
+            return resp.strip()
 
         last_err: Optional[Exception] = None
         had_mismatch = False
