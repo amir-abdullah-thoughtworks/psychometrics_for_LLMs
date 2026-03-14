@@ -619,7 +619,7 @@ class TruthfulQAMCResponseRunner:
 
         if self.args.persona_source == "base_model":
             print("Running TruthfulQA-MC on base model without personas")
-            results["base_model"] = self._run_one_persona("base_model", None, None, truth_rows)
+            results["base_model"] = self._run_one_persona("base_model", None, "System Assistant", truth_rows)
             return ExperimentResults(results)
 
         if not self.args.hf_persona_path:
