@@ -398,6 +398,7 @@ class HexacoResponseRunner:
             num_workers=self.mp_workers,
             max_retries=self.max_retries,
             cache_enabled=False,
+            cache_type="diskcache",
             retry_backoff_s=self.retry_backoff_s,
             default_guided_choice=NO_ANSWER
 
@@ -638,13 +639,13 @@ class HexacoResponseRunner:
 
         analysis_out = self.run_single_condition(
             persona_source="huggingface",
-            out_suffix="hexaco_analysis",
+            out_suffix="analysis_hexaco",
             hub_config=self.args.analysis_config,
         )
 
         base_out = self.run_single_condition(
             persona_source="base_model",
-            out_suffix="hexaco_base",
+            out_suffix="base_hexaco",
             hub_config=self.args.base_config,
         )
 
