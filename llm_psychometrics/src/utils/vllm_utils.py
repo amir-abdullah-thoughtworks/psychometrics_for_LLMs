@@ -638,7 +638,7 @@ class VLLMServerManager:
 
         desc = f"vLLM completions for guided choices: {guided_choices[0]}" if guided_choices else "vLLM completions"
 
-        with tqdm(total=total, desc=f"vLLM completions for guided choices: {guided_choices}", unit="req") as pbar:
+        with tqdm(total=total, desc=desc, unit="req") as pbar:
             for i in range(0, total, batch_size):
                 chunk = prompts[i: i + batch_size]
                 chunk_guidance = per_prompt_guidance[i: i + batch_size]
