@@ -615,7 +615,7 @@ class VLLMServerManager:
         max_tokens: int = 128,
         temperature: float = 0.0,
         top_p: float = 1.0,
-        batch_size: int = 100,
+        batch_size: int = 200,
         num_workers: int = 100,
         max_retries: int = 5,
         retry_backoff_s: float = 0.1,
@@ -635,6 +635,8 @@ class VLLMServerManager:
         cache_hits_total = 0
 
         per_prompt_guidance: List[List[str]] = self._normalize_guided_choices(prompts, guided_choices)
+
+        desc = f"vLLM completions for guided choices: {guided_choices}" if guided_choices else "vLLM completions"
 
         with tqdm(total=total, desc=f"vLLM completions for guided choices: {guided_choices}", unit="req") as pbar:
             for i in range(0, total, batch_size):
