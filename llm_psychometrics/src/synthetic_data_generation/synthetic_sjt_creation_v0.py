@@ -1,17 +1,20 @@
-from jinja2 import Template
-import pandas as pd
-import yaml
-import sys
+import hashlib
 import json
 import random
-import hashlib
-from itertools import product
-from pydantic import BaseModel
-from typing import Union
-from tqdm import tqdm
+import sys
 from concurrent.futures import ThreadPoolExecutor
+from itertools import product
+from typing import Union
+
+import pandas as pd
+import yaml
+from jinja2 import Template
+from pydantic import BaseModel
+from tqdm import tqdm
+
 sys.path.append("../")
 from src.utils_v0 import list_to_str, openai_api_call
+
 device = "cpu"
 
 
@@ -22,13 +25,13 @@ DEFAULT_TOP_P = 0.95
 
 
 def write_to_json(file, file_path):
-    with open(file_path, 'w') as f:
+    with open(file_path, "w") as f:
         json.dump(file, f)
 
 
 def batch_list(lst, n):
     for i in range(0, len(lst), n):
-        yield lst[i:i + n]
+        yield lst[i : i + n]
 
 
 def read_json(file_path):
@@ -85,40 +88,59 @@ class SjtTraitBleedEval(BaseModel):
     overall_notes: str
 
 
-def sjt_generation_with_validation(seed_dict):
+def qa_to_string(entry: dict) -> str:
+    parts = []
+    parts.append(f"Question: {entry.get('question', '')}")
+    for key, value in entry.items():
+        if key != "question":
+            parts.append(f"{key.replace('_option', '').capitalize()}: {value}")
+    return "\n".join(parts)
 
+
+def embed_sjt(sjt):
+    corrected_sjt = sjt["corrected_sjt"]
+    sjt_string = qa_to_string(corrected_sjt)
+    return embed_model.encode([sjt_string], convert_to_numpy=False)[0]
+
+
+def sjt_generation_with_validation(seed_dict):
     generated_sjt_dict = {}
     sjt_generation_prompt = SJT_GENERATION_TEMPLATE.render(seed_dict)
-    generated_sjt_dict['config'] = seed_dict
+    generated_sjt_dict["config"] = seed_dict
     openai_sjt_response_v1 = openai_api_call(
         prompt=sjt_generation_prompt,
         response_format=SyntheticSJT,
         model=DEFAULT_SJT_GENERATION_MODEL,
         temperature=DEFAULT_TEMPERATURE,
-        top_p=DEFAULT_TOP_P)
+        top_p=DEFAULT_TOP_P,
+    )
     original_sjt_response_dict = openai_sjt_response_v1.model_dump()
 
     # Evaluating the created SJT for trait bleed and correcting it if there is any correction needed
-    sjt_trait_bleed_evaluation_prompt = SJT_TRAIT_BLEED_EVALUATION_TEMPLATE.render(original_sjt_response_dict)
-    openai_sjt_response_v2 = openai_api_call(prompt=sjt_trait_bleed_evaluation_prompt,
-                                                response_format=SjtTraitBleedEval,
-                                                model=DEFAULT_SJT_TRAIT_BLEED_EVALUATION_MODEL,
-                                                temperature=DEFAULT_TEMPERATURE,
-                                                top_p=DEFAULT_TOP_P)
+    sjt_trait_bleed_evaluation_prompt = SJT_TRAIT_BLEED_EVALUATION_TEMPLATE.render(
+        original_sjt_response_dict
+    )
+    openai_sjt_response_v2 = openai_api_call(
+        prompt=sjt_trait_bleed_evaluation_prompt,
+        response_format=SjtTraitBleedEval,
+        model=DEFAULT_SJT_TRAIT_BLEED_EVALUATION_MODEL,
+        temperature=DEFAULT_TEMPERATURE,
+        top_p=DEFAULT_TOP_P,
+    )
 
     corrected_sjt_response_dict = openai_sjt_response_v2.model_dump()
 
-
-    generated_sjt_dict['hash_id'] = generate_hash(json.dumps(corrected_sjt_response_dict['corrected_sjt']))
-    generated_sjt_dict['original_sjt'] = original_sjt_response_dict
-    generated_sjt_dict['trait_bleed_evaluation'] = corrected_sjt_response_dict
-    generated_sjt_dict['corrected_sjt'] = corrected_sjt_response_dict['corrected_sjt']
+    generated_sjt_dict["hash_id"] = generate_hash(
+        json.dumps(corrected_sjt_response_dict["corrected_sjt"])
+    )
+    generated_sjt_dict["original_sjt"] = original_sjt_response_dict
+    generated_sjt_dict["trait_bleed_evaluation"] = corrected_sjt_response_dict
+    generated_sjt_dict["corrected_sjt"] = corrected_sjt_response_dict["corrected_sjt"]
 
     return generated_sjt_dict
 
 
-
-with open('../configs/synthetic_sjt_seeds.yaml', 'r') as file:
+with open("../configs/synthetic_sjt_seeds.yaml", "r") as file:
     synthetic_sjt_seeds = yaml.safe_load(file)
 
 handmade_sjt_template_df = pd.read_csv("sjt_data/sjt_jinja_template_v2.csv")
@@ -319,41 +341,71 @@ sjt_example_template = Template(sjt_example_template_str)
 SJT_GENERATION_TEMPLATE = Template(SJT_GENERATION_TEMPLATE_STR)
 SJT_TRAIT_BLEED_EVALUATION_TEMPLATE = Template(SJT_TRAIT_BLEED_EVALUATION_TEMPLATE_STR)
 
-option_cols = ['Option 1', 'Option 2', 'Option 3', 'Option 4', 'Option 5','Option 6']
+option_cols = ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5", "Option 6"]
 
 
 # handmade_sjt_sample = handmade_sjt_template_df.sample(2)
 handmade_sjt_sample = handmade_sjt_template_df
 start_index = 16
 
-for index, row in tqdm(handmade_sjt_sample.iloc[start_index:].iterrows(), desc="base_scenario",
-                       position=0):
+for index, row in tqdm(
+    handmade_sjt_sample.iloc[start_index:].iterrows(), desc="base_scenario", position=0
+):
     print(f"Index for base SJT dataframe: {index} ")
-    question = row['Question']
+    question = row["Question"]
     answer_options = list_to_str(row[option_cols])
 
-    base_scenario = sjt_example_template.render(question=question,
-                                                answer_options=answer_options)
+    base_scenario = sjt_example_template.render(
+        question=question, answer_options=answer_options
+    )
 
     sampled_seeds = random.sample(all_seed_combos, 50)
     synthetic_generated_sjt_list = []
-    for seed_batch in tqdm(batch_list(sampled_seeds, 5), desc="seeds",
-                           position=1):
+    for seed_batch in tqdm(batch_list(sampled_seeds, 5), desc="seeds", position=1):
         # for seed_dict in tqdm(sampled_seeds, desc="seeds",
         #                      position=1):
         # generated_sjt_dict['base_scenario'] = base_scenario
         input_seed_batch = []
         for seed_dict in seed_batch:
             seed_copy = seed_dict.copy()
-            seed_copy['base_scenario'] = base_scenario
+            seed_copy["base_scenario"] = base_scenario
             input_seed_batch.append(seed_copy)
 
         with ThreadPoolExecutor(max_workers=4) as executor:
-            generated_sjt_dict_list = list(executor.map(
-                sjt_generation_with_validation, input_seed_batch))
+            generated_sjt_dict_list = list(
+                executor.map(sjt_generation_with_validation, input_seed_batch)
+            )
 
         synthetic_generated_sjt_list.extend(generated_sjt_dict_list)
 
-    write_to_json(synthetic_generated_sjt_list,
-                f"sjt_data/synthetic_generate_sjt_1k_temp1point5_v3/synthetic_generated_sjt_list_basescenario_{index}.json")
+    write_to_json(
+        synthetic_generated_sjt_list,
+        f"sjt_data/synthetic_generate_sjt_1k_temp1point5_v3/synthetic_generated_sjt_list_basescenario_{index}.json",
+    )
 
+
+# ── Embed SJTs and upload to HuggingFace Hub ─────────────────────────────────
+# Loads all generated SJT JSON files, computes sentence embeddings, and pushes
+# the resulting dataset to the HuggingFace Hub.
+# embed_model = SentenceTransformer("Qwen/Qwen3-Embedding-0.6B")
+#
+# data_dir = "../data/sjt_data"
+# complete_sjt_list = []
+# for dir_name in os.listdir(data_dir):
+#     if "synthetic_generate_sjt_1k_temp1point5" in dir_name:
+#         print(dir_name)
+#         for filename in tqdm(os.listdir(os.path.join(data_dir, dir_name)), desc="filename"):
+#             template_no = filename.split("_")[-1].split(".")[0]
+#             file = read_json(os.path.join(data_dir, dir_name, filename))
+#             sjt_list = []
+#             for sjt in tqdm(file, desc="sjts"):
+#                 sjt_embedding = embed_sjt(sjt)
+#                 sjt_list.append(sjt | {"template_no": template_no,
+#                                        "sjt_embedding": sjt_embedding})
+#             complete_sjt_list.extend(sjt_list)
+#
+# sjt_dataset = Dataset.from_list(complete_sjt_list)
+# sjt_dataset.to_parquet("sjt_data/sjt_hf_dataset_sample_v2.parquet")
+#
+# login("<HF_TOKEN>")
+# sjt_dataset.push_to_hub("thoughtworks/psychometric_SJTs")

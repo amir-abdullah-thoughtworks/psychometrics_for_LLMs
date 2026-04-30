@@ -29,6 +29,8 @@ default_model = "google/gemma-3-4b-it"
 
 from diskcache import Cache, FanoutCache
 
+likert_scale = ["Strongly Disagree","Disagree", "Neutral", "Agree", "Strongly Agree"]
+
 class VLLMServerManager:
     """
     Minimal manager for a local vLLM OpenAI-compatible server.
@@ -237,7 +239,7 @@ class VLLMServerManager:
             "--gpu-memory-utilization", "0.85",
             "--max-num-batched-tokens", "16384",
             "--max-num-seqs", "64",
-            "--disable-log-requests",
+            "--no-enable-log-requests",
             "--max-model-len", "2048",
             "--disable-log-stats",
             "--enable-chunked-prefill",
@@ -246,15 +248,13 @@ class VLLMServerManager:
             "--host", self.host,
             "--port", str(self.port),
             "--dtype", "bfloat16",
-            "> /outputs/vllm_server.log",
         ] + self.server_extra_args
 
-        stdout = open(self.log_file, "a", buffering=1, encoding="utf-8")
-        self._proc = subprocess.Popen(cmd, stdout=stdout, stderr=stdout, env=self.env, start_new_session=True)
         log_path = Path(self.log_file)
         log_path.parent.mkdir(parents=True, exist_ok=True)
 
         stdout = log_path.open("a", buffering=1, encoding="utf-8")
+        self._proc = subprocess.Popen(cmd, stdout=stdout, stderr=stdout, env=self.env, start_new_session=True)
 
     def hello_world_check(self, model_override: str | None = None) -> str:
         """
@@ -418,7 +418,12 @@ class VLLMServerManager:
                 if not choice_set:
                     return text
 
-                token = _normalize(text)
+                if text.strip() in likert_scale:
+                    token = text.strip()
+                else:
+                    token = _normalize(text)
+                self._log(f"Token: {token}"
+                          f"Choice Set: {choice_set}")
 
                 if token in choice_set:
                     if had_mismatch:
@@ -442,9 +447,19 @@ class VLLMServerManager:
             except Exception as e:
 
                 last_err = e
+                response_body = None
+                if 'resp' in locals():
+                    try:
+                        response_body = resp.text
+                    except:
+                        pass
 
                 self._log(
-                    f"VLLM_EXCEPTION attempt={attempt + 1} err={repr(e)} payload={json.dumps(payload, indent=4) if payload else None}"
+                    f"VLLM_EXCEPTION "
+                    f"attempt={attempt + 1} "
+                    f"err={repr(e)} "
+                    f"response={response_body} "
+                    f"payload={json.dumps(payload, indent=4)}"
                 )
 
                 time.sleep(0.01 * (2 ** attempt))
@@ -787,46 +802,32 @@ def make_math_prompts(n: int) -> list[str]:
     return [f"""What is {i} + {i+1}? Give answer only.""" for i in range(n)]
 
 def main():
-    
-    NUM_PROMPTS = 20
-    MP_WORKERS = 100
-    BATCH_SIZE = 100
-
-    out_jsonl = Path("outputs/debug_math_vllm_batching.jsonl")
-    out_jsonl.parent.mkdir(parents=True, exist_ok=True)
-
     mgr = VLLMServerManager()
-    mgr._start()
-    # mgr.ensure_fresh_server()
+    if mgr._is_up():
+        print(f"vLLM server already running at {mgr.base_url}")
+    else:
+        print(f"No vLLM server detected — starting {default_model} ...")
+        mgr._start()
+        mgr._wait_ready()
+    result = mgr.hello_world_check()
+    print(f"Hello world response: {result}")
+
+    print("\nRunning batched check...")
+    NUM_PROMPTS = 20
     prompts = make_math_prompts(NUM_PROMPTS)
-
-    guided_choices = [str(i) for i in range(1, 2*NUM_PROMPTS+1)]
-
+    guided_choices = [str(i) for i in range(1, 2 * NUM_PROMPTS + 1)]
     outputs = mgr.vllm_chat_batched(
         prompts=prompts,
         model=default_model,
         max_tokens=128,
         temperature=0.0,
-        batch_size=BATCH_SIZE,
-        num_workers=MP_WORKERS,
+        batch_size=100,
+        num_workers=100,
         guided_choices=guided_choices,
-        default_guided_choice=guided_choices[0]
+        default_guided_choice=guided_choices[0],
     )
-
-    with out_jsonl.open("w", encoding="utf-8") as f:
-        for prompt, response in zip(prompts, outputs):
-            f.write(
-                json.dumps(
-                    {
-                        "prompt": prompt,
-                        "prompt_hash": mgr.stable_hash(prompt),
-                        "response": response,
-                        "model": default_model,
-                    },
-                    ensure_ascii=False,
-                )
-                + "\n"
-            )
+    for prompt, response in zip(prompts, outputs):
+        print(f"  {prompt.strip()} -> {response}")
 
 if __name__ == "__main__":
     main()
