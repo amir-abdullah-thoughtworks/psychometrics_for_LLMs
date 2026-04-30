@@ -1,27 +1,83 @@
+import argparse
+import functools
 import hashlib
 import json
+import os
 import random
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from itertools import product
+from pathlib import Path
 from typing import Union
 
 import pandas as pd
 import yaml
 from jinja2 import Template
 from pydantic import BaseModel
+from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
-sys.path.append("../")
-from src.utils_v0 import list_to_str, openai_api_call
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from src.utils_v0 import anthropic_api_call, list_to_str, openai_api_call
 
 device = "cpu"
 
 
-DEFAULT_SJT_GENERATION_MODEL = "gpt-4.1"
-DEFAULT_SJT_TRAIT_BLEED_EVALUATION_MODEL = "gpt-4.1"
-DEFAULT_TEMPERATURE = 1.5
+# DEFAULT_SJT_GENERATION_MODEL = "gpt-4.1"
+# DEFAULT_SJT_TRAIT_BLEED_EVALUATION_MODEL = "gpt-4.1"
+DEFAULT_TEMPERATURE = 1
 DEFAULT_TOP_P = 0.95
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--provider", choices=["openai", "anthropic"], default="anthropic"
+    )
+    parser.add_argument(
+        "--generation-model",
+        default=None,
+        help="Defaults: gpt-4.1 (openai) | claude-sonnet-4-6 (anthropic)",
+    )
+    parser.add_argument(
+        "--evaluation-model",
+        default=None,
+        help="Defaults: gpt-4.1 (openai) | claude-sonnet-4-6 (anthropic)",
+    )
+    parser.add_argument(
+        "--n-seeds",
+        type=int,
+        default=5,
+        help="Seeds per base template. Total SJTs = n_templates × n_seeds.",
+    )
+    parser.add_argument(
+        "--start-index",
+        type=int,
+        default=0,
+        help="Row index in sjt_jinja_template_v2.csv to start from.",
+    )
+    parser.add_argument(
+        "--output-path", default="data/sjt_data/synthetic_sjts_anthropic100.parquet"
+    )
+    parser.add_argument(
+        "--push-to-hub",
+        action="store_true",
+        help="Push the final dataset to HuggingFace Hub. Requires HF_TOKEN env var.",
+    )
+    parser.add_argument(
+        "--hub-dataset-id",
+        default="thoughtworks/psychometric_sjts_analysis",
+        help="HuggingFace dataset repo id, e.g. 'thoughtworks/psychometric_SJTs'.",
+    )
+    parser.add_argument(
+        "--hub-subset",
+        default="anthropic_claude",
+        help="Dataset config/subset name (the 'name' param in push_to_hub).",
+    )
+    parser.add_argument(
+        "--hub-split", default="train", help="Dataset split name, e.g. 'train', 'test'."
+    )
+    return parser.parse_args()
 
 
 def write_to_json(file, file_path):
@@ -97,38 +153,43 @@ def qa_to_string(entry: dict) -> str:
     return "\n".join(parts)
 
 
-def embed_sjt(sjt):
+def embed_sjt(sjt, embed_model):
     corrected_sjt = sjt["corrected_sjt"]
     sjt_string = qa_to_string(corrected_sjt)
-    return embed_model.encode([sjt_string], convert_to_numpy=False)[0]
+    return embed_model.encode([sjt_string], convert_to_numpy=True)[0].tolist()
 
 
-def sjt_generation_with_validation(seed_dict):
+def get_api_fn(provider, model, temperature, top_p):
+    defaults = {"openai": "gpt-4.1", "anthropic": "claude-sonnet-4-6"}
+    resolved_model = model or defaults[provider]
+    if provider == "anthropic":
+        return functools.partial(
+            anthropic_api_call, model=resolved_model, temperature=temperature
+        )
+    return functools.partial(
+        openai_api_call, model=resolved_model, temperature=temperature, top_p=top_p
+    )
+
+
+def sjt_generation_with_validation(seed_dict, generation_fn, evaluation_fn):
     generated_sjt_dict = {}
     sjt_generation_prompt = SJT_GENERATION_TEMPLATE.render(seed_dict)
     generated_sjt_dict["config"] = seed_dict
-    openai_sjt_response_v1 = openai_api_call(
+
+    original_sjt = generation_fn(
         prompt=sjt_generation_prompt,
         response_format=SyntheticSJT,
-        model=DEFAULT_SJT_GENERATION_MODEL,
-        temperature=DEFAULT_TEMPERATURE,
-        top_p=DEFAULT_TOP_P,
     )
-    original_sjt_response_dict = openai_sjt_response_v1.model_dump()
+    original_sjt_response_dict = original_sjt.model_dump()
 
-    # Evaluating the created SJT for trait bleed and correcting it if there is any correction needed
     sjt_trait_bleed_evaluation_prompt = SJT_TRAIT_BLEED_EVALUATION_TEMPLATE.render(
         original_sjt_response_dict
     )
-    openai_sjt_response_v2 = openai_api_call(
+    evaluated_sjt = evaluation_fn(
         prompt=sjt_trait_bleed_evaluation_prompt,
         response_format=SjtTraitBleedEval,
-        model=DEFAULT_SJT_TRAIT_BLEED_EVALUATION_MODEL,
-        temperature=DEFAULT_TEMPERATURE,
-        top_p=DEFAULT_TOP_P,
     )
-
-    corrected_sjt_response_dict = openai_sjt_response_v2.model_dump()
+    corrected_sjt_response_dict = evaluated_sjt.model_dump()
 
     generated_sjt_dict["hash_id"] = generate_hash(
         json.dumps(corrected_sjt_response_dict["corrected_sjt"])
@@ -139,20 +200,6 @@ def sjt_generation_with_validation(seed_dict):
 
     return generated_sjt_dict
 
-
-with open("../configs/synthetic_sjt_seeds.yaml", "r") as file:
-    synthetic_sjt_seeds = yaml.safe_load(file)
-
-handmade_sjt_template_df = pd.read_csv("sjt_data/sjt_jinja_template_v2.csv")
-
-
-all_seed_combos = expand_dict_combinations(synthetic_sjt_seeds)
-
-print(f"No of  Combos: {len(all_seed_combos)}")
-
-# random.seed(42)
-# n = 1000
-# sampled_seed_combos = random.sample(all_seed_combos, n)
 
 SJT_GENERATION_TEMPLATE_STR = """You are creating a new law enforcement Situational Judgment Test (SJT) scenario by modifying an existing scenario with new attribute values. Follow the template below to generate a realistic, professionally appropriate scenario that maintains the core decision-making structure while incorporating the specified attributes.
 
@@ -240,29 +287,29 @@ Do not include any extra text, explanation, or formatting outside of the JSON ob
 SJT_TRAIT_BLEED_EVALUATION_TEMPLATE_STR = """ You are an expert SJT evaluator and corrector specializing in HEXACO-aligned scenarios.  You are given a situational judgment test (SJT) scenario with six answer options, each intended  to correspond to one HEXACO trait: Honesty-Humility, Emotionality, Extraversion, Agreeableness,  Conscientiousness, and Openness.
 
 Your tasks:
-1. **Trait Fit Evaluation**  
-   - For each option, evaluate how strongly it aligns with its intended trait definition.  
-   - Use a 1–5 scale:  
-     5 = Very strong, clean representation, no leakage  
-     4 = Strong but with minor overlap  
-     3 = Moderate, noticeable blending  
-     2 = Weak, trait unclear or diluted  
-     1 = Poor, option does not represent the trait well  
+1. **Trait Fit Evaluation**
+   - For each option, evaluate how strongly it aligns with its intended trait definition.
+   - Use a 1–5 scale:
+     5 = Very strong, clean representation, no leakage
+     4 = Strong but with minor overlap
+     3 = Moderate, noticeable blending
+     2 = Weak, trait unclear or diluted
+     1 = Poor, option does not represent the trait well
 
-2. **Separation Analysis**  
-   - Highlight where options overlap or bleed into each other (e.g., Extraversion vs. Agreeableness).  
-   - Explain why the overlap occurs.  
+2. **Separation Analysis**
+   - Highlight where options overlap or bleed into each other (e.g., Extraversion vs. Agreeableness).
+   - Explain why the overlap occurs.
 
-3. **Correction Suggestions**  
-   - For any option rated below 5, propose a corrected rewrite that emphasizes the target trait more cleanly.  
-   - Ensure each rewrite minimizes overlap with other traits.  
+3. **Correction Suggestions**
+   - For any option rated below 5, propose a corrected rewrite that emphasizes the target trait more cleanly.
+   - Ensure each rewrite minimizes overlap with other traits.
    - Ensure each rewrite include specific, actionable decisions rather than vague choices.
 
-4. **Final Corrected SJT Object**  
-   - Output an object with the exact same structure as the input SJT dictionary.  
-   - Each option should contain the corrected version if a rewrite was needed, or the unchanged original if not.  
+4. **Final Corrected SJT Object**
+   - Output an object with the exact same structure as the input SJT dictionary.
+   - Each option should contain the corrected version if a rewrite was needed, or the unchanged original if not.
 
-5. **Output Format**  
+5. **Output Format**
    Return results in structured JSON with this format:
 
 {
@@ -344,68 +391,112 @@ SJT_TRAIT_BLEED_EVALUATION_TEMPLATE = Template(SJT_TRAIT_BLEED_EVALUATION_TEMPLA
 option_cols = ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5", "Option 6"]
 
 
-# handmade_sjt_sample = handmade_sjt_template_df.sample(2)
-handmade_sjt_sample = handmade_sjt_template_df
-start_index = 16
+def main():
+    args = parse_args()
 
-for index, row in tqdm(
-    handmade_sjt_sample.iloc[start_index:].iterrows(), desc="base_scenario", position=0
-):
-    print(f"Index for base SJT dataframe: {index} ")
-    question = row["Question"]
-    answer_options = list_to_str(row[option_cols])
+    defaults = {"openai": "gpt-4.1", "anthropic": "claude-sonnet-4-6"}
+    resolved_gen_model = args.generation_model or defaults[args.provider]
+    resolved_eval_model = args.evaluation_model or defaults[args.provider]
 
-    base_scenario = sjt_example_template.render(
-        question=question, answer_options=answer_options
+    print(f"Provider:          {args.provider}")
+    print(f"Generation model:  {resolved_gen_model}")
+    print(f"Evaluation model:  {resolved_eval_model}")
+    print(f"Output path:       {args.output_path}")
+    if args.push_to_hub:
+        print("Push to Hub:       yes")
+        print(f"  Dataset ID:      {args.hub_dataset_id}")
+        print(f"  Subset:          {args.hub_subset}")
+        print(f"  Split:           {args.hub_split}")
+    else:
+        print("Push to Hub:       no")
+    print()
+
+    generation_fn = get_api_fn(
+        args.provider, args.generation_model, DEFAULT_TEMPERATURE, DEFAULT_TOP_P
+    )
+    evaluation_fn = get_api_fn(
+        args.provider, args.evaluation_model, DEFAULT_TEMPERATURE, DEFAULT_TOP_P
+    )
+    validated_fn = functools.partial(
+        sjt_generation_with_validation,
+        generation_fn=generation_fn,
+        evaluation_fn=evaluation_fn,
     )
 
-    sampled_seeds = random.sample(all_seed_combos, 50)
-    synthetic_generated_sjt_list = []
-    for seed_batch in tqdm(batch_list(sampled_seeds, 5), desc="seeds", position=1):
-        # for seed_dict in tqdm(sampled_seeds, desc="seeds",
-        #                      position=1):
-        # generated_sjt_dict['base_scenario'] = base_scenario
-        input_seed_batch = []
-        for seed_dict in seed_batch:
-            seed_copy = seed_dict.copy()
-            seed_copy["base_scenario"] = base_scenario
-            input_seed_batch.append(seed_copy)
+    embed_model = SentenceTransformer("Qwen/Qwen3-Embedding-0.6B")
 
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            generated_sjt_dict_list = list(
-                executor.map(sjt_generation_with_validation, input_seed_batch)
-            )
+    with open("configs/synthetic_sjt_seeds.yaml", "r") as file:
+        synthetic_sjt_seeds = yaml.safe_load(file)
 
-        synthetic_generated_sjt_list.extend(generated_sjt_dict_list)
+    handmade_sjt_template_df = pd.read_csv("data/sjt_data/sjt_jinja_template_v2.csv")
+    all_seed_combos = expand_dict_combinations(synthetic_sjt_seeds)
 
-    write_to_json(
-        synthetic_generated_sjt_list,
-        f"sjt_data/synthetic_generate_sjt_1k_temp1point5_v3/synthetic_generated_sjt_list_basescenario_{index}.json",
+    handmade_sjt_sample = handmade_sjt_template_df.iloc[args.start_index :]
+    n_templates = len(handmade_sjt_sample)
+    total_sjts = n_templates * args.n_seeds
+    print(
+        f"Generating {total_sjts} SJTs ({n_templates} templates × {args.n_seeds} seeds each)"
     )
 
+    all_rows = []
+    for index, row in tqdm(
+        handmade_sjt_sample.iterrows(),
+        desc="base_scenario",
+        position=0,
+        total=n_templates,
+    ):
+        print(f"Index for base SJT dataframe: {index}")
+        question = row["Question"]
+        answer_options = list_to_str(row[option_cols])
 
-# ── Embed SJTs and upload to HuggingFace Hub ─────────────────────────────────
-# Loads all generated SJT JSON files, computes sentence embeddings, and pushes
-# the resulting dataset to the HuggingFace Hub.
-# embed_model = SentenceTransformer("Qwen/Qwen3-Embedding-0.6B")
-#
-# data_dir = "../data/sjt_data"
-# complete_sjt_list = []
-# for dir_name in os.listdir(data_dir):
-#     if "synthetic_generate_sjt_1k_temp1point5" in dir_name:
-#         print(dir_name)
-#         for filename in tqdm(os.listdir(os.path.join(data_dir, dir_name)), desc="filename"):
-#             template_no = filename.split("_")[-1].split(".")[0]
-#             file = read_json(os.path.join(data_dir, dir_name, filename))
-#             sjt_list = []
-#             for sjt in tqdm(file, desc="sjts"):
-#                 sjt_embedding = embed_sjt(sjt)
-#                 sjt_list.append(sjt | {"template_no": template_no,
-#                                        "sjt_embedding": sjt_embedding})
-#             complete_sjt_list.extend(sjt_list)
-#
-# sjt_dataset = Dataset.from_list(complete_sjt_list)
-# sjt_dataset.to_parquet("sjt_data/sjt_hf_dataset_sample_v2.parquet")
-#
-# login("<HF_TOKEN>")
-# sjt_dataset.push_to_hub("thoughtworks/psychometric_SJTs")
+        base_scenario = sjt_example_template.render(
+            question=question, answer_options=answer_options
+        )
+
+        sampled_seeds = random.sample(all_seed_combos, args.n_seeds)
+
+        for seed_batch in tqdm(batch_list(sampled_seeds, 5), desc="seeds", position=1):
+            input_seed_batch = []
+            for seed_dict in seed_batch:
+                seed_copy = seed_dict.copy()
+                seed_copy["base_scenario"] = base_scenario
+                input_seed_batch.append(seed_copy)
+
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                results = list(executor.map(validated_fn, input_seed_batch))
+
+            for sjt in results:
+                config = sjt["config"]
+                all_rows.append(
+                    {
+                        "config": config,
+                        "hash_id": sjt["hash_id"],
+                        "original_sjt": sjt["original_sjt"],
+                        "trait_bleed_evaluation": sjt["trait_bleed_evaluation"],
+                        "corrected_sjt": sjt["corrected_sjt"],
+                        "template_no": index,
+                        "sjt_embedding": embed_sjt(sjt, embed_model),
+                        **config,
+                    }
+                )
+
+    df = pd.DataFrame(all_rows)
+    df.to_parquet(args.output_path, index=False)
+    print(f"Saved {len(df)} SJTs to {args.output_path}")
+
+    if args.push_to_hub:
+        from datasets import Dataset
+        from huggingface_hub import login
+
+        login(token=os.environ["HF_TOKEN"])
+        hf_dataset = Dataset.from_pandas(df)
+        hf_dataset.push_to_hub(
+            args.hub_dataset_id,
+            config_name=args.hub_subset,
+            split=args.hub_split,
+        )
+        print(f"Pushed to HuggingFace Hub: {args.hub_dataset_id}")
+
+
+if __name__ == "__main__":
+    main()
