@@ -13,6 +13,7 @@ from collections import Counter
 from pydantic import BaseModel, Field
 import numpy as np
 from concurrent.futures import ProcessPoolExecutor, as_completed
+import string
 
 from pathlib import Path
 from tqdm import tqdm
@@ -39,10 +40,10 @@ class VLLMServerManager:
     """
 
     def __init__(self, model: str = default_model,
-                 host: str = "127.0.0.1", port: int = 8000,
+                 host: str = "127.0.0.1", port: int = 9000,
                  python_executable: str = sys.executable,
                  server_extra_args=None, env=None,
-                 log_file: str = "/outputs/vllm_server.log",
+                 log_file: str = "outputs/vllm_server.log",
                  timeout_s: int = 500, kill_existing: bool = True):
         self.model = model
         self.host = host
@@ -236,10 +237,10 @@ class VLLMServerManager:
             self.python_executable,
             "-m", "vllm.entrypoints.openai.api_server",
             "--gpu-memory-utilization", "0.85",
-            "--max-num-batched-tokens", "10000",
-            "--max-num-seqs", "30",
-            "--disable-log-requests",
-            "--max-model-len", "4096",
+            "--max-num-batched-tokens", "16384",
+            "--max-num-seqs", "64",
+            "--no-enable-log-requests",
+            "--max-model-len", "2048",
             "--disable-log-stats",
             "--enable-chunked-prefill",
             "--tensor-parallel-size", "1",
@@ -247,15 +248,13 @@ class VLLMServerManager:
             "--host", self.host,
             "--port", str(self.port),
             "--dtype", "bfloat16",
-            "> /outputs/vllm_server.log",
         ] + self.server_extra_args
 
-        stdout = open(self.log_file, "a", buffering=1, encoding="utf-8")
-        self._proc = subprocess.Popen(cmd, stdout=stdout, stderr=stdout, env=self.env, start_new_session=True)
         log_path = Path(self.log_file)
         log_path.parent.mkdir(parents=True, exist_ok=True)
 
         stdout = log_path.open("a", buffering=1, encoding="utf-8")
+        self._proc = subprocess.Popen(cmd, stdout=stdout, stderr=stdout, env=self.env, start_new_session=True)
 
     def hello_world_check(self, model_override: str | None = None) -> str:
         """
@@ -342,7 +341,6 @@ class VLLMServerManager:
             )
         return [gc or [] for gc in per]
 
-    
     def vllm_chat(
             self,
             prompt: str,
@@ -351,22 +349,33 @@ class VLLMServerManager:
             temperature: float = 0.0,
             top_p: float = 1.0,
             guided_choices: Optional[List[str]] = None,
-            response_format: Optional[BaseModel] = None
+            response_format: Optional[BaseModel] = None,
+            default_guided_choice: Optional[str] = None
     ) -> str:
+
         guided_choices = guided_choices or []
         choice_set = {c.strip() for c in guided_choices}
 
+        if guided_choices and default_guided_choice is None:
+            raise ValueError(
+                "guided_choices provided but no default_guided_choice specified. "
+                "Pass default_guided_choice or disable guided_choices."
+            )
+
         def _normalize(resp: str) -> str:
-            # strict + simple: first token only
-            return resp.strip().split(None, 1)[0]
+            resp = resp.translate(str.maketrans('', '', string.punctuation))
+            return resp.strip()
 
         last_err: Optional[Exception] = None
         had_mismatch = False
 
         for attempt in range(3):
+
             text = None
             payload = None
+
             try:
+
                 payload = {
                     "model": model,
                     "messages": [{"role": "user", "content": prompt}],
@@ -377,36 +386,35 @@ class VLLMServerManager:
 
                 if guided_choices and guided_choices[0]:
                     payload["extra_body"] = {"guided_choice": guided_choices}
-                    
+
                 if response_format:
                     payload['response_format'] = {
-                                                    "type": "json_schema",
-                                                    "json_schema": {
-                                                        "name": response_format.__name__,
-                                                        "schema": response_format.model_json_schema()
-                                                    }
-                                                }
+                        "type": "json_schema",
+                        "json_schema": {
+                            "name": response_format.__name__,
+                            "schema": response_format.model_json_schema()
+                        }
+                    }
 
                 resp = requests.post(
                     f"{self.base_url}/v1/chat/completions",
                     json=payload
                 )
+
                 if not resp.ok:
                     raise RuntimeError(
                         f"status={resp.status_code} body={resp.text}\n"
                         f"payload_preview={json.dumps(payload, ensure_ascii=False)[:3000]}"
                     )
-                    resp.raise_for_status()
 
                 text = resp.json()["choices"][0]["message"]["content"]
-                
-                self._log(
-                    f"RAW OUTPUT "
-                    f"attempt={attempt + 1} "
-                    f"raw={text!r} "
-                )
 
-                # No constraint → return raw
+                if attempt > 0:
+                    self._log(
+                        f"RAW OUTPUT attempt={attempt + 1} raw={text!r}"
+                    )
+
+                # no constraint → return raw
                 if not choice_set:
                     return text
 
@@ -414,37 +422,30 @@ class VLLMServerManager:
                     token = text.strip()
                 else:
                     token = _normalize(text)
-                
-                
-                # text, token = self.call_llm_mode(payload=payload, N=5, choice_set=choice_set)
-                # token = str(np.argmax(json.loads(text)['answer']).item())
-                # token = str(json.loads(text)['answer'][0])
-                # token = str(json.loads(text)['answer'])
                 self._log(f"Token: {token}"
                           f"Choice Set: {choice_set}")
+
                 if token in choice_set:
                     if had_mismatch:
                         self._log(
-                            f"GUIDED_CHOICES_RECOVERED "
-                            f"attempt={attempt + 1} "
-                            f"token={token!r}"
+                            f"GUIDED_CHOICES_RECOVERED attempt={attempt + 1} token={token!r}"
                         )
                     return token
 
-                # Mismatch → retry
+                # mismatch
                 had_mismatch = True
                 last_err = ValueError(
                     f"guided_choices mismatch: raw={text!r}, token={token!r}"
                 )
+
                 self._log(
-                    f"GUIDED_CHOICES_MISMATCH "
-                    f"attempt={attempt + 1} "
-                    f"raw={text!r} "
-                    f"token={token!r}"
+                    f"GUIDED_CHOICES_MISMATCH attempt={attempt + 1} raw={text!r} token={token!r}"
                 )
-                time.sleep(0.01 * (2 ** attempt))
+
+                time.sleep(0.001 * (2 ** attempt))
 
             except Exception as e:
+
                 last_err = e
                 response_body = None
                 if 'resp' in locals():
@@ -460,20 +461,28 @@ class VLLMServerManager:
                     f"response={response_body} "
                     f"payload={json.dumps(payload, indent=4)}"
                 )
+
                 time.sleep(0.01 * (2 ** attempt))
 
+        # retries exhausted
         self._log(
-            "GUIDED_CHOICES_FINAL_FAILURE "
-            f"retries=3 "
-            f"last_err={repr(last_err)}"
+            f"GUIDED_CHOICES_FINAL_FAILURE retries=3 last_err={repr(last_err)}"
         )
+
+        if default_guided_choice is not None:
+            self._log(
+                f"RETURNING_DEFAULT_GUIDED_CHOICE choice={default_guided_choice!r}"
+            )
+            return default_guided_choice
+
         raise RuntimeError(f"vllm_chat failed after 3 attempts: {last_err}") from last_err
+
 
     def _log(self, msg: str):
         ts = datetime.now(UTC).isoformat()
 
         log_path = Path(self.log_file)
-        log_path.parent.mkdir(parents=True, exist_ok=True)
+        # log_path.parent.mkdir(parents=True, exist_ok=True)
 
         with log_path.open("a", encoding="utf-8") as f:
             f.write(f"[{ts}] {msg}\n")
@@ -546,6 +555,7 @@ class VLLMServerManager:
         cache_type: str = "fanout",
         cache_shards: int = 64,
         cache_timeout: float = 1.0,
+        default_guided_choices: Optional[List[Optional[str]]] = None,
     ) -> List[str]:
         """
         Returns outputs in the exact same order as `prompts`.
@@ -555,7 +565,12 @@ class VLLMServerManager:
         n = len(prompts)
         results: List[Optional[str]] = [None] * n
 
+
         guided_choices = guided_choices or [[] for _ in range(n)]
+        default_guided_choices = default_guided_choices or [None for _ in range(n)]
+
+        if len(default_guided_choices) != n:
+            raise ValueError("default_guided_choices must be the same length as prompts (per-prompt).")
         if len(guided_choices) != n:
             raise ValueError("guided_choices must be the same length as prompts (per-prompt).")
 
@@ -563,7 +578,7 @@ class VLLMServerManager:
             (
                 idx, self.base_url, # if idx % 2 == 0 else self.backup_url,
                 prompt, model, max_tokens, temperature,top_p,
-                max_retries, retry_backoff_s, guided_choices[idx], response_format
+                max_retries, retry_backoff_s, guided_choices[idx], response_format, default_guided_choices[idx],
             )
             for idx, prompt in enumerate(prompts)
         ]
@@ -615,7 +630,7 @@ class VLLMServerManager:
         max_tokens: int = 128,
         temperature: float = 0.0,
         top_p: float = 1.0,
-        batch_size: int = 100,
+        batch_size: int = 200,
         num_workers: int = 100,
         max_retries: int = 5,
         retry_backoff_s: float = 0.1,
@@ -627,6 +642,7 @@ class VLLMServerManager:
         cache_type: str = "fanout",   # "fanout" recommended for multiproc
         cache_shards: int = 64,
         cache_timeout: float = 1.0,
+        default_guided_choice: Optional[str] = None,
     ) -> List[str]:
         outputs: List[str] = []
 
@@ -635,10 +651,13 @@ class VLLMServerManager:
 
         per_prompt_guidance: List[List[str]] = self._normalize_guided_choices(prompts, guided_choices)
 
-        with tqdm(total=total, desc=f"vLLM completions for guided choices: {guided_choices}", unit="req") as pbar:
+        desc = f"vLLM completions for guided choices: {guided_choices[0]}" if guided_choices else "vLLM completions"
+
+        with tqdm(total=total, desc=desc, unit="req") as pbar:
             for i in range(0, total, batch_size):
                 chunk = prompts[i: i + batch_size]
                 chunk_guidance = per_prompt_guidance[i: i + batch_size]
+                chunk_default_choices = [default_guided_choice] * len(chunk)
 
                 chunk_keys = [
                     self._cache_key(
@@ -685,6 +704,7 @@ class VLLMServerManager:
                     last_err: Optional[Exception] = None
                     for attempt in range(chunk_max_retries + 1):
                         try:
+                            miss_default_choices = [chunk_default_choices[pos] for pos in miss_positions]
                             miss_out = self._mp_chat_chunk(
                                 prompts=miss_prompts,
                                 model=model,
@@ -703,6 +723,7 @@ class VLLMServerManager:
                                 cache_type=cache_type,
                                 cache_shards=cache_shards,
                                 cache_timeout=cache_timeout,
+                                default_guided_choices=miss_default_choices,
                             )
 
                             for pos, text in zip(miss_positions, miss_out):
@@ -746,7 +767,8 @@ def _mp_chat_one_worker(
     max_retries: int,
     retry_backoff_s: float,
     guided_choices: Optional[List[str]],
-    response_format: Optional[BaseModel]
+    response_format: Optional[BaseModel],
+    default_guided_choice: Optional[str] = None
 ) -> tuple[int, str]:
     mgr = VLLMServerManager(
         host=base_url.split("://", 1)[1].split(":", 1)[0],
@@ -762,7 +784,8 @@ def _mp_chat_one_worker(
                 temperature=temperature,
                 top_p=top_p,
                 guided_choices=guided_choices,
-                response_format=response_format
+                response_format=response_format,
+                default_guided_choice=default_guided_choice
             )
             return idx, text
         except Exception as e:
@@ -779,44 +802,32 @@ def make_math_prompts(n: int) -> list[str]:
     return [f"""What is {i} + {i+1}? Give answer only.""" for i in range(n)]
 
 def main():
-    
-    NUM_PROMPTS = 20
-    MP_WORKERS = 100
-    BATCH_SIZE = 100
-
-    out_jsonl = Path("outputs/debug_math_vllm_batching.jsonl")
-    out_jsonl.parent.mkdir(parents=True, exist_ok=True)
-
     mgr = VLLMServerManager()
-    # mgr.ensure_fresh_server()
+    if mgr._is_up():
+        print(f"vLLM server already running at {mgr.base_url}")
+    else:
+        print(f"No vLLM server detected — starting {default_model} ...")
+        mgr._start()
+        mgr._wait_ready()
+    result = mgr.hello_world_check()
+    print(f"Hello world response: {result}")
+
+    print("\nRunning batched check...")
+    NUM_PROMPTS = 20
     prompts = make_math_prompts(NUM_PROMPTS)
-
-    guided_choices = [str(i) for i in range(1, 2*NUM_PROMPTS+1)]
-
+    guided_choices = [str(i) for i in range(1, 2 * NUM_PROMPTS + 1)]
     outputs = mgr.vllm_chat_batched(
         prompts=prompts,
         model=default_model,
         max_tokens=128,
         temperature=0.0,
-        batch_size=BATCH_SIZE,
-        num_workers=MP_WORKERS,
-        guided_choices=guided_choices
+        batch_size=100,
+        num_workers=100,
+        guided_choices=guided_choices,
+        default_guided_choice=guided_choices[0],
     )
-
-    with out_jsonl.open("w", encoding="utf-8") as f:
-        for prompt, response in zip(prompts, outputs):
-            f.write(
-                json.dumps(
-                    {
-                        "prompt": prompt,
-                        "prompt_hash": mgr.stable_hash(prompt),
-                        "response": response,
-                        "model": default_model,
-                    },
-                    ensure_ascii=False,
-                )
-                + "\n"
-            )
+    for prompt, response in zip(prompts, outputs):
+        print(f"  {prompt.strip()} -> {response}")
 
 if __name__ == "__main__":
     main()
