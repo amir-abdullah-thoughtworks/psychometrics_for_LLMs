@@ -569,8 +569,9 @@ class PersonaGenerator:
                     temperature=self.temperature,
                 )
                 tool_use_block = next(b for b in resp.content if b.type == "tool_use")
-                out = SeededPersonaSchema(**tool_use_block.input)
-                # Overwrite to ensure exact ground truth values regardless of model output
+                raw = dict(tool_use_block.input)
+                raw["memoir"] = memoir_title  # force exact value; model may normalise apostrophes
+                out = SeededPersonaSchema(**raw)
                 out.archetype_description = archetype_desc
                 out.memoir_summary = memoir_summary
                 d = out.model_dump()
@@ -710,7 +711,9 @@ class PersonaGenerator:
                     temperature=self.temperature,
                 )
                 tool_use_block = next(b for b in resp.content if b.type == "tool_use")
-                out = SeededPersonaSchema(**tool_use_block.input)
+                raw = dict(tool_use_block.input)
+                raw["memoir"] = memoir_title  # force exact seed value; model may normalise apostrophes
+                out = SeededPersonaSchema(**raw)
                 out.archetype_description = archetype_desc
                 out.memoir_summary = memoir_summary
                 d = out.model_dump()
@@ -762,7 +765,7 @@ def run_batch_from_seeds(
     balanced_officers_csv: str,
     out_jsonl: str,
     version: str,
-    workers: int = 10,
+    workers: int = 20,
     model: str = "claude-sonnet-4-6",
     temperature: float = 1.0,
     top_p: float = 0.98,
