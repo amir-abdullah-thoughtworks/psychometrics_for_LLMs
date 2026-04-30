@@ -66,7 +66,7 @@ Curated subsets drawn from `psychometric_SJTs`. All items include scenario metad
 | `debug` | train | 20 | Subset of `restricted` (and `expanded`). For quick iteration. |
 | `annotated` | train | 30 | Hand-annotated items with inter-rater reliability scores. Not a hash-subset of the others. |
 | `comparison_openai` | train | 100 | Subset of `analysis` (and `expanded`). Same 100 items drawn for cross-generator SJT comparison. |
-| `comparison_anthropic` | train | 100 | Claude-regenerated versions of the same 100 scenarios as `comparison_openai`. Each row has `source_hash_id` pointing back to its `comparison_openai` counterpart. Has new `hash_id` values (different text → different hash). |
+| `comparison_anthropic` | train | 100 | Claude-generated SJTs from the same handmade template × seed combinations used to produce `comparison_openai`. Independently generated (not a rewrite of OpenAI text). Each row has `source_hash_id` pointing to its paired `comparison_openai` item (same template+seed, different model). |
 
 ### Subset hierarchy
 
@@ -79,7 +79,7 @@ psychometric_SJTs/default (4000)  ← raw pool
     └── analysis (300)  ← main experiment set
         ├── debug (7 items also in debug)
         └── comparison_openai (100)  ← same hash_ids, OpenAI-authored
-            └── comparison_anthropic (100)  ← Claude re-writes, source_hash_id → comparison_openai
+            └── comparison_anthropic (100)  ← Claude-generated from same template+seed, source_hash_id → comparison_openai
 
 annotated (30)  ← hand-annotated, not a strict subset of any config
 ```
