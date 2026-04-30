@@ -95,12 +95,18 @@ psychometric_personas/analysis (500 OpenAI)
 + psychometric_sjts_analysis/analysis (300)
 → gemma_psychometrics_personas_responses/analysis_sjt
   500 × 300 × 5 iters = 750,000 rows | Gemma-3-4B | 2026-03-11
-
-psychometric_personas/comparison_openai (100 OpenAI)
-+ psychometric_sjts_analysis/analysis (300)
-→ comparison_openai_sjt  [pending]
-
-psychometric_personas/comparison_anthropic (100 Claude)
-+ psychometric_sjts_analysis/analysis (300)
-→ comparison_anthropic_sjt  [pending]
 ```
+
+### Comparison 2×2 splits
+
+A 2×2 design crossing persona authorship (OpenAI vs. Claude) with SJT authorship (OpenAI vs. Claude), plus a full-SJT variant for Anthropic personas. All runs use Gemma-3-4B with 5 iterations.
+
+See [`llm_psychometrics/src/external_response_generation/create_comparison_splits.py`](llm_psychometrics/src/external_response_generation/create_comparison_splits.py) for the script that creates these splits (provenance, copy logic, and inference runs all documented there).
+
+| Config | Personas | SJTs | Rows | Method |
+|---|---|---|---|---|
+| `cmp_openai_personas_cmp_openai_sjts` | comparison_openai (100 GPT) | comparison_openai (100 GPT) | 50,000 | Filtered from `analysis_sjt` |
+| `cmp_openai_personas_cmp_anthropic_sjts` | comparison_openai (100 GPT) | comparison_anthropic (100 Claude) | 50,000 | Fresh run |
+| `cmp_anthropic_personas_cmp_openai_sjts` | comparison_anthropic (100 Claude) | comparison_openai (100 GPT) | 50,000 | Fresh run |
+| `cmp_anthropic_personas_cmp_anthropic_sjts` | comparison_anthropic (100 Claude) | comparison_anthropic (100 Claude) | 50,000 | Fresh run |
+| `cmp_anthropic_personas_analysis_openai_sjts` | comparison_anthropic (100 Claude) | analysis (300 GPT) | 150,000 | Fresh run |
