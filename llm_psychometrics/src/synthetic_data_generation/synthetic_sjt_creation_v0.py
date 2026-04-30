@@ -1,3 +1,11 @@
+"""
+python src/synthetic_data_generation/synthetic_sjt_creation_v0.py \
+  --source hf \
+  --provider anthropic \
+  --n-sample 100 \
+  --push-to-hub
+"""
+
 import argparse
 import functools
 import hashlib
@@ -71,11 +79,35 @@ def parse_args():
     )
     parser.add_argument(
         "--hub-subset",
-        default="anthropic_claude",
+        default="comparison_anthropic",
         help="Dataset config/subset name (the 'name' param in push_to_hub).",
     )
     parser.add_argument(
         "--hub-split", default="train", help="Dataset split name, e.g. 'train', 'test'."
+    )
+    # HF-source mode
+    parser.add_argument(
+        "--source",
+        choices=["local", "hf"],
+        default="local",
+        help="'local' = existing CSV/YAML behavior; 'hf' = sample from HF dataset.",
+    )
+    parser.add_argument(
+        "--hf-source-path", default="thoughtworks/psychometric_sjts_analysis"
+    )
+    parser.add_argument("--hf-source-subset", default="analysis")
+    parser.add_argument("--hf-source-split", default="train")
+    parser.add_argument(
+        "--n-sample",
+        type=int,
+        default=100,
+        help="Number of SJTs to sample from HF source (hf mode only).",
+    )
+    parser.add_argument(
+        "--sample-seed",
+        type=int,
+        default=42,
+        help="Random seed for reproducible HF sampling.",
     )
     return parser.parse_args()
 
@@ -390,6 +422,36 @@ SJT_TRAIT_BLEED_EVALUATION_TEMPLATE = Template(SJT_TRAIT_BLEED_EVALUATION_TEMPLA
 
 option_cols = ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5", "Option 6"]
 
+SEED_ATTR_COLS = [
+    "urgency_level",
+    "threat_level",
+    "ambiguity_level",
+    "individuals_involved",
+    "authority_relationships",
+    "ethical_considerations",
+    "situation_type",
+    "time_of_day",
+    "race",
+    "gender",
+    "age",
+]
+
+
+def load_and_sample_hf_source(hf_path, subset, split, n_sample, seed):
+    from datasets import load_dataset
+
+    ds = load_dataset(hf_path, name=subset)[split]
+    n = min(n_sample, len(ds))
+    rng = random.Random(seed)
+    indices = rng.sample(range(len(ds)), n)
+    return [ds[i] for i in indices]
+
+
+def build_seed_copy_from_hf_row(row):
+    seed = {k: row[k] for k in SEED_ATTR_COLS if k in row}
+    seed["base_scenario"] = row["base_scenario"]
+    return seed
+
 
 def main():
     args = parse_args()
@@ -398,6 +460,12 @@ def main():
     resolved_gen_model = args.generation_model or defaults[args.provider]
     resolved_eval_model = args.evaluation_model or defaults[args.provider]
 
+    print(f"Source:            {args.source}")
+    if args.source == "hf":
+        print(
+            f"  HF repo:         {args.hf_source_path} / {args.hf_source_subset} / {args.hf_source_split}"
+        )
+        print(f"  Sample size:     {args.n_sample} (seed={args.sample_seed})")
     print(f"Provider:          {args.provider}")
     print(f"Generation model:  {resolved_gen_model}")
     print(f"Evaluation model:  {resolved_eval_model}")
@@ -425,64 +493,117 @@ def main():
 
     embed_model = SentenceTransformer("Qwen/Qwen3-Embedding-0.6B")
 
-    with open("configs/synthetic_sjt_seeds.yaml", "r") as file:
-        synthetic_sjt_seeds = yaml.safe_load(file)
-
-    handmade_sjt_template_df = pd.read_csv("data/sjt_data/sjt_jinja_template_v2.csv")
-    all_seed_combos = expand_dict_combinations(synthetic_sjt_seeds)
-
-    handmade_sjt_sample = handmade_sjt_template_df.iloc[args.start_index :]
-    n_templates = len(handmade_sjt_sample)
-    total_sjts = n_templates * args.n_seeds
-    print(
-        f"Generating {total_sjts} SJTs ({n_templates} templates × {args.n_seeds} seeds each)"
-    )
-
     all_rows = []
-    for index, row in tqdm(
-        handmade_sjt_sample.iterrows(),
-        desc="base_scenario",
-        position=0,
-        total=n_templates,
-    ):
-        print(f"Index for base SJT dataframe: {index}")
-        question = row["Question"]
-        answer_options = list_to_str(row[option_cols])
+    sampled_rows = []
 
-        base_scenario = sjt_example_template.render(
-            question=question, answer_options=answer_options
+    if args.source == "hf":
+        print(
+            f"HF source:         {args.hf_source_path} / {args.hf_source_subset} / {args.hf_source_split}"
+        )
+        print(f"Sample size:       {args.n_sample} (seed={args.sample_seed})")
+        print()
+
+        sampled_rows = load_and_sample_hf_source(
+            args.hf_source_path,
+            args.hf_source_subset,
+            args.hf_source_split,
+            args.n_sample,
+            args.sample_seed,
+        )
+        total_sjts = len(sampled_rows)
+        print(f"Generating {total_sjts} SJTs (1 per sampled HF row)")
+
+        input_batch = [build_seed_copy_from_hf_row(row) for row in sampled_rows]
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            results = list(
+                tqdm(
+                    executor.map(validated_fn, input_batch),
+                    total=total_sjts,
+                    desc="sjts",
+                )
+            )
+
+        for sjt, hf_row in zip(results, sampled_rows):
+            config = sjt["config"]
+            all_rows.append(
+                {
+                    "config": config,
+                    "hash_id": sjt["hash_id"],
+                    "original_sjt": sjt["original_sjt"],
+                    "trait_bleed_evaluation": sjt["trait_bleed_evaluation"],
+                    "corrected_sjt": sjt["corrected_sjt"],
+                    "source_hash_id": hf_row.get("hash_id"),
+                    "sjt_embedding": embed_sjt(sjt, embed_model),
+                    **config,
+                }
+            )
+
+    else:  # local — existing behavior
+        with open("configs/synthetic_sjt_seeds.yaml", "r") as file:
+            synthetic_sjt_seeds = yaml.safe_load(file)
+
+        handmade_sjt_template_df = pd.read_csv(
+            "data/sjt_data/sjt_jinja_template_v2.csv"
+        )
+        all_seed_combos = expand_dict_combinations(synthetic_sjt_seeds)
+
+        handmade_sjt_sample = handmade_sjt_template_df.iloc[args.start_index :]
+        n_templates = len(handmade_sjt_sample)
+        total_sjts = n_templates * args.n_seeds
+        print(
+            f"Generating {total_sjts} SJTs ({n_templates} templates × {args.n_seeds} seeds each)"
         )
 
-        sampled_seeds = random.sample(all_seed_combos, args.n_seeds)
+        for index, row in tqdm(
+            handmade_sjt_sample.iterrows(),
+            desc="base_scenario",
+            position=0,
+            total=n_templates,
+        ):
+            print(f"Index for base SJT dataframe: {index}")
+            question = row["Question"]
+            answer_options = list_to_str(row[option_cols])
 
-        for seed_batch in tqdm(batch_list(sampled_seeds, 5), desc="seeds", position=1):
-            input_seed_batch = []
-            for seed_dict in seed_batch:
-                seed_copy = seed_dict.copy()
-                seed_copy["base_scenario"] = base_scenario
-                input_seed_batch.append(seed_copy)
+            base_scenario = sjt_example_template.render(
+                question=question, answer_options=answer_options
+            )
 
-            with ThreadPoolExecutor(max_workers=4) as executor:
-                results = list(executor.map(validated_fn, input_seed_batch))
+            sampled_seeds = random.sample(all_seed_combos, args.n_seeds)
 
-            for sjt in results:
-                config = sjt["config"]
-                all_rows.append(
-                    {
-                        "config": config,
-                        "hash_id": sjt["hash_id"],
-                        "original_sjt": sjt["original_sjt"],
-                        "trait_bleed_evaluation": sjt["trait_bleed_evaluation"],
-                        "corrected_sjt": sjt["corrected_sjt"],
-                        "template_no": index,
-                        "sjt_embedding": embed_sjt(sjt, embed_model),
-                        **config,
-                    }
-                )
+            for seed_batch in tqdm(
+                batch_list(sampled_seeds, 5), desc="seeds", position=1
+            ):
+                input_seed_batch = []
+                for seed_dict in seed_batch:
+                    seed_copy = seed_dict.copy()
+                    seed_copy["base_scenario"] = base_scenario
+                    input_seed_batch.append(seed_copy)
+
+                with ThreadPoolExecutor(max_workers=4) as executor:
+                    results = list(executor.map(validated_fn, input_seed_batch))
+
+                for sjt in results:
+                    config = sjt["config"]
+                    all_rows.append(
+                        {
+                            "config": config,
+                            "hash_id": sjt["hash_id"],
+                            "original_sjt": sjt["original_sjt"],
+                            "trait_bleed_evaluation": sjt["trait_bleed_evaluation"],
+                            "corrected_sjt": sjt["corrected_sjt"],
+                            "template_no": index,
+                            "sjt_embedding": embed_sjt(sjt, embed_model),
+                            **config,
+                        }
+                    )
 
     df = pd.DataFrame(all_rows)
-    df.to_parquet(args.output_path, index=False)
-    print(f"Saved {len(df)} SJTs to {args.output_path}")
+    try:
+        df.to_parquet(args.output_path, index=False)
+        print(f"Saved {len(df)} SJTs to {args.output_path}")
+    except Exception as e:
+        print(f"Warning: failed to save parquet to {args.output_path}: {e}")
 
     if args.push_to_hub:
         from datasets import Dataset
@@ -496,6 +617,17 @@ def main():
             split=args.hub_split,
         )
         print(f"Pushed to HuggingFace Hub: {args.hub_dataset_id}")
+
+        if sampled_rows:
+            comparison_ds = Dataset.from_list(sampled_rows)
+            comparison_ds.push_to_hub(
+                args.hub_dataset_id,
+                config_name="comparison_openai",
+                split=args.hub_split,
+            )
+            print(
+                f"Pushed {len(comparison_ds)} source SJTs to subset 'comparison_openai'"
+            )
 
 
 if __name__ == "__main__":
