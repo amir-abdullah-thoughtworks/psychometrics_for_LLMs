@@ -27,6 +27,24 @@ from typing import Optional, List
 
 STATE_DIR = os.path.expanduser("~/.cache/psychometrics-llm-reviewer/judge_state")
 
+
+def _load_bash_profile():
+    """Pull export VAR=... lines from ~/.bash_profile into os.environ if not already set."""
+    profile = os.path.expanduser("~/.bash_profile")
+    if not os.path.exists(profile):
+        return
+    import re
+    with open(profile) as f:
+        for line in f:
+            m = re.match(r'^\s*export\s+([A-Z_][A-Z0-9_]*)=["\']?([^"\'#\n]*)["\']?', line)
+            if m:
+                key, val = m.group(1), m.group(2).strip()
+                if key not in os.environ:
+                    os.environ[key] = val
+
+
+_load_bash_profile()
+
 SYSTEM_PROMPT = """You are a senior ML engineer and psychometrics researcher embedded in a team studying LLM validity and personality measurement.
 
 Project context:
