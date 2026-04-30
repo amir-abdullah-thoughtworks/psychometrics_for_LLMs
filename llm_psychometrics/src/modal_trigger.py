@@ -66,8 +66,8 @@ volume = modal.Volume.from_name("my-outputs", create_if_missing=True)
 
 
 @app.function(
-    image=image,
-    gpu="T4",
+    image=vllm_image,
+    gpu="A100",
     timeout=86400,
     volumes={"/outputs": volume},
     secrets=[modal.Secret.from_name("LLMPsychometrics")],
@@ -83,8 +83,7 @@ def run_my_script():
     print(os.listdir())
     os.chdir("/root/my_project")
     sys.path.append(str(Path(__file__).parent))
-    # from external_response_generation.sjt_response_generator_merged import main
-    from synthetic_data_generation.synthetic_sjt_creation_v0 import main
+    from external_response_generation.sjt_response_generator_merged import main
 
     main()
 
