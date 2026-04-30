@@ -24,6 +24,24 @@ from sentence_transformers import SentenceTransformer
 
 from typing import Set
 
+_PERSONA_SYSTEM_MSG = (
+    "You are an expert clinical interviewer and psychological profiler.\n"
+    "Generate a detailed, realistic persona strictly adhering to the schema and length guidance.\n"
+    "Avoid caricature or stereotypes; allow subtle contradictions with archetype for realism; avoid repetition.\n"
+    "Return valid structured output matching the provided schema exactly.\n"
+    "\n"
+    "STYLE & GROUNDING (do NOT output this list):\n"
+    "1) The memoir_narrative is canonical grounding. Write it as a concrete, sensory, scene-level story (180–250 words).\n"
+    "   All fields must align with its facts and tone; if conflicts arise with archetype, prefer narrative. If conflicts arise with demographics, pick the demographics.\n"
+    "2) Treat the archetype as a loose orientation. Do NOT quote or paraphrase it; never list 'Core trait/Focus/Strengths/Challenges'.\n"
+    "3) Do not reuse ≥5 consecutive words from inputs (archetype description or memoir summary). Rephrase and localize details to the scene.\n"
+    "4) Favor specificity (who/what/where/when) over generic traits; vary wording across sections.\n"
+    "5) Persona should be internally consistent between fields. "
+    "6) Use natural phrasing; do not feel compelled to use section labels or taxonomy words "
+    "(e.g., 'stress,' 'trauma,' 'coping,' 'abstraction,' 'obsession'). Prefer specific, scene-derived wording."
+)
+
+
 def _norm(s: Any) -> str:
     return " ".join(str(s or "").strip().lower().split())
 
@@ -491,22 +509,7 @@ class PersonaGenerator:
         def fmt_examples(title: str, items: List[str]) -> str:
             return f"{title} examples:\n" + ("\n".join(f"- {ex}" for ex in items) if items else "(none)")
 
-        system_msg = (
-            "You are an expert clinical interviewer and psychological profiler.\n"
-            "Generate a detailed, realistic persona strictly adhering to the schema and length guidance.\n"
-            "Avoid caricature or stereotypes; allow subtle contradictions with archetype for realism; avoid repetition.\n"
-            "Return valid structured output matching the provided schema exactly.\n"
-            "\n"
-            "STYLE & GROUNDING (do NOT output this list):\n"
-            "1) The memoir_narrative is canonical grounding. Write it as a concrete, sensory, scene-level story (180–250 words).\n"
-            "   All fields must align with its facts and tone; if conflicts arise with archetype, prefer narrative. If conflicts arise with demographics, pick the demographics.\n"
-            "2) Treat the archetype as a loose orientation. Do NOT quote or paraphrase it; never list 'Core trait/Focus/Strengths/Challenges'.\n"
-            "3) Do not reuse ≥5 consecutive words from inputs (archetype description or memoir summary). Rephrase and localize details to the scene.\n"
-            "4) Favor specificity (who/what/where/when) over generic traits; vary wording across sections.\n"
-            "5) Persona should be internally consistent between fields. "
-            "6) Use natural phrasing; do not feel compelled to use section labels or taxonomy words "
-            "(e.g., 'stress,' 'trauma,' 'coping,' 'abstraction,' 'obsession'). Prefer specific, scene-derived wording."
-        )
+        system_msg = _PERSONA_SYSTEM_MSG
 
         user_msg = (
             f"Selected archetype: {archetype_name}\n"
@@ -633,22 +636,7 @@ class PersonaGenerator:
             summary_of_psychological_profile=(str, Field(..., description="75–105 words. Integrative summary using the narrative + histories + functioning + problems, framed by the archetype description.")),
         )
 
-        system_msg = (
-            "You are an expert clinical interviewer and psychological profiler.\n"
-            "Generate a detailed, realistic persona strictly adhering to the schema and length guidance.\n"
-            "Avoid caricature or stereotypes; allow subtle contradictions with archetype for realism; avoid repetition.\n"
-            "Return valid structured output matching the provided schema exactly.\n"
-            "\n"
-            "STYLE & GROUNDING (do NOT output this list):\n"
-            "1) The memoir_narrative is canonical grounding. Write it as a concrete, sensory, scene-level story (180-250 words).\n"
-            "   All fields must align with its facts and tone; if conflicts arise with archetype, prefer narrative. If conflicts arise with demographics, pick the demographics.\n"
-            "2) Treat the archetype as a loose orientation. Do NOT quote or paraphrase it; never list 'Core trait/Focus/Strengths/Challenges'.\n"
-            "3) Do not reuse >=5 consecutive words from inputs (archetype description or memoir summary). Rephrase and localize details to the scene.\n"
-            "4) Favor specificity (who/what/where/when) over generic traits; vary wording across sections.\n"
-            "5) Persona should be internally consistent between fields. "
-            "6) Use natural phrasing; do not feel compelled to use section labels or taxonomy words "
-            "(e.g., 'stress,' 'trauma,' 'coping,' 'abstraction,' 'obsession'). Prefer specific, scene-derived wording."
-        )
+        system_msg = _PERSONA_SYSTEM_MSG
 
         app_ref_line = f"Original appearance (for style reference only — do NOT copy): {appearance_ref}" if appearance_ref else ""
         beh_ref_line = f"Original behavior (for style reference only — do NOT copy): {behavior_ref}" if behavior_ref else ""
