@@ -16,11 +16,13 @@ SPLITS
               comparison_openai personas and SJTs are both subsets of analysis,
               so all 100x100x5 = 50,000 rows already exist.
 
-2. cmp_openai_personas_cmp_anthropic_sjts   [FRESH RUN]
+2. cmp_openai_personas_cmp_anthropic_sjts   [COPY from gpt_persona_claude_sjt]
    Personas : thoughtworks/psychometric_personas           | comparison_openai (100)
    SJTs     : thoughtworks/psychometric_sjts_analysis      | comparison_anthropic (100)
-   How      : comparison_anthropic SJT hashes do not exist in analysis_sjt (0/100 overlap),
-              so a full inference run is required.
+   How      : Already exists as config 'gpt_persona_claude_sjt' (50,000 rows, verified).
+              hf_persona_config='comparison_openai', hf_sjt_config='comparison_anthropic'.
+              Copy by filtering that config to the 100 comparison_openai persona UUIDs
+              and 100 comparison_anthropic SJT hashes.
 
 3. cmp_anthropic_personas_cmp_openai_sjts   [FRESH RUN]
    Personas : thoughtworks/psychometric_personas           | comparison_anthropic (100)
@@ -53,12 +55,12 @@ PROVENANCE NOTES
 
 USAGE
 -----
-# Step 1: copy split (no vLLM needed)
+# Steps 1-2: copy splits (no vLLM needed)
 python create_comparison_splits.py --split cmp_openai_personas_cmp_openai_sjts
-
-# Steps 2-5: fresh runs (requires running vLLM server on port 9000)
-#   python start_vllm.py --model-name google/gemma-3-4b-it
 python create_comparison_splits.py --split cmp_openai_personas_cmp_anthropic_sjts
+
+# Steps 3-5: fresh runs (requires running vLLM server on port 9000)
+#   python start_vllm.py --model-name google/gemma-3-4b-it
 python create_comparison_splits.py --split cmp_anthropic_personas_cmp_openai_sjts
 python create_comparison_splits.py --split cmp_anthropic_personas_cmp_anthropic_sjts
 python create_comparison_splits.py --split cmp_anthropic_personas_analysis_openai_sjts
@@ -96,7 +98,8 @@ SPLITS = {
     "cmp_openai_personas_cmp_anthropic_sjts": {
         "persona_config": "comparison_openai",
         "sjt_config": "comparison_anthropic",
-        "method": "run",
+        "method": "copy",
+        "source_config": "gpt_persona_claude_sjt",
         "expected_rows": 50_000,
     },
     "cmp_anthropic_personas_cmp_openai_sjts": {

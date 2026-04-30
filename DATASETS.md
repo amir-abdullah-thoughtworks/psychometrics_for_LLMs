@@ -106,7 +106,9 @@ See [`llm_psychometrics/src/external_response_generation/create_comparison_split
 | Config | Personas | SJTs | Rows | Method |
 |---|---|---|---|---|
 | `cmp_openai_personas_cmp_openai_sjts` | comparison_openai (100 GPT) | comparison_openai (100 GPT) | 50,000 | Filtered from `analysis_sjt` |
-| `cmp_openai_personas_cmp_anthropic_sjts` | comparison_openai (100 GPT) | comparison_anthropic (100 Claude) | 50,000 | Fresh run |
+| `cmp_openai_personas_cmp_anthropic_sjts` | comparison_openai (100 GPT) | comparison_anthropic (100 Claude) | 50,000 | Filtered from `gpt_persona_claude_sjt` (already exists) |
 | `cmp_anthropic_personas_cmp_openai_sjts` | comparison_anthropic (100 Claude) | comparison_openai (100 GPT) | 50,000 | Fresh run |
 | `cmp_anthropic_personas_cmp_anthropic_sjts` | comparison_anthropic (100 Claude) | comparison_anthropic (100 Claude) | 50,000 | Fresh run |
 | `cmp_anthropic_personas_analysis_openai_sjts` | comparison_anthropic (100 Claude) | analysis (300 GPT) | 150,000 | Fresh run |
+
+> `gpt_persona_claude_sjt` is an existing config (100 GPT personas × 100 Claude SJTs × 5 iters = 50,000 rows) that maps directly to `cmp_openai_personas_cmp_anthropic_sjts`. Verified: `hf_persona_config='comparison_openai'`, `hf_sjt_config='comparison_anthropic'`.

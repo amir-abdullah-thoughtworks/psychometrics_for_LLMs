@@ -419,6 +419,7 @@ class SJTResponseRunner:
                 batch_size=self.args.batch_size,
                 num_workers=self.args.num_workers,
                 guided_choices=SJT_ANSWER_CHOICES,
+                default_guided_choice="1",
                 cache_enabled=True,
                 cache_dir=os.path.join(os.path.expanduser("~"), ".cache", "sjt_vllm_cache"),
                 cache_type='diskcache'
@@ -475,8 +476,18 @@ class SJTResponseRunner:
             sjt_answer_options="shuffle" if self.args.answer_shuffle else "normal",
         )
 
+    @staticmethod
+    def _count_default_guided_choices(log_path: str = "/tmp/vllm_worker.log") -> int:
+        try:
+            with open(log_path, encoding="utf-8") as f:
+                return sum(1 for line in f if "RETURNING_DEFAULT_GUIDED_CHOICE" in line)
+        except FileNotFoundError:
+            return 0
+
     def run(self) -> ExperimentResults:
         results: Dict[str, PersonaRunConfig] = {}
+
+        defaults_before = self._count_default_guided_choices()
 
         # --- Load SJT dataset
         if self.args.hf_sjt_config:
@@ -550,6 +561,17 @@ class SJTResponseRunner:
             print(f"[persona trunc] total personas truncated: {truncated_count}/{persona_count}")
         else:
             print("[persona trunc] no personas exceeded 1150 tokens")
+
+        defaults_used = self._count_default_guided_choices() - defaults_before
+        total_responses = persona_count * len(sjts) * self.args.n_times
+        if defaults_used > 0:
+            print(
+                f"WARNING: vLLM used default_guided_choice {defaults_used} times "
+                f"out of {total_responses} responses ({100*defaults_used/total_responses:.2f}%). "
+                f"These responses were assigned '1' regardless of persona — check experiment validity."
+            )
+        else:
+            print(f"[guided_choice] default used 0/{total_responses} times — all responses valid.")
 
         return ExperimentResults(results)
 
