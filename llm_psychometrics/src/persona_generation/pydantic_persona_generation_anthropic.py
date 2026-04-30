@@ -638,8 +638,8 @@ class PersonaGenerator:
 
         system_msg = _PERSONA_SYSTEM_MSG
 
-        app_ref_line = f"Original appearance (for style reference only — do NOT copy): {appearance_ref}" if appearance_ref else ""
-        beh_ref_line = f"Original behavior (for style reference only — do NOT copy): {behavior_ref}" if behavior_ref else ""
+        def fmt_seed_example(title: str, text: str) -> str:
+            return f"{title} examples:\n- {text}" if text else f"{title} examples:\n(none)"
 
         user_msg = (
             f"Selected archetype: {archetype_name}\n"
@@ -648,8 +648,8 @@ class PersonaGenerator:
             f"Memoir summary (guidance only — DO NOT copy or paraphrase): {memoir_summary}\n"
             f"Demographics (USE EXACT VALUES): name={dem.name}; age={dem.age}; location={dem.location}\n"
             f"Education level: education_level={dem.education_level}\n\n"
-            f"Appearance category: {appearance_cat}\n{app_ref_line}\n\n"
-            f"Behavior category: {behavior_cat}\n{beh_ref_line}\n\n"
+            f"Appearance category: {appearance_cat}\n{fmt_seed_example('Appearance', appearance_ref)}\n\n"
+            f"Behavior category: {behavior_cat}\n{fmt_seed_example('Behavior', behavior_ref)}\n\n"
             "Instructions:\n"
             "• First, craft the memoir_narrative (180–250 words) in style and setting of selected memoir as a vivid scene, but alter as needed to be consistent with specified demographics.\n"
             "• Then write every other field so it is consistent with that narrative and the exact demographics.\n"
