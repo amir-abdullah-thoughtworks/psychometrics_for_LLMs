@@ -135,6 +135,7 @@ class PersonaGenerator:
         top_p: float = 0.98,
         api_key: Optional[str] = None,
         rng_seed: Optional[int] = None,
+        prompt_log: Optional[str] = None,
     ):
         self.version = version
         self.client = anthropic.Anthropic(api_key=api_key) if api_key else anthropic.Anthropic()
@@ -143,6 +144,7 @@ class PersonaGenerator:
         self.top_p = top_p
         self.base_seed = rng_seed if rng_seed is not None else 1337
         self._rng = random.Random(self.base_seed)
+        self.prompt_log = prompt_log
 
         self._embedder: Optional[SentenceTransformer] = None  # lazy-loaded per process
 
@@ -198,6 +200,23 @@ class PersonaGenerator:
         if self._embedder is None:
             self._embedder = SentenceTransformer("Qwen/Qwen3-Embedding-0.6B")
         return self._embedder
+
+    # -------- index recovery --------
+    def _idx_from_uuid(self, uuid: str) -> Optional[int]:
+        matches = self.df.index[self.df["uuid"] == uuid].tolist()
+        return int(matches[0]) if matches else None
+
+    # -------- prompt tracing --------
+    def _log_prompt(self, id_: str, system_msg: str, user_msg: str) -> None:
+        if not self.prompt_log:
+            return
+        entry = {
+            "id": id_,
+            "system_msg": system_msg,
+            "user_msg": user_msg,
+        }
+        with open(self.prompt_log, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
     def build_concat_and_embedding(self, rec: dict) -> tuple[str, list[float]]:
         """
@@ -537,6 +556,8 @@ class PersonaGenerator:
         # retry with jitter for transient errors
         last_err = None
         for attempt in range(3):
+            if attempt == 0:
+                self._log_prompt(f"idx={idx}", system_msg, user_msg)
             try:
                 resp = self.client.messages.create(
                     model=self.model,
@@ -598,9 +619,19 @@ class PersonaGenerator:
             marital_status=seed["marital_status"],
         )
 
-        # Use the original appearance/behavior prose directly from the seed record
-        appearance_ref = seed.get("appearance", "")
-        behavior_ref = seed.get("behavior", "")
+        # Reconstruct the exact YAML examples used in the original generation by replaying
+        # the deterministic RNG from the persona's CSV index and base_seed.
+        idx = self._idx_from_uuid(uuid)
+        if idx is not None:
+            _, appearance_examples = self._pick_appearance_random(idx)
+            _, behavior_examples = self._pick_behavior_random(idx)
+        else:
+            # uuid not found in CSV (e.g. CSV version mismatch) — sample from category
+            rng = random.Random(int(hashlib.sha256(uuid.encode()).hexdigest(), 16) % (2 ** 32))
+            app_seeds = self.appearance_categories.get(appearance_cat, [])
+            beh_seeds = self.behavior_categories.get(behavior_cat, [])
+            appearance_examples = rng.sample(app_seeds, min(5, len(app_seeds))) if app_seeds else []
+            behavior_examples = rng.sample(beh_seeds, min(5, len(beh_seeds))) if beh_seeds else []
 
         SeededPersonaSchema = create_model(  # type: ignore[assignment]
             "SeededPersonaSchema",
@@ -638,8 +669,8 @@ class PersonaGenerator:
 
         system_msg = _PERSONA_SYSTEM_MSG
 
-        def fmt_seed_example(title: str, text: str) -> str:
-            return f"{title} examples:\n- {text}" if text else f"{title} examples:\n(none)"
+        def fmt_examples(title: str, items: List[str]) -> str:
+            return f"{title} examples:\n" + ("\n".join(f"- {ex}" for ex in items) if items else "(none)")
 
         user_msg = (
             f"Selected archetype: {archetype_name}\n"
@@ -648,8 +679,8 @@ class PersonaGenerator:
             f"Memoir summary (guidance only — DO NOT copy or paraphrase): {memoir_summary}\n"
             f"Demographics (USE EXACT VALUES): name={dem.name}; age={dem.age}; location={dem.location}\n"
             f"Education level: education_level={dem.education_level}\n\n"
-            f"Appearance category: {appearance_cat}\n{fmt_seed_example('Appearance', appearance_ref)}\n\n"
-            f"Behavior category: {behavior_cat}\n{fmt_seed_example('Behavior', behavior_ref)}\n\n"
+            f"Appearance category: {appearance_cat}\n{fmt_examples('Appearance', appearance_examples)}\n\n"
+            f"Behavior category: {behavior_cat}\n{fmt_examples('Behavior', behavior_examples)}\n\n"
             "Instructions:\n"
             "• First, craft the memoir_narrative (180–250 words) in style and setting of selected memoir as a vivid scene, but alter as needed to be consistent with specified demographics.\n"
             "• Then write every other field so it is consistent with that narrative and the exact demographics.\n"
@@ -666,6 +697,8 @@ class PersonaGenerator:
 
         last_err = None
         for attempt in range(3):
+            if attempt == 0:
+                self._log_prompt(f"uuid={uuid}", system_msg, user_msg)
             try:
                 resp = self.client.messages.create(
                     model=self.model,
@@ -1043,6 +1076,11 @@ if __name__ == "__main__":
         default=None,
         help="JSONL file or HF dataset ('owner/repo:config:split') of existing personas to re-generate from their seeds.",
     )
+    parser.add_argument(
+        "--prompt-log",
+        default=None,
+        help="Path to a JSONL file where each prompt (system+user) will be appended for inspection.",
+    )
     args = parser.parse_args()
 
     gen = PersonaGenerator(
@@ -1051,6 +1089,7 @@ if __name__ == "__main__":
         model=args.model,
         version=args.version,
         api_key=args.api_key,
+        prompt_log=args.prompt_log,
     )
 
     if args.from_personas:
