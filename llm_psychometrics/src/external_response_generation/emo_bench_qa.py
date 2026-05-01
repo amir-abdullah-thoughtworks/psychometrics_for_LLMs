@@ -821,9 +821,18 @@ class EmoBenchQAResponseRunner:
 
         return all_specs
 
+    @staticmethod
+    def _count_default_guided_choices(log_path: str = "/tmp/vllm_worker.log") -> int:
+        try:
+            with open(log_path, encoding="utf-8") as f:
+                return sum(1 for line in f if "RETURNING_DEFAULT_GUIDED_CHOICE" in line)
+        except FileNotFoundError:
+            return 0
+
     def run(self) -> Tuple[ExperimentResults, List[EmoBenchSpec]]:
         results: Dict[str, PersonaRunConfig] = {}
         emo_rows = self.load_emo_rows()
+        defaults_before = self._count_default_guided_choices()
 
         if self.args.persona_source == "base_model":
             print("Running EmoBench-QA on base model without personas")
@@ -891,6 +900,17 @@ class EmoBenchQAResponseRunner:
             print(f"[persona trunc] total personas truncated: {truncated_count}/{persona_count}")
         else:
             print("[persona trunc] no personas exceeded 1150 tokens")
+
+        defaults_used = self._count_default_guided_choices() - defaults_before
+        total_responses = persona_count * len(emo_rows) * self.args.n_times
+        if defaults_used > 0:
+            print(
+                f"WARNING: vLLM used default_guided_choice {defaults_used} times "
+                f"out of {total_responses} responses ({100*defaults_used/total_responses:.2f}%). "
+                f"These responses were assigned 'A' regardless of persona — check experiment validity."
+            )
+        else:
+            print(f"[guided_choice] default used 0/{total_responses} times — all responses valid.")
 
         return ExperimentResults(results), emo_rows
 
