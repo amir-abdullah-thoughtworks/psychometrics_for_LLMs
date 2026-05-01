@@ -98,8 +98,14 @@ annotated (30)  ← hand-annotated, not a strict subset of any config
 | `default` | 1,564,160 | Qwen/Qwen2.5-7B-Instruct | AdvBench responses |
 | `claude_persona_gpt_sjt` | 50,000 | Qwen/Qwen2.5-7B-Instruct | OpenAI personas × Claude SJTs |
 | `gpt_persona_claude_sjt` | 50,000 | Qwen/Qwen2.5-7B-Instruct | OpenAI personas × Claude SJTs |
+| `cmp_openai_personas_cmp_openai_sjts` | 50,000 | Qwen/Qwen2.5-7B-Instruct | OpenAI comparison personas × OpenAI comparison SJTs × 5 iters |
 | `cmp_anthropic_personas_cmp_anthropic_sjts` | 50,000 | Qwen/Qwen2.5-7B-Instruct | Anthropic comparison personas × Anthropic comparison SJTs |
 | `cmp_anthropic_personas_emo_bench` | 200,000 | Qwen/Qwen2.5-7B-Instruct | Anthropic comparison personas × EmoBench |
+| `cmp_openai_personas_emo_bench` | 200,000 | Qwen/Qwen2.5-7B-Instruct | OpenAI comparison personas × EmoBench |
+| `cmp_anthropic_personas_truthfulqa_mc` | 20,000 | Qwen/Qwen2.5-7B-Instruct | Anthropic comparison personas × TruthfulQA MC |
+| `cmp_openai_personas_truthfulqa_mc` | 20,000 | Qwen/Qwen2.5-7B-Instruct | OpenAI comparison personas × TruthfulQA MC |
+| `base_emo_bench` | 2,000 | Qwen/Qwen2.5-7B-Instruct | Base model (no persona) × EmoBench |
+| `base_truthfulqa_mc` | 200 | Qwen/Qwen2.5-7B-Instruct | Base model (no persona) × TruthfulQA MC |
 | `cmp_openai_personas_handmade_sjts` | 10,000 | Qwen/Qwen2.5-7B-Instruct | OpenAI comparison personas × handmade SJTs (20 items) |
 | `cmp_anthropic_personas_handmade_sjts` | 10,000 | Qwen/Qwen2.5-7B-Instruct | Anthropic comparison personas × handmade SJTs (20 items) |
 | `personallm_persona_cmp_openai_sjts` | 32,000 | Qwen/Qwen2.5-7B-Instruct | PersonaLLM personas (64) × comparison_openai SJTs × 5 iters |
@@ -125,16 +131,11 @@ psychometric_personas/analysis (500 OpenAI)
 
 ### Comparison 2×2 splits
 
-A 2×2 design crossing persona authorship (OpenAI vs. Claude) with SJT authorship (OpenAI vs. Claude), plus a full-SJT variant for Anthropic personas. All runs use Gemma-3-4B with 5 iterations.
+A 2×2 design crossing persona authorship (OpenAI vs. Claude) with SJT authorship (OpenAI vs. Claude). All runs use Qwen/Qwen2.5-7B-Instruct with 5 iterations.
 
-See [`llm_psychometrics/src/external_response_generation/create_comparison_splits.py`](llm_psychometrics/src/external_response_generation/create_comparison_splits.py) for the script that creates these splits (provenance, copy logic, and inference runs all documented there).
-
-| Config | Personas | SJTs | Rows | Method |
-|---|---|---|---|---|
-| `cmp_openai_personas_cmp_openai_sjts` | comparison_openai (100 GPT) | comparison_openai (100 GPT) | 50,000 | Filtered from `analysis_sjt` |
-| `cmp_openai_personas_cmp_anthropic_sjts` | comparison_openai (100 GPT) | comparison_anthropic (100 Claude) | 50,000 | Filtered from `gpt_persona_claude_sjt` (already exists) |
-| `cmp_anthropic_personas_cmp_openai_sjts` | comparison_anthropic (100 Claude) | comparison_openai (100 GPT) | 50,000 | Fresh run |
-| `cmp_anthropic_personas_cmp_anthropic_sjts` | comparison_anthropic (100 Claude) | comparison_anthropic (100 Claude) | 50,000 | Fresh run |
-| `cmp_anthropic_personas_analysis_openai_sjts` | comparison_anthropic (100 Claude) | analysis (300 GPT) | 150,000 | Fresh run |
-
-> `gpt_persona_claude_sjt` is an existing config (100 GPT personas × 100 Claude SJTs × 5 iters = 50,000 rows) that maps directly to `cmp_openai_personas_cmp_anthropic_sjts`. Verified: `hf_persona_config='comparison_openai'`, `hf_sjt_config='comparison_anthropic'`.
+| Config | Personas | SJTs | Rows |
+|---|---|---|---|
+| `cmp_openai_personas_cmp_openai_sjts` | comparison_openai (100 GPT) | comparison_openai (100 GPT) | 50,000 |
+| `cmp_openai_personas_cmp_anthropic_sjts` (`gpt_persona_claude_sjt`) | comparison_openai (100 GPT) | comparison_anthropic (100 Claude) | 50,000 |
+| `cmp_anthropic_personas_cmp_openai_sjts` (`claude_persona_gpt_sjt`) | comparison_anthropic (100 Claude) | comparison_openai (100 GPT) | 50,000 |
+| `cmp_anthropic_personas_cmp_anthropic_sjts` | comparison_anthropic (100 Claude) | comparison_anthropic (100 Claude) | 50,000 |
