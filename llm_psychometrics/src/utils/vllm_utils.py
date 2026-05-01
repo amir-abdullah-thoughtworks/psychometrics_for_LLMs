@@ -24,8 +24,7 @@ from diskcache import Cache
 from datetime import datetime, UTC
 
 
-# default_model = ""Qwen/Qwen2.5-7B-Instruct"
-default_model = "google/gemma-3-4b-it"
+default_model = "Qwen/Qwen2.5-7B-Instruct"
 
 from diskcache import Cache, FanoutCache
 
@@ -44,7 +43,9 @@ class VLLMServerManager:
                  python_executable: str = sys.executable,
                  server_extra_args=None, env=None,
                  log_file: str = os.path.join(os.path.expanduser("~"), ".cache", "vllm", "vllm_server.log"),
-                 timeout_s: int = 500, kill_existing: bool = True):
+                 timeout_s: int = 500, kill_existing: bool = True,
+                 gpu_ids: Optional[Union[int, List[int], str]] = None,
+                 auto_port: bool = False):
         self.model = model
         self.host = host
         self.port = port
@@ -56,7 +57,18 @@ class VLLMServerManager:
         self.log_file = log_file
         self.timeout_s = timeout_s
         self.kill_existing = kill_existing
+        self.auto_port = auto_port
         self._proc = None
+
+        if gpu_ids is not None:
+            if isinstance(gpu_ids, int):
+                cuda_str = str(gpu_ids)
+            elif isinstance(gpu_ids, list):
+                cuda_str = ",".join(str(g) for g in gpu_ids)
+            else:
+                cuda_str = str(gpu_ids)
+            self.env["CUDA_VISIBLE_DEVICES"] = cuda_str
+            print(f"GPU selection: CUDA_VISIBLE_DEVICES={cuda_str}")
 
     def list_vllm_models(self) -> list[str]:
         """
@@ -231,7 +243,23 @@ class VLLMServerManager:
             except Exception:
                 pass  # not listening or already free
 
+    def _find_free_port(self, start: int, max_tries: int = 20) -> int:
+        for port in range(start, start + max_tries):
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                try:
+                    s.bind((self.host, port))
+                    return port
+                except OSError:
+                    continue
+        raise RuntimeError(f"No free port found in range [{start}, {start + max_tries})")
+
     def _start(self):
+        if self.auto_port:
+            free = self._find_free_port(self.port)
+            if free != self.port:
+                print(f"Port {self.port} in use — using {free} instead")
+                self.port = free
+                self.base_url = f"http://{self.host}:{free}"
         print(f"Starting vLLM server on {self.host}:{self.port}")
         cmd = [
             self.python_executable,
