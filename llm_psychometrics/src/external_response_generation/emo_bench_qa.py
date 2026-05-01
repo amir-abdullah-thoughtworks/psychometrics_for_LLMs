@@ -42,21 +42,23 @@ from jinja2 import Template
 from pydantic import BaseModel, RootModel
 from tqdm import tqdm
 from transformers import AutoTokenizer
-
 from utils.vllm_utils import VLLMServerManager
-
 
 # =========================
 # Constants
 # =========================
 
 DISPLAY_LETTERS: List[str] = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-DEFAULT_EMOBENCH_CONFIGS: List[str] = ["emotional_application", "emotional_understanding"]
+DEFAULT_EMOBENCH_CONFIGS: List[str] = [
+    "emotional_application",
+    "emotional_understanding",
+]
 
 
 # =========================
 # Models
 # =========================
+
 
 class PersonaRunConfig(BaseModel):
     persona: str
@@ -104,6 +106,7 @@ class ExperimentResults(RootModel[Dict[str, PersonaRunConfig]]):
     """
     persona_uuid (or 'base_model') -> PersonaRunConfig
     """
+
     def to_jsonable(self) -> Dict[str, Any]:
         return {k: v.model_dump() for k, v in self.root.items()}
 
@@ -111,6 +114,7 @@ class ExperimentResults(RootModel[Dict[str, PersonaRunConfig]]):
 # =========================
 # Helpers
 # =========================
+
 
 def stable_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
@@ -129,8 +133,13 @@ def compile_message_templates(messages: List[Dict[str, str]]) -> List[Dict[str, 
     return [{"role": m["role"], "content": Template(m["content"])} for m in messages]
 
 
-def render_messages(compiled_messages: List[Dict[str, Any]], **kwargs) -> List[Dict[str, str]]:
-    return [{"role": m["role"], "content": m["content"].render(**kwargs)} for m in compiled_messages]
+def render_messages(
+    compiled_messages: List[Dict[str, Any]], **kwargs
+) -> List[Dict[str, str]]:
+    return [
+        {"role": m["role"], "content": m["content"].render(**kwargs)}
+        for m in compiled_messages
+    ]
 
 
 def messages_to_prompt_text(messages: List[Dict[str, str]]) -> str:
@@ -287,6 +296,7 @@ emo_bench_persona_prompt_templates: Dict[str, List[Dict[str, str]]] = {
 # EmoBench row normalization
 # =========================
 
+
 @dataclass(frozen=True)
 class EmoBenchSpec:
     idx: int
@@ -306,7 +316,9 @@ class EmoBenchSpec:
     n_choices: int
 
 
-def extract_emo_bench_specs(row: Dict[str, Any], idx: int, subset_name: str) -> List[EmoBenchSpec]:
+def extract_emo_bench_specs(
+    row: Dict[str, Any], idx: int, subset_name: str
+) -> List[EmoBenchSpec]:
     qid = first_present(row, ["qid", "id"], default=str(idx))
     language = str(first_present(row, ["language"], default="unknown"))
     scenario = first_present(row, ["scenario"])
@@ -393,9 +405,15 @@ def extract_emo_bench_specs(row: Dict[str, Any], idx: int, subset_name: str) -> 
         )
 
     if subset_name == "emotional_application":
-        category = str(first_present(row, ["category", "coarse_category"], default="unknown"))
+        category = str(
+            first_present(row, ["category", "coarse_category"], default="unknown")
+        )
         question_type = str(
-            first_present(row, ["question type", "question_type", "finegrained_category"], default="unknown")
+            first_present(
+                row,
+                ["question type", "question_type", "finegrained_category"],
+                default="unknown",
+            )
         )
 
         return [
@@ -437,20 +455,20 @@ def extract_emo_bench_specs(row: Dict[str, Any], idx: int, subset_name: str) -> 
 # Hub push helpers
 # =========================
 
+
 def build_source_meta(args: argparse.Namespace) -> Dict[str, Any]:
     return {
         "debug": bool(args.debug),
         "persona_source": getattr(args, "persona_source", None),
-
         "hf_persona_path": getattr(args, "hf_persona_path", None),
         "hf_persona_config": getattr(args, "hf_persona_config", None),
         "hf_persona_split": getattr(args, "hf_persona_split", None),
-
         "hf_emo_bench_path": getattr(args, "hf_emo_bench_path", None),
         "hf_emo_bench_configs": list(getattr(args, "hf_emo_bench_configs", []) or []),
         "hf_emo_bench_split": getattr(args, "hf_emo_bench_split", None),
-        "hf_emo_bench_language_filter": getattr(args, "hf_emo_bench_language_filter", None),
-
+        "hf_emo_bench_language_filter": getattr(
+            args, "hf_emo_bench_language_filter", None
+        ),
         "template_key": getattr(args, "template_key", None),
         "use_persona_template": bool(getattr(args, "use_persona_template", False)),
         "answer_shuffle": bool(getattr(args, "answer_shuffle", False)),
@@ -506,40 +524,46 @@ def flatten_results_for_hub(
                 displayed_correct_answer = displayed_correct[t][qi]
                 canonical_correct_answer = canonical_correct[qi]
 
-                rows.append({
-                    "persona_uuid": persona_uuid,
-                    "persona_hash": d["persona_hash"],
-                    "iter": t,
-
-                    "question_hash": q_hashes[qi],
-                    "subset_name": meta["subset_name"],
-                    "question_source": meta["question_source"],
-                    "qid": meta["qid"],
-                    "language": meta["language"],
-                    "category": meta["category"],
-                    "question_type": meta["question_type"],
-                    "subject": meta["subject"],
-                    "scenario": meta["scenario"],
-                    "canonical_choices": meta["canonical_choices"],
-                    "label_text": meta["label_text"],
-                    "n_choices": meta["n_choices"],
-
-                    "answer": answer,
-                    "normalized_answer": normalized_answer,
-                    "answer_index": ans_idx[t][qi],
-                    "raw_prompt": raw_prompts[t][qi],
-                    "guided_choices": guided_choices[t][qi],
-                    "displayed_correct_answer": displayed_correct_answer,
-                    "canonical_correct_answer": canonical_correct_answer,
-
-                    "is_correct": (normalized_answer == canonical_correct_answer) if normalized_answer is not None else None,
-                    "is_correct_displayed": (answer == displayed_correct_answer) if answer is not None else None,
-                    "is_correct_canonical": (normalized_answer == canonical_correct_answer) if normalized_answer is not None else None,
-
-                    "model_name": d["model_name"],
-                    "run_timestamp_utc": _utc_now_iso(),
-                    **source_meta,
-                })
+                rows.append(
+                    {
+                        "persona_uuid": persona_uuid,
+                        "persona_hash": d["persona_hash"],
+                        "iter": t,
+                        "question_hash": q_hashes[qi],
+                        "subset_name": meta["subset_name"],
+                        "question_source": meta["question_source"],
+                        "qid": meta["qid"],
+                        "language": meta["language"],
+                        "category": meta["category"],
+                        "question_type": meta["question_type"],
+                        "subject": meta["subject"],
+                        "scenario": meta["scenario"],
+                        "canonical_choices": meta["canonical_choices"],
+                        "label_text": meta["label_text"],
+                        "n_choices": meta["n_choices"],
+                        "answer": answer,
+                        "normalized_answer": normalized_answer,
+                        "answer_index": ans_idx[t][qi],
+                        "raw_prompt": raw_prompts[t][qi],
+                        "guided_choices": guided_choices[t][qi],
+                        "displayed_correct_answer": displayed_correct_answer,
+                        "canonical_correct_answer": canonical_correct_answer,
+                        "is_correct": (normalized_answer == canonical_correct_answer)
+                        if normalized_answer is not None
+                        else None,
+                        "is_correct_displayed": (answer == displayed_correct_answer)
+                        if answer is not None
+                        else None,
+                        "is_correct_canonical": (
+                            normalized_answer == canonical_correct_answer
+                        )
+                        if normalized_answer is not None
+                        else None,
+                        "model_name": d["model_name"],
+                        "run_timestamp_utc": _utc_now_iso(),
+                        **source_meta,
+                    }
+                )
 
     return rows
 
@@ -568,7 +592,9 @@ def push_results_to_hub(
             "unique_subsets": len(set(ds["subset_name"])) if len(ds) else 0,
         },
     }
-    dsd[args.target_hub_split].info.description = json.dumps(desc, indent=2, sort_keys=True)
+    dsd[args.target_hub_split].info.description = json.dumps(
+        desc, indent=2, sort_keys=True
+    )
 
     dsd.push_to_hub(
         repo_id=args.target_hub_repo_id,
@@ -580,8 +606,14 @@ def push_results_to_hub(
 # Runner
 # =========================
 
+
 class EmoBenchQAResponseRunner:
-    def __init__(self, args: argparse.Namespace, mgr: VLLMServerManager, persona_max_tokens: int = 1150):
+    def __init__(
+        self,
+        args: argparse.Namespace,
+        mgr: VLLMServerManager,
+        persona_max_tokens: int = 1150,
+    ):
         self.args = args
         self.mgr = mgr
         self.persona_max_tokens = persona_max_tokens
@@ -599,7 +631,9 @@ class EmoBenchQAResponseRunner:
         chosen = persona_msgs if self.args.use_persona_template else base_msgs
         self.compiled_templates = compile_message_templates(chosen)
 
-    def _truncate_persona_to_tokens(self, persona_str: str) -> Tuple[str, bool, int, int]:
+    def _truncate_persona_to_tokens(
+        self, persona_str: str
+    ) -> Tuple[str, bool, int, int]:
         if not persona_str:
             return persona_str, False, 0, 0
 
@@ -655,7 +689,9 @@ class EmoBenchQAResponseRunner:
             question_type=emo.question_type,
             subject=emo.subject,
             scenario=emo.scenario,
-            answer_options=options_to_str(self._format_displayed_options(displayed_options)),
+            answer_options=options_to_str(
+                self._format_displayed_options(displayed_options)
+            ),
             emo_bench={
                 "subset_name": emo.subset_name,
                 "qid": emo.qid,
@@ -672,7 +708,9 @@ class EmoBenchQAResponseRunner:
             },
         )
         prompt = messages_to_prompt_text(rendered)
-        validate_prompt_text(prompt, where=f"persona={persona_str is not None} emo_qid={emo.qid}")
+        validate_prompt_text(
+            prompt, where=f"persona={persona_str is not None} emo_qid={emo.qid}"
+        )
         return prompt
 
     def _run_one_persona(
@@ -705,7 +743,9 @@ class EmoBenchQAResponseRunner:
                     str(emo.hash_id),
                     str(t),
                 )
-                displayed, perm = self._make_shuffled_options(emo.options_canonical, seed=seed)
+                displayed, perm = self._make_shuffled_options(
+                    emo.options_canonical, seed=seed
+                )
                 perms.append(perm)
                 prompts.append(
                     self._build_prompt(
@@ -733,7 +773,7 @@ class EmoBenchQAResponseRunner:
                 guided_choices=guided_choices_iter,
                 cache_enabled=False,
                 cache_type="diskcache",
-                default_guided_choice="A"
+                default_guided_choice="A",
             )
 
             iter_answers: List[Optional[str]] = []
@@ -741,7 +781,9 @@ class EmoBenchQAResponseRunner:
             iter_idx: List[List[int]] = []
             iter_guided: List[List[str]] = []
 
-            for out, perm, emo, guided in zip(outputs, perms, emo_rows, guided_choices_iter):
+            for out, perm, emo, guided in zip(
+                outputs, perms, emo_rows, guided_choices_iter
+            ):
                 a = parse_choice_letter(out, emo.n_choices)
                 if a not in guided:
                     invalid_rows += 1
@@ -777,7 +819,9 @@ class EmoBenchQAResponseRunner:
             hf_persona_config=getattr(self.args, "hf_persona_config", None),
             hf_persona_split=getattr(self.args, "hf_persona_split", None),
             hf_emo_bench_path=getattr(self.args, "hf_emo_bench_path", None),
-            hf_emo_bench_configs=list(getattr(self.args, "hf_emo_bench_configs", []) or []),
+            hf_emo_bench_configs=list(
+                getattr(self.args, "hf_emo_bench_configs", []) or []
+            ),
             hf_emo_bench_split=getattr(self.args, "hf_emo_bench_split", None),
             answer_shuffle="shuffle" if self.args.answer_shuffle else "normal",
         )
@@ -795,12 +839,16 @@ class EmoBenchQAResponseRunner:
 
             if self.args.hf_emo_bench_language_filter:
                 target_lang = self.args.hf_emo_bench_language_filter
-                ds = ds.filter(lambda x: str(x.get("language", "")).lower() == target_lang.lower())
+                ds = ds.filter(
+                    lambda x: str(x.get("language", "")).lower() == target_lang.lower()
+                )
 
             ds_parts.append((cfg_name, ds))
 
         total_rows = sum(len(ds) for _, ds in ds_parts)
-        print(f"Loaded {total_rows} EmoBench rows across configs={self.args.hf_emo_bench_configs}")
+        print(
+            f"Loaded {total_rows} EmoBench rows across configs={self.args.hf_emo_bench_configs}"
+        )
 
         idx = 0
         for cfg_name, ds in ds_parts:
@@ -827,7 +875,9 @@ class EmoBenchQAResponseRunner:
 
         if self.args.persona_source == "base_model":
             print("Running EmoBench-QA on base model without personas")
-            results["base_model"] = self._run_one_persona("base_model", None, "System Assistant", emo_rows)
+            results["base_model"] = self._run_one_persona(
+                "base_model", None, "System Assistant", emo_rows
+            )
             return ExperimentResults(results), emo_rows
 
         if not self.args.hf_persona_path:
@@ -839,7 +889,9 @@ class EmoBenchQAResponseRunner:
                 name=self.args.hf_persona_config,
             )[self.args.hf_persona_split]
         else:
-            persona_ds = load_dataset(self.args.hf_persona_path)[self.args.hf_persona_split]
+            persona_ds = load_dataset(self.args.hf_persona_path)[
+                self.args.hf_persona_split
+            ]
 
         if self.args.debug:
             persona_count = min(self.args.n_personasample, len(persona_ds))
@@ -871,7 +923,9 @@ class EmoBenchQAResponseRunner:
                 )
 
             persona_str = str(persona_str)
-            persona_str, was_trunc, orig_n, new_n = self._truncate_persona_to_tokens(persona_str)
+            persona_str, was_trunc, orig_n, new_n = self._truncate_persona_to_tokens(
+                persona_str
+            )
 
             if was_trunc:
                 truncated_count += 1
@@ -888,7 +942,9 @@ class EmoBenchQAResponseRunner:
             )
 
         if truncated_count:
-            print(f"[persona trunc] total personas truncated: {truncated_count}/{persona_count}")
+            print(
+                f"[persona trunc] total personas truncated: {truncated_count}/{persona_count}"
+            )
         else:
             print("[persona trunc] no personas exceeded 1150 tokens")
 
@@ -898,6 +954,7 @@ class EmoBenchQAResponseRunner:
 # =========================
 # CLI / main
 # =========================
+
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
@@ -912,8 +969,12 @@ def parse_args() -> argparse.Namespace:
 
     # Templates / behavior
     p.add_argument("--template-key", type=str, default="gpt")
-    p.add_argument("--use-persona-template", action=argparse.BooleanOptionalAction, default=True)
-    p.add_argument("--answer-shuffle", action=argparse.BooleanOptionalAction, default=True)
+    p.add_argument(
+        "--use-persona-template", action=argparse.BooleanOptionalAction, default=True
+    )
+    p.add_argument(
+        "--answer-shuffle", action=argparse.BooleanOptionalAction, default=True
+    )
 
     # Experiment sizing
     p.add_argument("--n-times", type=int, default=5)
@@ -923,9 +984,13 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--debug", action=argparse.BooleanOptionalAction, default=False)
 
     # Persona source
-    p.add_argument("--persona-source", type=str, choices=["hf", "base_model"], default="hf")
-    p.add_argument("--hf-persona-path", type=str, default="thoughtworks/psychometric_personas")
-    p.add_argument("--hf-persona-config", type=str, default="analysis")
+    p.add_argument(
+        "--persona-source", type=str, choices=["hf", "base_model"], default="hf"
+    )
+    p.add_argument(
+        "--hf-persona-path", type=str, default="thoughtworks/psychometric_personas"
+    )
+    p.add_argument("--hf-persona-config", type=str, default="comparison_anthropic")
     p.add_argument("--hf-persona-split", type=str, default="train")
 
     # EmoBench dataset
@@ -949,7 +1014,9 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default="thoughtworks/gemma_psychometrics_personas_responses",
     )
-    p.add_argument("--target-hub-config", type=str, default="analysis_emo_bench")
+    p.add_argument(
+        "--target-hub-config", type=str, default="cmp_anthropic_personas_emo_bench"
+    )
     p.add_argument("--target-hub-split", type=str, default="train")
 
     args = p.parse_args()
@@ -972,9 +1039,33 @@ def main() -> None:
     if hf_token:
         login(token=hf_token)
 
+    print("\n=== EmoBench QA Response Generation Config ===")
+    print(f"Model:             {args.model}")
+    print(f"Persona HF repo:   {args.hf_persona_path}")
+    print(f"Persona config:    {args.hf_persona_config}")
+    print(f"Persona split:     {args.hf_persona_split}")
+    print(f"EmoBench HF repo:  {args.hf_emo_bench_path}")
+    print(f"EmoBench configs:  {args.hf_emo_bench_configs}")
+    print(f"EmoBench split:    {args.hf_emo_bench_split}")
+    print(f"EmoBench language: {args.hf_emo_bench_language_filter}")
+    if args.push_to_hub:
+        print(f"Target repo:       {args.target_hub_repo_id}")
+        print(f"Target config:     {args.target_hub_config}")
+        print(f"Target split:      {args.target_hub_split}")
+    else:
+        print("Target repo:       (push disabled)")
+    print(f"Debug mode:        {args.debug}")
+    print("==============================================\n")
+
+    _vllm_log = "/outputs/vllm_server.log"
+    try:
+        os.remove(_vllm_log)
+        print(f"Deleted existing log: {_vllm_log}")
+    except FileNotFoundError:
+        pass
 
     mgr = VLLMServerManager(port=9000)
-    # mgr.ensure_fresh_server()
+    mgr.ensure_fresh_server()
 
     mgr.hello_world_check()
 
@@ -987,7 +1078,7 @@ def main() -> None:
     print("==============================\n")
 
     args.persona_source = "hf"
-    args.target_hub_config = "analysis_emo_bench"
+    # args.target_hub_config = "analysis_emo_bench"
 
     persona_runner = EmoBenchQAResponseRunner(args=args, mgr=mgr)
     persona_results, emo_rows = persona_runner.run()
@@ -1001,32 +1092,32 @@ def main() -> None:
 
     if args.push_to_hub:
         push_results_to_hub(persona_results, args, emo_rows)
-        print("Pushed persona config -> analysis_emo_bench")
+        print(f"Pushed persona config -> {args.target_hub_config}")
 
     # -------------------------------------------------------
     # RUN 2: BASE MODEL CONDITION (base_emo_bench)
     # -------------------------------------------------------
 
-    print("\n==============================")
-    print("Running BASE MODEL EmoBench-QA")
-    print("==============================\n")
+    # print("\n==============================")
+    # print("Running BASE MODEL EmoBench-QA")
+    # print("==============================\n")
 
-    args.persona_source = "base_model"
-    args.target_hub_config = "base_emo_bench"
+    # args.persona_source = "base_model"
+    # args.target_hub_config = "base_emo_bench"
 
-    base_runner = EmoBenchQAResponseRunner(args=args, mgr=mgr)
-    base_results, emo_rows = base_runner.run()
+    # base_runner = EmoBenchQAResponseRunner(args=args, mgr=mgr)
+    # base_results, emo_rows = base_runner.run()
 
-    base_json = args.out_json.replace(".json", "_base.json")
+    # base_json = args.out_json.replace(".json", "_base.json")
 
-    with open(base_json, "w", encoding="utf-8") as f:
-        json.dump(base_results.to_jsonable(), f, ensure_ascii=False)
+    # with open(base_json, "w", encoding="utf-8") as f:
+    #     json.dump(base_results.to_jsonable(), f, ensure_ascii=False)
 
-    print(f"Wrote base results -> {base_json}")
+    # print(f"Wrote base results -> {base_json}")
 
-    if args.push_to_hub:
-        push_results_to_hub(base_results, args, emo_rows)
-        print("Pushed base config -> base_emo_bench")
+    # if args.push_to_hub:
+    #     push_results_to_hub(base_results, args, emo_rows)
+    #     print("Pushed base config -> base_emo_bench")
 
 
 if __name__ == "__main__":

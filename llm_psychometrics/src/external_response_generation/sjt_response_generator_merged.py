@@ -460,6 +460,7 @@ class SJTResponseRunner:
                 batch_size=self.args.batch_size,
                 num_workers=self.args.num_workers,
                 guided_choices=SJT_ANSWER_CHOICES,
+                default_guided_choice=SJT_ANSWER_CHOICES[0],
                 cache_enabled=True,
                 cache_type="diskcache",
             )
@@ -548,7 +549,72 @@ class SJTResponseRunner:
             )
             return ExperimentResults(results)
 
-        # Persona mode
+        # PersonaLLM paper mode
+        if self.args.persona_source == "personallm_paper":
+            print("Using Persona LLM Paper Personas")
+            with open(self.args.personallm_paper_path, "r", encoding="utf-8") as f:
+                persona_datasets_total = json.load(f)
+
+            rng = random.Random(42)
+            if self.args.debug:
+                persona_count = min(
+                    self.args.n_personasample, len(persona_datasets_total)
+                )
+            else:
+                persona_count = len(persona_datasets_total)
+
+            persona_datasets = rng.sample(persona_datasets_total, persona_count)
+            print(f"Loaded {persona_count} Personas")
+            total_responses = persona_count * sjt_count * self.args.n_times
+            print(
+                f"Total responses to generate: {persona_count} personas x {sjt_count} SJTs x {self.args.n_times} iterations = {total_responses}"
+            )
+
+            truncated_count = 0
+            for i, persona_row in enumerate(tqdm(persona_datasets, desc="Personas")):
+                persona_uuid = (
+                    persona_row.get("uuid")
+                    or persona_row.get("persona_uuid")
+                    or persona_row.get("id")
+                    or f"persona_{i}"
+                )
+                persona_hash = persona_row.get("persona_hash")
+                persona_str = (
+                    persona_row.get("persona_string")
+                    or persona_row.get("attributes")
+                    or persona_row.get("persona")
+                    or json.dumps(persona_row)
+                )
+
+                persona_str = str(persona_str)
+                persona_str, was_trunc, orig_n, new_n = (
+                    self._truncate_persona_to_tokens(persona_str)
+                )
+                if was_trunc:
+                    truncated_count += 1
+                    if truncated_count <= 5:
+                        print(
+                            f"[persona trunc] {persona_uuid}: {orig_n} -> {new_n} tokens"
+                        )
+                    elif truncated_count == 6:
+                        print(
+                            "[persona trunc] ... (suppressing further truncation logs)"
+                        )
+
+                results[str(persona_uuid)] = self._run_one_persona(
+                    str(persona_uuid), persona_hash, persona_str, sjts
+                )
+
+            if truncated_count:
+                print(
+                    f"[persona trunc] total personas truncated: {truncated_count}/{persona_count}"
+                )
+            else:
+                print("[persona trunc] no personas exceeded 1150 tokens")
+
+            return ExperimentResults(results)
+
+        # HF persona mode
         if not self.args.hf_persona_path:
             raise ValueError("persona_source=hf requires --hf-persona-path")
 
@@ -654,11 +720,14 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--n-sjtsample", type=int, default=10)
 
     # Debug default ON (your preference)
-    p.add_argument("--debug", action=argparse.BooleanOptionalAction, default=False)
+    p.add_argument("--debug", action=argparse.BooleanOptionalAction, default=True)
 
     # Persona source
     p.add_argument(
-        "--persona-source", type=str, choices=["hf", "base_model"], default="hf"
+        "--persona-source",
+        type=str,
+        choices=["hf", "base_model", "personallm_paper"],
+        default="personallm_paper",
     )
 
     p.add_argument(
@@ -666,6 +735,13 @@ def parse_args() -> argparse.Namespace:
     )
     p.add_argument("--hf-persona-config", type=str, default="comparison_anthropic")
     p.add_argument("--hf-persona-split", type=str, default="train")
+
+    p.add_argument(
+        "--personallm-paper-path",
+        type=str,
+        default="persona_llm_paper_seed_combinations.json",
+        help="Path to persona_llm_paper_seed_combinations.json (personallm_paper source).",
+    )
 
     # SJT dataset
     p.add_argument(
@@ -685,7 +761,9 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Target HF repo. Auto-selected by model family if not set.",
     )
-    p.add_argument("--target-hub-config", type=str, default="claude_persona_gpt_sjt")
+    p.add_argument(
+        "--target-hub-config", type=str, default="personallm_persona_cmp_openai_sjts"
+    )
     p.add_argument("--target-hub-split", type=str, default="train")
 
     args = p.parse_args()
@@ -732,8 +810,12 @@ def main() -> None:
     if args.persona_source == "base_model":
         print("Mode:             Base Model (no personas)")
         print(f"Model:            {args.model}")
+    elif args.persona_source == "personallm_paper":
+        print("Mode:             PersonaLLM Paper")
+        print(f"Model:            {args.model}")
+        print(f"Persona file:     {args.personallm_paper_path}")
     else:
-        print("Mode:             Persona")
+        print("Mode:             Persona (HF)")
         print(f"Model:            {args.model}")
         print(f"Persona HF repo:  {args.hf_persona_path}")
         print(f"Persona config:   {args.hf_persona_config}")
