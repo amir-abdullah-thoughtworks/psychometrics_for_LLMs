@@ -43,7 +43,7 @@ class VLLMServerManager:
                  host: str = "127.0.0.1", port: int = 9000,
                  python_executable: str = sys.executable,
                  server_extra_args=None, env=None,
-                 log_file: str = "outputs/vllm_server.log",
+                 log_file: str = os.path.join(os.path.expanduser("~"), ".cache", "vllm", "vllm_server.log"),
                  timeout_s: int = 500, kill_existing: bool = True):
         self.model = model
         self.host = host
@@ -252,7 +252,6 @@ class VLLMServerManager:
 
         log_path = Path(self.log_file)
         log_path.parent.mkdir(parents=True, exist_ok=True)
-
         stdout = log_path.open("a", buffering=1, encoding="utf-8")
         self._proc = subprocess.Popen(cmd, stdout=stdout, stderr=stdout, env=self.env, start_new_session=True)
 
@@ -773,6 +772,7 @@ def _mp_chat_one_worker(
     mgr = VLLMServerManager(
         host=base_url.split("://", 1)[1].split(":", 1)[0],
         port=int(base_url.rsplit(":", 1)[1]),
+        log_file="/tmp/vllm_worker.log",
     )
     last_err = None
     for attempt in range(max_retries):
