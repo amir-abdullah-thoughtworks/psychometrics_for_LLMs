@@ -1,6 +1,11 @@
 # Explicit high/low pole adjectives for each HEXACO trait used in PersonaLLM personas.
 # Each persona string is one adjective per trait (in order), expressing high or low on that trait.
 # 2^6 = 64 combinations total — see persona_llm_paper_seeds.yaml for the full grid.
+#
+# System prompt template (adjectives substituted in order H, E, X, A, C, O):
+#   "You are a law enforcement officer with the following attributes:\n\n
+#    {h}, {e}, {x}, {a}, {c}, {o}\n\n
+#    Task: Answer the below multiple choice question:"
 
 Honesty-Humility:
   high: humble
