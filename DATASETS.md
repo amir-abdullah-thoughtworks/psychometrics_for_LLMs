@@ -98,9 +98,19 @@ annotated (30)  ← hand-annotated, not a strict subset of any config
 | `default` | 1,564,160 | Qwen/Qwen2.5-7B-Instruct | AdvBench responses |
 | `claude_persona_gpt_sjt` | 50,000 | Qwen/Qwen2.5-7B-Instruct | OpenAI personas × Claude SJTs |
 | `gpt_persona_claude_sjt` | 50,000 | Qwen/Qwen2.5-7B-Instruct | OpenAI personas × Claude SJTs |
-| `cmp_anthropic_personas_emo_bench` | 200,000 | Qwen/Qwen2.5-7B-Instruct | Anthropic personas × EmoBench |
-| `base_claude_sjt` | 500 | — | Base model (no persona) × Claude SJTs |
-| `debug` | 500 | google/gemma-3-4b-it | Debug run |
+| `cmp_anthropic_personas_cmp_anthropic_sjts` | 50,000 | Qwen/Qwen2.5-7B-Instruct | Anthropic comparison personas × Anthropic comparison SJTs |
+| `cmp_anthropic_personas_emo_bench` | 200,000 | Qwen/Qwen2.5-7B-Instruct | Anthropic comparison personas × EmoBench |
+| `cmp_openai_personas_handmade_sjts` | 10,000 | Qwen/Qwen2.5-7B-Instruct | OpenAI comparison personas × handmade SJTs (20 items) |
+| `cmp_anthropic_personas_handmade_sjts` | 10,000 | Qwen/Qwen2.5-7B-Instruct | Anthropic comparison personas × handmade SJTs (20 items) |
+| `personallm_persona_cmp_openai_sjts` | 32,000 | Qwen/Qwen2.5-7B-Instruct | PersonaLLM personas (64) × comparison_openai SJTs × 5 iters |
+| `personallm_persona_cmp_anthropic_sjts` | 32,000 | Qwen/Qwen2.5-7B-Instruct | PersonaLLM personas (64) × comparison_anthropic SJTs × 5 iters |
+| `base_claude_sjt` | 500 | Qwen/Qwen2.5-7B-Instruct | Base model (no persona) × Claude SJTs |
+
+### PersonaLLM personas
+
+`personallm_persona_*` configs use a minimal persona format from the PersonaLLM paper: each persona is exactly 6 adjectives (one per HEXACO trait), expressing the high or low pole of that trait. The full 2^6 = 64 combinations are enumerated.
+
+See [`llm_psychometrics/configs/persona_llm_hexaco_poles.yaml`](llm_psychometrics/configs/persona_llm_hexaco_poles.yaml) for the explicit high/low adjective mapping per trait, and [`llm_psychometrics/configs/persona_llm_paper_seeds.yaml`](llm_psychometrics/configs/persona_llm_paper_seeds.yaml) for the seed values used to generate all 64 combinations.
 
 ---
 

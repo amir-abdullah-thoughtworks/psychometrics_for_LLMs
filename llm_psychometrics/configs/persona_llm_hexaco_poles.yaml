@@ -1,0 +1,27 @@
+# Explicit high/low pole adjectives for each HEXACO trait used in PersonaLLM personas.
+# Each persona string is one adjective per trait (in order), expressing high or low on that trait.
+# 2^6 = 64 combinations total — see persona_llm_paper_seeds.yaml for the full grid.
+
+Honesty-Humility:
+  high: humble
+  low: arrogant
+
+Emotionality:
+  high: vulnerable
+  low: resilient
+
+Extraversion:
+  high: outgoing
+  low: withdrawn
+
+Agreeableness:
+  high: forgiving
+  low: critical
+
+Conscientiousness:
+  high: diligent
+  low: careless
+
+Openness-to-Experience:
+  high: curious
+  low: conventional
