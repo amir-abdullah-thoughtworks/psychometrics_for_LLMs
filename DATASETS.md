@@ -2,6 +2,8 @@
 
 Reference for the two base HuggingFace datasets that everything else is built on. All response-generation runs draw personas and SJT items from these.
 
+> **Naming convention:** `cmp_openai` and `gpt` are used interchangeably throughout (OpenAI/GPT-4o-generated). `cmp_anthropic` and `claude` are used interchangeably (Claude-generated).
+
 ---
 
 ## `thoughtworks/psychometric_personas`

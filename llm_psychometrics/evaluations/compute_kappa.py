@@ -44,7 +44,9 @@ for field in fields:
 
 rows.sort(key=lambda x: x[2], reverse=True)
 
+# cmp_openai = gpt, cmp_anthropic = claude
 print(f"{'Field':<40} {'H vs GPT':>10} {'H vs Claude':>11} {'GPT vs Cla':>10} {'n':>5}")
+print(f"{'':40} {'(cmp_openai)':>10} {'(cmp_anthropic)':>11} {'':>10}")
 print("-" * 80)
 for field, k_hg, k_hc, k_gc, n in rows:
     print(f"{field:<40} {k_hg:>10.3f} {k_hc:>11.3f} {k_gc:>10.3f} {n:>5}")
