@@ -44,7 +44,7 @@ port = u.port
 # ----------------------------
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model-name", type=str, default="google/gemma-3-4b-it",
+    parser.add_argument("--model-name", type=str, default="Qwen/Qwen2.5-7B-Instruct",
                         help="Model Name")
     parser.add_argument("--hf-token", type=str, default=None,
                         help="Huggingface token")
