@@ -771,10 +771,26 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
+REPO_MODEL_RULES = {
+    "thoughtworks/psychometric_personas_responses": "qwen",
+    "thoughtworks/gemma_psychometrics_personas_responses": "gemma",
+}
+
+def _check_model_repo_compatibility(model: str, repo: str) -> None:
+    rule = REPO_MODEL_RULES.get(repo)
+    if rule and rule.lower() not in model.lower():
+        raise ValueError(
+            f"Model/repo mismatch: model='{model}' does not contain '{rule}' "
+            f"but target repo is '{repo}'. Refusing to push."
+        )
+
+
 def main() -> None:
     args = parse_args()
 
     os.makedirs(os.path.dirname(args.out_json) or ".", exist_ok=True)
+
+    _check_model_repo_compatibility(args.model, args.target_hub_repo_id)
 
     hf_token = os.getenv("HF_TOKEN")
     if hf_token:
