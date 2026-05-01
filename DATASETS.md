@@ -88,6 +88,22 @@ annotated (30)  ← hand-annotated, not a strict subset of any config
 
 ---
 
+## `thoughtworks/psychometric_personas_responses` (Qwen)
+
+> **Naming note:** Despite the repo name, the primary response model is **Qwen/Qwen2.5-7B-Instruct**, not Gemma. Gemma-3-4B responses are in `thoughtworks/gemma_psychometrics_personas_responses`.
+
+| Config | Rows | Model | Notes |
+|---|---|---|---|
+| `police_sjt` | 3,008,000 | Qwen/Qwen2.5-7B-Instruct | 3008 expanded personas × SJT items × 5 iters |
+| `default` | 1,564,160 | Qwen/Qwen2.5-7B-Instruct | AdvBench responses |
+| `claude_persona_gpt_sjt` | 50,000 | Qwen/Qwen2.5-7B-Instruct | OpenAI personas × Claude SJTs |
+| `gpt_persona_claude_sjt` | 50,000 | Qwen/Qwen2.5-7B-Instruct | OpenAI personas × Claude SJTs |
+| `cmp_anthropic_personas_emo_bench` | 200,000 | Qwen/Qwen2.5-7B-Instruct | Anthropic personas × EmoBench |
+| `base_claude_sjt` | 500 | — | Base model (no persona) × Claude SJTs |
+| `debug` | 500 | google/gemma-3-4b-it | Debug run |
+
+---
+
 ## How these feed into response runs
 
 ```
