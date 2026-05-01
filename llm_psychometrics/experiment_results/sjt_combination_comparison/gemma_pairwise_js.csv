@@ -1,0 +1,7 @@
+,claude_sjt_claude_persona,claude_sjt_gpt_persona,gpt_sjt_claude_persona,gpt_sjt_gpt_persona,handmade_sjt_claude_persona,handmade_sjt_gpt_persona
+claude_sjt_claude_persona,0.0,0.0005,0.0096,0.0145,0.0331,0.0382
+claude_sjt_gpt_persona,0.0005,0.0,0.008,0.0124,0.03,0.0353
+gpt_sjt_claude_persona,0.0096,0.008,0.0,0.0027,0.0078,0.0122
+gpt_sjt_gpt_persona,0.0145,0.0124,0.0027,0.0,0.0064,0.0107
+handmade_sjt_claude_persona,0.0331,0.03,0.0078,0.0064,0.0,0.0019
+handmade_sjt_gpt_persona,0.0382,0.0353,0.0122,0.0107,0.0019,0.0

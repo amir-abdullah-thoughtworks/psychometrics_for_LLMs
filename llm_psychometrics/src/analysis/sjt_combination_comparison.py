@@ -23,10 +23,10 @@ SJT_OPTION_COLS = [
 
 MODEL_CONFIGS = {
     "gemma": {
-        # "claude_sjt_claude_persona": {
-        #     "hf_path": "thoughtworks/gemma_psychometrics_personas_responses",
-        #     "hf_config": "cmp_anthropic_personas_cmp_anthropic_sjts",
-        # },
+        "claude_sjt_claude_persona": {
+            "hf_path": "thoughtworks/gemma_psychometrics_personas_responses",
+            "hf_config": "cmp_anthropic_personas_cmp_anthropic_sjts",
+        },
         "claude_sjt_gpt_persona": {
             "hf_path": "thoughtworks/gemma_psychometrics_personas_responses",
             "hf_config": "cmp_openai_personas_cmp_anthropic_sjts",
@@ -35,16 +35,30 @@ MODEL_CONFIGS = {
             "hf_path": "thoughtworks/gemma_psychometrics_personas_responses",
             "hf_config": "cmp_anthropic_personas_cmp_openai_sjts",
         },
-        # "gpt_sjt_gpt_persona": {
-        #     "hf_path": "thoughtworks/gemma_psychometrics_personas_responses",
-        #     "hf_config": "cmp_openai_personas_cmp_openai_sjts",
-        # },
+        "gpt_sjt_gpt_persona": {
+            "hf_path": "thoughtworks/gemma_psychometrics_personas_responses",
+            "hf_config": "cmp_openai_personas_cmp_openai_sjts",
+        },
+        "handmade_sjt_claude_persona": {
+            "hf_path": "thoughtworks/gemma_psychometrics_personas_responses",
+            "hf_config": "comparison_anthropic_personas_handmade_sjt",
+        },
+        "handmade_sjt_gpt_persona": {
+            "hf_path": "thoughtworks/gemma_psychometrics_personas_responses",
+            "hf_config": "analysis_personas_handmade_sjt",
+            "persona_filter": {
+                "persona_hf_path": "thoughtworks/psychometric_personas",
+                "persona_hf_config": "comparison_openai",
+                "persona_id_col": "uuid",
+                "response_persona_id_col": "persona_uuid",
+            },
+        },
     },
     "qwen": {
-        # "claude_sjt_claude_persona": {
-        #     "hf_path": "thoughtworks/psychometric_personas_responses",
-        #     "hf_config": "TODO",
-        # },
+        "claude_sjt_claude_persona": {
+            "hf_path": "thoughtworks/psychometric_personas_responses",
+            "hf_config": "cmp_anthropic_personas_cmp_anthropic_sjts",
+        },
         "claude_sjt_gpt_persona": {
             "hf_path": "thoughtworks/psychometric_personas_responses",
             "hf_config": "gpt_persona_claude_sjt",
@@ -53,11 +67,30 @@ MODEL_CONFIGS = {
             "hf_path": "thoughtworks/psychometric_personas_responses",
             "hf_config": "claude_persona_gpt_sjt",
         },
-        # "gpt_sjt_gpt_persona": {
-        #     "hf_path": "thoughtworks/psychometric_personas_responses",
-        #     "hf_config": "TODO",
-        # },
+        "gpt_sjt_gpt_persona": {
+            "hf_path": "thoughtworks/psychometric_personas_responses",
+            "hf_config": "cmp_openai_personas_cmp_openai_sjts",
+        },
+        "handmade_sjt_claude_persona": {
+            "hf_path": "thoughtworks/psychometric_personas_responses",
+            "hf_config": "cmp_anthropic_personas_handmade_sjts",
+        },
+        "handmade_sjt_gpt_persona": {
+            "hf_path": "thoughtworks/psychometric_personas_responses",
+            "hf_config": "cmp_openai_personas_handmade_sjts",
+            "persona_filter": {
+                "persona_hf_path": "thoughtworks/psychometric_personas",
+                "persona_hf_config": "comparison_openai",
+                "persona_id_col": "uuid",
+                "response_persona_id_col": "persona_uuid",
+            },
+        },
     },
+}
+
+MODEL_IDS = {
+    "gemma": "google/gemma-3-4b-it",
+    "qwen": "Qwen/Qwen2.5-7B-Instruct",
 }
 
 RESULTS_DIR = "../../experiment_results/sjt_combination_comparison/"
@@ -67,6 +100,17 @@ RESULTS_DIR = "../../experiment_results/sjt_combination_comparison/"
 def get_hf_dataset(dataset_path, name="analysis", split="train"):
     dataset = load_dataset(dataset_path, name=name)
     return dataset[split].to_pandas()
+
+
+def get_hf_dataset_filtered_by_personas(responses_path, responses_config, persona_filter, split="train"):
+    pf = persona_filter
+    personas_df = get_hf_dataset(pf["persona_hf_path"], pf["persona_hf_config"], split)
+    valid_ids = set(personas_df[pf["persona_id_col"]].unique())
+    responses_df = get_hf_dataset(responses_path, responses_config, split)
+    response_id_col = pf.get("response_persona_id_col", pf["persona_id_col"])
+    filtered = responses_df[responses_df[response_id_col].isin(valid_ids)]
+    print(f"    persona filter: {len(valid_ids)} personas → {len(filtered)}/{len(responses_df)} rows kept")
+    return filtered
 
 
 def compute_js_stability(trait_dist):
@@ -136,8 +180,9 @@ def compute_stability_metrics(responses_df):
                 raters="iter",
                 ratings="score",
             )
-            icc2 = icc[icc["Type"] == "ICC2"]["ICC"].values[0]
-        except Exception:
+            icc2 = icc[icc["Type"] == "ICC(A,1)"]["ICC"].values[0]
+        except Exception as e:
+            print(f"  [DEBUG] ICC failed for trait '{trait}': {type(e).__name__}: {e}")
             icc2 = float("nan")
         icc_results.append({"trait": trait, "ICC": icc2})
 
@@ -217,7 +262,8 @@ def plot_grouped_bar(scores_by_cond, model_name, out_dir):
     ax.set_xticks(x)
     ax.set_xticklabels(traits, rotation=20, ha="right")
     ax.set_ylabel("Mean trait proportion")
-    ax.set_title(f"{model_name}: Mean SJT Trait Distribution by Condition")
+    model_id = MODEL_IDS.get(model_name, model_name)
+    ax.set_title(f"{model_name} ({model_id}): Mean SJT Trait Distribution by Condition")
     ax.legend(bbox_to_anchor=(1.01, 1), loc="upper left", fontsize=8)
     plt.tight_layout()
     plt.savefig(os.path.join(out_dir, f"{model_name}_grouped_bar.png"), dpi=150)
@@ -234,7 +280,8 @@ def plot_js_heatmap(js_matrix, model_name, out_dir):
         ax=ax,
         linewidths=0.5,
     )
-    ax.set_title(f"{model_name}: Pairwise JS Divergence Between Conditions")
+    model_id = MODEL_IDS.get(model_name, model_name)
+    ax.set_title(f"{model_name} ({model_id}): Pairwise JS Divergence Between Conditions")
     plt.tight_layout()
     plt.savefig(os.path.join(out_dir, f"{model_name}_js_heatmap.png"), dpi=150)
     plt.close()
@@ -253,7 +300,8 @@ def plot_boxplots(scores_by_cond, model_name, out_dir):
 
     fig, ax = plt.subplots(figsize=(14, 5))
     sns.boxplot(data=plot_df, x="trait", y="score", hue="condition", ax=ax)
-    ax.set_title(f"{model_name}: Per-Persona SJT Score Distribution by Condition")
+    model_id = MODEL_IDS.get(model_name, model_name)
+    ax.set_title(f"{model_name} ({model_id}): Per-Persona SJT Score Distribution by Condition")
     ax.set_xlabel("")
     ax.legend(bbox_to_anchor=(1.01, 1), loc="upper left", fontsize=8)
     plt.tight_layout()
@@ -279,7 +327,12 @@ for model_name, conditions in MODEL_CONFIGS.items():
     for cond_name, cfg in conditions.items():
         print(f"\n  Loading condition: {cond_name}")
         try:
-            responses = get_hf_dataset(cfg["hf_path"], cfg["hf_config"])
+            if "persona_filter" in cfg:
+                responses = get_hf_dataset_filtered_by_personas(
+                    cfg["hf_path"], cfg["hf_config"], cfg["persona_filter"]
+                )
+            else:
+                responses = get_hf_dataset(cfg["hf_path"], cfg["hf_config"])
             sjt_score = compute_sjt_score(responses)
             scores_by_cond[cond_name] = sjt_score
 
@@ -307,8 +360,9 @@ for model_name, conditions in MODEL_CONFIGS.items():
             row[f"{short}_std"] = np.round(df[col].std(), 4)
         mean_trait_rows.append(row)
     mean_trait_df = pd.DataFrame(mean_trait_rows).set_index("condition")
-    print(f"\n--- Mean Trait Distribution (mean ± std): {model_name} ---")
-    print(mean_trait_df.to_string())
+    mean_cols = [c for c in mean_trait_df.columns if c.endswith("_mean")]
+    print(f"\n--- Mean Trait Distribution: {model_name} ---")
+    print(mean_trait_df[mean_cols].to_string())
 
     # ── Per-trait ICC table ────────────────────────────────────────────────────
     icc_table = pd.DataFrame(icc_by_cond).T
@@ -368,16 +422,17 @@ if len(available_models) >= 2:
 
 # ── GPT vs Claude source effect summary ───────────────────────────────────────
 print(f"\n{'=' * 70}")
-print("SOURCE EFFECT SUMMARY (GPT vs Claude, SJT source and Persona source)")
+print("SOURCE EFFECT SUMMARY (SJT source and Persona source)")
 print(f"{'=' * 70}")
 
 SJT_SOURCE_GROUPS = {
     "claude_sjt": ["claude_sjt_claude_persona", "claude_sjt_gpt_persona"],
     "gpt_sjt": ["gpt_sjt_claude_persona", "gpt_sjt_gpt_persona"],
+    "handmade_sjt": ["handmade_sjt_claude_persona", "handmade_sjt_gpt_persona"],
 }
 PERSONA_SOURCE_GROUPS = {
-    "claude_persona": ["claude_sjt_claude_persona", "gpt_sjt_claude_persona"],
-    "gpt_persona": ["claude_sjt_gpt_persona", "gpt_sjt_gpt_persona"],
+    "claude_persona": ["claude_sjt_claude_persona", "gpt_sjt_claude_persona", "handmade_sjt_claude_persona"],
+    "gpt_persona": ["claude_sjt_gpt_persona", "gpt_sjt_gpt_persona", "handmade_sjt_gpt_persona"],
 }
 
 for model_name, stab_df in cross_model_stability.items():

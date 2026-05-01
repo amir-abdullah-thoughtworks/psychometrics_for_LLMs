@@ -1,0 +1,4 @@
+SJT Source,JS_divergence_mean,JS_divergence_std,ICC_mean,entropy
+claude_sjt,0.0095,0.003,0.8565,1.129
+gpt_sjt,0.0085,0.003,0.8465,1.2455
+handmade_sjt,0.041999999999999996,0.014499999999999999,0.5305,1.217
