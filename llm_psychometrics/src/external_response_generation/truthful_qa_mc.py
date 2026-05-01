@@ -793,7 +793,6 @@ def main() -> None:
     print("==============================\n")
 
     args.persona_source = "hf"
-    args.target_hub_config = "truthfulqa_mc"
 
     persona_runner = TruthfulQAMCResponseRunner(args=args, mgr=mgr)
     persona_results = persona_runner.run()
@@ -807,7 +806,7 @@ def main() -> None:
 
     if args.push_to_hub:
         push_results_to_hub(persona_results, args)
-        print("Pushed persona config -> truthfulqa_mc")
+        print(f"Pushed persona config -> {args.target_hub_config}")
 
 
     # -------------------------------------------------------
