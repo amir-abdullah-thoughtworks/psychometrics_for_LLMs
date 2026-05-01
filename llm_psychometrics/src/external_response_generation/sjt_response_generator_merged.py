@@ -698,7 +698,7 @@ def parse_args() -> argparse.Namespace:
     # vLLM settings
 
     # model options : google/gemma-3-4b-it, Qwen/Qwen2.5-7B-Instruct
-    p.add_argument("--model", type=str, default="google/gemma-3-4b-it")
+    p.add_argument("--model", type=str, default="Qwen/Qwen2.5-7B-Instruct")
     p.add_argument("--max-tokens", type=int, default=1)
     p.add_argument("--temperature", type=float, default=0.3)
     p.add_argument("--top-p", type=float, default=0.9)
@@ -720,14 +720,14 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--n-sjtsample", type=int, default=10)
 
     # Debug default ON (your preference)
-    p.add_argument("--debug", action=argparse.BooleanOptionalAction, default=True)
+    p.add_argument("--debug", action=argparse.BooleanOptionalAction, default=False)
 
     # Persona source
     p.add_argument(
         "--persona-source",
         type=str,
         choices=["hf", "base_model", "personallm_paper"],
-        default="personallm_paper",
+        default="hf",
     )
 
     p.add_argument(
@@ -747,7 +747,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--hf-sjt-path", type=str, default="thoughtworks/psychometric_sjts_analysis"
     )
-    p.add_argument("--hf-sjt-config", type=str, default="comparison_openai")
+    p.add_argument("--hf-sjt-config", type=str, default="comparison_anthropic")
     p.add_argument("--hf-sjt-split", type=str, default="train")
 
     # Output
@@ -762,7 +762,9 @@ def parse_args() -> argparse.Namespace:
         help="Target HF repo. Auto-selected by model family if not set.",
     )
     p.add_argument(
-        "--target-hub-config", type=str, default="personallm_persona_cmp_openai_sjts"
+        "--target-hub-config",
+        type=str,
+        default="cmp_anthropic_personas_cmp_anthropic_sjts",
     )
     p.add_argument("--target-hub-split", type=str, default="train")
 

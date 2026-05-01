@@ -960,7 +960,7 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
 
     # vLLM settings
-    p.add_argument("--model", type=str, default="google/gemma-3-4b-it")
+    p.add_argument("--model", type=str, default="Qwen/Qwen2.5-7B-Instruct")
     p.add_argument("--max-tokens", type=int, default=1)
     p.add_argument("--temperature", type=float, default=0.0)
     p.add_argument("--top-p", type=float, default=1.0)
@@ -1012,7 +1012,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--target-hub-repo-id",
         type=str,
-        default="thoughtworks/gemma_psychometrics_personas_responses",
+        default="thoughtworks/psychometric_personas_responses",
     )
     p.add_argument(
         "--target-hub-config", type=str, default="cmp_anthropic_personas_emo_bench"
