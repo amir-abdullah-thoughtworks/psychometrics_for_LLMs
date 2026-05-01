@@ -496,8 +496,7 @@ class SJTResponseRunner:
             sjt_ds = load_dataset(self.args.hf_sjt_path)[self.args.hf_sjt_split]
         
         
-        # Select SJTs: debug => sample; no-debug => ALL
-        if self.args.debug:
+        if self.args.n_sjtsample is not None:
             sjt_count = min(self.args.n_sjtsample, len(sjt_ds))
         else:
             sjt_count = len(sjt_ds)
@@ -521,7 +520,7 @@ class SJTResponseRunner:
         else:
             persona_ds = load_dataset(self.args.hf_persona_path)[self.args.hf_persona_split]
 
-        if self.args.debug:
+        if self.args.n_personasample is not None:
             persona_count = min(self.args.n_personasample, len(persona_ds))
         else:
             persona_count = len(persona_ds)
@@ -598,8 +597,8 @@ def parse_args() -> argparse.Namespace:
 
     # Experiment sizing
     p.add_argument("--n-times", type=int, default=5)
-    p.add_argument("--n-personasample", type=int, default=10)
-    p.add_argument("--n-sjtsample", type=int, default=10)
+    p.add_argument("--n-personasample", type=int, default=None)
+    p.add_argument("--n-sjtsample", type=int, default=None)
 
     # Debug default ON (your preference)
     p.add_argument("--debug", action=argparse.BooleanOptionalAction, default=False)
@@ -630,8 +629,8 @@ def parse_args() -> argparse.Namespace:
     # Debug-mode overrides (exactly as you described)
     if args.debug:
         args.n_times = 5
-        args.n_personasample = 10
-        args.n_sjtsample = 10
+        args.n_personasample = args.n_personasample or 10
+        args.n_sjtsample = args.n_sjtsample or 10
         args.answer_shuffle = True
 
     return args
