@@ -1,11 +1,16 @@
 condition_a,condition_b,agreeableness_ks_stat,agreeableness_ks_p,agreeableness_wasserstein,conscientiousness_ks_stat,conscientiousness_ks_p,conscientiousness_wasserstein,emotionality_ks_stat,emotionality_ks_p,emotionality_wasserstein,extraversion_ks_stat,extraversion_ks_p,extraversion_wasserstein,honesty_humility_ks_stat,honesty_humility_ks_p,honesty_humility_wasserstein,openness_ks_stat,openness_ks_p,openness_wasserstein
 claude_sjt_claude_persona,claude_sjt_gpt_persona,0.17,0.1112,0.033,0.13,0.3682,0.0264,0.15,0.2112,0.0088,0.08,0.9084,0.0112,0.18,0.0782,0.0255,0.15,0.2112,0.0143
 claude_sjt_claude_persona,gpt_sjt_claude_persona,0.21,0.0241,0.0519,0.32,0.0001,0.0738,0.38,0.0,0.0172,0.6,0.0,0.0309,0.58,0.0,0.1004,0.22,0.0156,0.0231
+claude_sjt_claude_persona,gpt_sjt_gpt_persona,0.18,0.0782,0.0301,0.27,0.0013,0.0662,0.53,0.0,0.023,0.56,0.0,0.034,0.4,0.0,0.057,0.22,0.0156,0.0216
 claude_sjt_claude_persona,handmade_sjt_claude_persona,0.21,0.0241,0.0324,0.33,0.0,0.0939,0.19,0.0539,0.0101,0.78,0.0,0.0501,0.74,0.0,0.1713,0.81,0.0,0.0979
 claude_sjt_claude_persona,handmade_sjt_gpt_persona,0.2,0.0364,0.0361,0.37,0.0,0.0933,0.23,0.0099,0.0084,0.8,0.0,0.0478,0.7,0.0,0.1548,0.75,0.0,0.0868
 claude_sjt_gpt_persona,gpt_sjt_claude_persona,0.34,0.0,0.0835,0.33,0.0,0.0992,0.49,0.0,0.0243,0.59,0.0,0.0323,0.68,0.0,0.1255,0.17,0.1112,0.0204
+claude_sjt_gpt_persona,gpt_sjt_gpt_persona,0.25,0.0037,0.0593,0.31,0.0001,0.0908,0.64,0.0,0.0305,0.55,0.0,0.0332,0.53,0.0,0.0821,0.2,0.0364,0.0201
 claude_sjt_gpt_persona,handmade_sjt_claude_persona,0.24,0.0061,0.0552,0.36,0.0,0.1203,0.25,0.0037,0.0099,0.83,0.0,0.0489,0.78,0.0,0.1964,0.78,0.0,0.0836
 claude_sjt_gpt_persona,handmade_sjt_gpt_persona,0.25,0.0037,0.047,0.42,0.0,0.1196,0.21,0.0241,0.0087,0.85,0.0,0.0475,0.75,0.0,0.1799,0.73,0.0,0.0725
+gpt_sjt_claude_persona,gpt_sjt_gpt_persona,0.2,0.0364,0.0247,0.09,0.8154,0.014,0.15,0.2112,0.0064,0.15,0.2112,0.0066,0.35,0.0,0.0434,0.1,0.7021,0.0062
 gpt_sjt_claude_persona,handmade_sjt_claude_persona,0.32,0.0001,0.0356,0.12,0.4695,0.0221,0.46,0.0,0.016,0.54,0.0,0.0207,0.46,0.0,0.0718,0.88,0.0,0.0852
 gpt_sjt_claude_persona,handmade_sjt_gpt_persona,0.32,0.0001,0.0437,0.17,0.1112,0.022,0.5,0.0,0.018,0.56,0.0,0.0182,0.38,0.0,0.0545,0.84,0.0,0.0741
+gpt_sjt_gpt_persona,handmade_sjt_claude_persona,0.18,0.0782,0.0129,0.13,0.3682,0.0294,0.61,0.0,0.022,0.49,0.0,0.019,0.6,0.0,0.1143,0.87,0.0,0.0899
+gpt_sjt_gpt_persona,handmade_sjt_gpt_persona,0.17,0.1112,0.0203,0.14,0.2819,0.0287,0.65,0.0,0.0241,0.51,0.0,0.0178,0.55,0.0,0.0978,0.83,0.0,0.0789
 handmade_sjt_claude_persona,handmade_sjt_gpt_persona,0.1,0.7021,0.0104,0.06,0.9942,0.0127,0.08,0.9084,0.0029,0.1,0.7021,0.0049,0.1,0.7021,0.0176,0.16,0.1548,0.0111
