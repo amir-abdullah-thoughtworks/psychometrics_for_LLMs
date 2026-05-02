@@ -98,6 +98,8 @@ annotated (30)  ← hand-annotated, not a strict subset of any config
 |---|---|---|---|
 | `police_sjt` | 3,008,000 | Qwen/Qwen2.5-7B-Instruct | 3008 expanded personas × SJT items × 5 iters |
 | `default` | 1,564,160 | Qwen/Qwen2.5-7B-Instruct | AdvBench responses |
+| `analysis_sjt` | 750,000 | Qwen/Qwen2.5-7B-Instruct | 500 analysis personas × 300 analysis SJTs × 5 iters. Primary experiment set. |
+| `cmp_openai_personas_analysis_sjt` | 150,000 | Qwen/Qwen2.5-7B-Instruct | 100 OpenAI comparison personas × 300 analysis SJTs × 5 iters |
 | `claude_persona_gpt_sjt` | 50,000 | Qwen/Qwen2.5-7B-Instruct | OpenAI personas × Claude SJTs |
 | `gpt_persona_claude_sjt` | 50,000 | Qwen/Qwen2.5-7B-Instruct | OpenAI personas × Claude SJTs |
 | `cmp_openai_personas_cmp_openai_sjts` | 50,000 | Qwen/Qwen2.5-7B-Instruct | OpenAI comparison personas × OpenAI comparison SJTs × 5 iters |
