@@ -37,18 +37,33 @@ class WithOutSeedOutputFormat(BaseModel):
     confidence: float
     justification: str 
     
+_HEXACO_VALUES_SCHEMA = {
+    "type": "object",
+    "title": "Values",
+    "properties": {
+        "Honesty-Humility": {"type": "number"},
+        "Emotionality": {"type": "number"},
+        "Extraversion": {"type": "number"},
+        "Agreeableness": {"type": "number"},
+        "Conscientiousness": {"type": "number"},
+        "Openness to Experience": {"type": "number"},
+    },
+    "required": ["Honesty-Humility", "Emotionality", "Extraversion", "Agreeableness", "Conscientiousness", "Openness to Experience"],
+    "additionalProperties": False,
+}
+
 class HexacoWithOutSeedOutputFormat(BaseModel):
-    values: dict
+    values: dict = Field(json_schema_extra=_HEXACO_VALUES_SCHEMA)
     confidence: float
     justification: str
-    
+
 class HexacoResponse(BaseModel):
     first_option: HexacoWithOutSeedOutputFormat
     second_option: HexacoWithOutSeedOutputFormat
     third_option: HexacoWithOutSeedOutputFormat
     fourth_option: HexacoWithOutSeedOutputFormat
     fifth_option: HexacoWithOutSeedOutputFormat
-    sixt_option: HexacoWithOutSeedOutputFormat
+    sixth_option: HexacoWithOutSeedOutputFormat
 
 class SjtLLMWithSeedsJudge(BaseModel):
     scenario_realism: WithSeedOutputFormat
