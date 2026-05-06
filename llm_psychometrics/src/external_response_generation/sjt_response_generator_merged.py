@@ -727,13 +727,13 @@ def parse_args() -> argparse.Namespace:
         "--persona-source",
         type=str,
         choices=["hf", "base_model", "personallm_paper"],
-        default="hf",
+        default="personallm_paper",
     )
 
     p.add_argument(
         "--hf-persona-path", type=str, default="thoughtworks/psychometric_personas"
     )
-    p.add_argument("--hf-persona-config", type=str, default="comparison_anthropic")
+    p.add_argument("--hf-persona-config", type=str, default="comparison_openai")
     p.add_argument("--hf-persona-split", type=str, default="train")
 
     p.add_argument(
@@ -764,7 +764,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--target-hub-config",
         type=str,
-        default="cmp_anthropic_personas_cmp_anthropic_sjts",
+        default="personallm_persona_cmp_anthropic_sjts",
     )
     p.add_argument("--target-hub-split", type=str, default="train")
 
