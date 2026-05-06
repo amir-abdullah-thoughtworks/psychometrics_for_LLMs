@@ -43,6 +43,7 @@ dependencies = [
     "datasets>=4.8.5",
     "pingouin>=0.6.1",
     "matplotlib>=3.10.9",
+    "umap-learn>=0.5.12",
 ]
 
 

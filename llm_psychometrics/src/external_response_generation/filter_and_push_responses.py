@@ -26,7 +26,7 @@ FILTER_PERSONA_ID_COL = "uuid"  # column in the persona dataset holding the IDs
 FILTER_SJT_HF_PATH = "thoughtworks/psychometric_sjts_analysis"
 FILTER_SJT_HF_CONFIG = "comparison_openai"
 FILTER_SJT_HF_SPLIT = "train"
-FILTER_SJT_HASH_COL = "question_hash"  # column in the SJT dataset holding the hashes
+FILTER_SJT_HASH_COL = "hash_id"  # column in the SJT dataset holding the hashes
 
 # Target dataset to push the filtered responses into
 TARGET_HF_PATH = "thoughtworks/psychometric_personas_responses"
