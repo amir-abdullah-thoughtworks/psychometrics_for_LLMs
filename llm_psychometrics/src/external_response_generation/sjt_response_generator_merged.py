@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
-os.environ["HF_HOME"] = "/workspace/mounted/.cache"
+os.environ.setdefault("HF_HOME", os.path.expanduser("~/.cache/huggingface"))
 import transformers
 from datasets import Dataset, DatasetDict, load_dataset
 from huggingface_hub import login
@@ -462,7 +462,8 @@ class SJTResponseRunner:
                 guided_choices=SJT_ANSWER_CHOICES,
                 default_guided_choice=SJT_ANSWER_CHOICES[0],
                 cache_enabled=True,
-                cache_type="diskcache",
+                cache_dir=os.path.join(os.path.expanduser("~"), ".cache", "sjt_vllm_cache"),
+                cache_type='diskcache'
             )
 
             # Normalize / record
