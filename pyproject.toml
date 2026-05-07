@@ -39,7 +39,11 @@ dependencies = [
     "typing-extensions (==4.14.0)",
     "urllib3 (==2.4.0)",
     "openai (==1.88.0)",
-    "pandas (==2.3.0)"
+    "pandas (==2.3.0)",
+    "datasets>=4.8.5",
+    "pingouin>=0.6.1",
+    "matplotlib>=3.10.9",
+    "umap-learn>=0.5.12",
 ]
 
 

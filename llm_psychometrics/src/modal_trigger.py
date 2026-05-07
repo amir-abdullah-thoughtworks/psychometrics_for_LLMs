@@ -1,6 +1,4 @@
 import os
-import tempfile
-import zipfile
 from pathlib import Path
 
 import modal
@@ -16,7 +14,7 @@ vllm_image = (
         "flashinfer-python==0.3.1",
         "torch==2.8.0",
         "datasets==3.6.0",
-        "anthropic==0.75.0"
+        "anthropic==0.75.0",
     )
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})  # faster model transfers
     .add_local_dir(".", "/root/my_project")
@@ -38,6 +36,7 @@ image = (
         "sentence-transformers",
         "torch",
         "kaleido",
+        "anthropic==0.75.0",
         "ipdb",
     )
     .add_local_dir(".", "/root/my_project")
@@ -66,10 +65,14 @@ volume = modal.Volume.from_name("my-outputs", create_if_missing=True)
 #             return f.read()
 
 
-
-@app.function(image=vllm_image, gpu="A100", timeout=86400, volumes={"/outputs": volume},secrets=[modal.Secret.from_name("LLMPsychometrics")])
+@app.function(
+    image=vllm_image,
+    gpu="A100",
+    timeout=86400,
+    volumes={"/outputs": volume},
+    secrets=[modal.Secret.from_name("LLMPsychometrics")],
+)
 def run_my_script():
-    import os
     import sys
 
     # Add the project directory to Python path
@@ -80,8 +83,8 @@ def run_my_script():
     print(os.listdir())
     os.chdir("/root/my_project")
     sys.path.append(str(Path(__file__).parent))
-    # from external_response_generation.sjt_response_generator_merged import main
-    from external_response_generation.hexaco_response_generator import main
+    from external_response_generation.sjt_response_generator_merged import main
+    # from external_response_generation.emo_bench_qa import main
 
     main()
 

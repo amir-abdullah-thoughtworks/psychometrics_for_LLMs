@@ -28,24 +28,24 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 
 os.environ.setdefault("HF_HOME", os.path.expanduser("~/.cache/huggingface"))
 import transformers
-from transformers import AutoTokenizer
 from datasets import Dataset, DatasetDict, load_dataset
 from huggingface_hub import login
 from jinja2 import Template
-from pydantic import BaseModel, RootModel, Field
+from prompt_templates.sjt_base_prompt_templates import sjt_base_prompt_templates
+from prompt_templates.sjt_persona_prompt_templates import sjt_persona_prompt_templates
+from pydantic import BaseModel, Field, RootModel
 from tqdm import tqdm
+from transformers import AutoTokenizer
+from utils.vllm_utils import VLLMServerManager
 
 # --- Custom imports (keep as-is in your repo) ---
 from utils_v0 import list_to_str
-from prompt_templates.sjt_base_prompt_templates import sjt_base_prompt_templates
-from prompt_templates.sjt_persona_prompt_templates import sjt_persona_prompt_templates
-from utils.vllm_utils import VLLMServerManager
-
 
 
 class StructuredCOTResponse(BaseModel):
     reasoning: str = Field(description="Step-by-step logic to reach the answer")
     answer: list
+
 
 # =========================
 # Constants
@@ -65,6 +65,7 @@ DEFAULT_ANSWER_OPTION_ORDERING: List[str] = [
 # =========================
 # Models
 # =========================
+
 
 class PersonaRunConfig(BaseModel):
     persona: str
@@ -105,6 +106,7 @@ class ExperimentResults(RootModel[Dict[str, PersonaRunConfig]]):
     """
     persona_uuid (or 'base_model') -> PersonaRunConfig
     """
+
     def to_jsonable(self) -> Dict[str, Any]:
         return {k: v.model_dump() for k, v in self.root.items()}
 
@@ -113,8 +115,10 @@ class ExperimentResults(RootModel[Dict[str, PersonaRunConfig]]):
 # Prompt helpers
 # =========================
 
+
 def stable_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
 
 def prompt_seed_int(*parts: str, salt: str = "sjt_shuffle_v1") -> int:
     """
@@ -129,8 +133,15 @@ def prompt_seed_int(*parts: str, salt: str = "sjt_shuffle_v1") -> int:
 def compile_message_templates(messages: List[Dict[str, str]]) -> List[Dict[str, Any]]:
     return [{"role": m["role"], "content": Template(m["content"])} for m in messages]
 
-def render_messages(compiled_messages: List[Dict[str, Any]], **kwargs) -> List[Dict[str, str]]:
-    return [{"role": m["role"], "content": m["content"].render(**kwargs)} for m in compiled_messages]
+
+def render_messages(
+    compiled_messages: List[Dict[str, Any]], **kwargs
+) -> List[Dict[str, str]]:
+    return [
+        {"role": m["role"], "content": m["content"].render(**kwargs)}
+        for m in compiled_messages
+    ]
+
 
 def messages_to_prompt_text(messages: List[Dict[str, str]]) -> str:
     lines: List[str] = []
@@ -141,11 +152,13 @@ def messages_to_prompt_text(messages: List[Dict[str, str]]) -> str:
     lines.append("ASSISTANT:\n")
     return "\n\n".join(lines)
 
+
 def validate_prompt_text(prompt: str, where: str) -> None:
     if "{{" in prompt or "}}" in prompt:
         raise ValueError(f"[{where}] Prompt still contains Jinja tokens.")
     if not prompt.strip():
         raise ValueError(f"[{where}] Prompt is empty after rendering.")
+
 
 def normalize_answer_to_trait(
     answer: str,
@@ -158,7 +171,9 @@ def normalize_answer_to_trait(
     a = str((answer or "").strip())[0]
     try:
         if a not in SJT_ANSWER_CHOICES:
-            raise ValueError(f"Invalid answer choice: {a}, {a} not {SJT_ANSWER_CHOICES}")
+            raise ValueError(
+                f"Invalid answer choice: {a}, {a} not {SJT_ANSWER_CHOICES}"
+            )
         displayed_idx = int(a) - 1
         if not (0 <= displayed_idx < 6):
             raise ValueError(f"Invalid answer displayed index: {displayed_idx}")
@@ -174,6 +189,7 @@ def normalize_answer_to_trait(
 # SJT row normalization
 # =========================
 
+
 @dataclass(frozen=True)
 class SJTSpec:
     idx: int
@@ -182,11 +198,13 @@ class SJTSpec:
     options_canonical: List[str]  # length 6, in DEFAULT_ANSWER_OPTION_ORDERING order
     corrected_sjt: Dict[str, Any]
 
+
 def normalize_sjt_row(row: Dict[str, Any]) -> Dict[str, Any]:
     sjt = row.get("corrected_sjt") or row.get("sjt") or row
     if not isinstance(sjt, dict):
         raise ValueError(f"SJT row missing dict payload. Keys: {list(row.keys())}")
     return sjt
+
 
 def extract_sjt_spec(row: Dict[str, Any], idx: int) -> SJTSpec:
     sjt = normalize_sjt_row(row)
@@ -197,7 +215,9 @@ def extract_sjt_spec(row: Dict[str, Any], idx: int) -> SJTSpec:
     options: List[str] = []
     for k in DEFAULT_ANSWER_OPTION_ORDERING:
         if k not in sjt:
-            raise ValueError(f"SJT payload missing option key '{k}'. Keys: {list(sjt.keys())}")
+            raise ValueError(
+                f"SJT payload missing option key '{k}'. Keys: {list(sjt.keys())}"
+            )
         options.append(sjt[k])
 
     hash_id = row["hash_id"]
@@ -215,22 +235,21 @@ def extract_sjt_spec(row: Dict[str, Any], idx: int) -> SJTSpec:
 # Hub push helpers
 # =========================
 
+
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
 
 def build_source_meta(args: argparse.Namespace) -> Dict[str, Any]:
     return {
         "debug": bool(args.debug),
         "persona_source": getattr(args, "persona_source", None),
-
         "hf_persona_path": getattr(args, "hf_persona_path", None),
         "hf_persona_config": getattr(args, "hf_persona_config", None),
         "hf_persona_split": getattr(args, "hf_persona_split", None),
-
         "hf_sjt_path": getattr(args, "hf_sjt_path", None),
         "hf_sjt_config": getattr(args, "hf_sjt_config", None),
         "hf_sjt_split": getattr(args, "hf_sjt_split", None),
-
         "template_key": getattr(args, "template_key", None),
         "use_persona_template": bool(getattr(args, "use_persona_template", False)),
         "answer_shuffle": bool(getattr(args, "answer_shuffle", False)),
@@ -241,7 +260,10 @@ def build_source_meta(args: argparse.Namespace) -> Dict[str, Any]:
         "top_p": float(getattr(args, "top_p", 0.9)),
     }
 
-def flatten_results_for_hub(exp: ExperimentResults, source_meta: Dict[str, Any]) -> List[Dict[str, Any]]:
+
+def flatten_results_for_hub(
+    exp: ExperimentResults, source_meta: Dict[str, Any]
+) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
     for persona_uuid, cfg in exp.root.items():
         d = cfg.model_dump()
@@ -254,21 +276,24 @@ def flatten_results_for_hub(exp: ExperimentResults, source_meta: Dict[str, Any])
 
         for t in range(len(answers)):
             for qi in range(len(q_hashes)):
-                rows.append({
-                    "persona_uuid": persona_uuid,
-                    "persona_hash": d["persona_hash"],
-                    "iter": t,
-                    "question_hash": q_hashes[qi],
-                    "answer": answers[t][qi],
-                    "normalized_answer": normalized[t][qi],
-                    "answer_index": ans_idx[t][qi],
-                    "raw_prompt": raw_prompts[t][qi],
-                    "guided_choices": guided_choices[t][qi],
-                    "model_name": d["model_name"],
-                    "run_timestamp_utc": _utc_now_iso(),
-                    **source_meta,
-                })
+                rows.append(
+                    {
+                        "persona_uuid": persona_uuid,
+                        "persona_hash": d["persona_hash"],
+                        "iter": t,
+                        "question_hash": q_hashes[qi],
+                        "answer": answers[t][qi],
+                        "normalized_answer": normalized[t][qi],
+                        "answer_index": ans_idx[t][qi],
+                        "raw_prompt": raw_prompts[t][qi],
+                        "guided_choices": guided_choices[t][qi],
+                        "model_name": d["model_name"],
+                        "run_timestamp_utc": _utc_now_iso(),
+                        **source_meta,
+                    }
+                )
     return rows
+
 
 def push_results_to_hub(exp: ExperimentResults, args: argparse.Namespace) -> None:
     source_meta = build_source_meta(args)
@@ -288,7 +313,9 @@ def push_results_to_hub(exp: ExperimentResults, args: argparse.Namespace) -> Non
             "unique_questions": len(set(ds["question_hash"])) if len(ds) else 0,
         },
     }
-    dsd[args.target_hub_split].info.description = json.dumps(desc, indent=2, sort_keys=True)
+    dsd[args.target_hub_split].info.description = json.dumps(
+        desc, indent=2, sort_keys=True
+    )
 
     dsd.push_to_hub(
         repo_id=args.target_hub_repo_id,
@@ -300,8 +327,11 @@ def push_results_to_hub(exp: ExperimentResults, args: argparse.Namespace) -> Non
 # Runner
 # =========================
 
+
 class SJTResponseRunner:
-    def __init__(self, args: argparse.Namespace, mgr: VLLMServerManager, persona_max_tokens=1150):
+    def __init__(
+        self, args: argparse.Namespace, mgr: VLLMServerManager, persona_max_tokens=1150
+    ):
         self.args = args
         self.mgr = mgr
 
@@ -314,14 +344,15 @@ class SJTResponseRunner:
             trust_remote_code=True,  # Qwen tokenizers sometimes need this
         )
 
-
         # Templates
         base_msgs = sjt_base_prompt_templates[self.args.template_key]
         persona_msgs = sjt_persona_prompt_templates[self.args.template_key]
         chosen = persona_msgs if self.args.use_persona_template else base_msgs
         self.compiled_templates = compile_message_templates(chosen)
 
-    def _truncate_persona_to_tokens(self, persona_str: str) -> Tuple[str, bool, int, int]:
+    def _truncate_persona_to_tokens(
+        self, persona_str: str
+    ) -> Tuple[str, bool, int, int]:
         """
         Returns: (possibly_truncated_persona, was_truncated, orig_tokens, new_tokens)
         Truncates to self.persona_max_tokens using the model tokenizer.
@@ -342,18 +373,20 @@ class SJTResponseRunner:
         return truncated, True, orig_n, len(ids)
 
     def _make_shuffled_options(
-            self, canonical_options: List[str],
-            *, seed: Optional[int] = None,
+        self,
+        canonical_options: List[str],
+        *,
+        seed: Optional[int] = None,
     ) -> Tuple[List[str], List[int]]:
         """
         Returns:
           displayed_options: List[str] length 6 (possibly shuffled)
           permutation: List[int] length 6 mapping displayed position -> canonical index
         """
-        
+
         if not self.args.answer_shuffle:
             return canonical_options[:], list(range(6))
-        
+
         perm = list(range(6))
         rng = random.Random(seed) if seed is not None else random
         rng.shuffle(perm)
@@ -375,7 +408,9 @@ class SJTResponseRunner:
             sjt=sjt.corrected_sjt,
         )
         prompt = messages_to_prompt_text(rendered)
-        validate_prompt_text(prompt, where=f"persona={persona_str is not None} sjt={sjt.idx}")
+        validate_prompt_text(
+            prompt, where=f"persona={persona_str is not None} sjt={sjt.idx}"
+        )
         return prompt
 
     def _run_one_persona(
@@ -403,12 +438,18 @@ class SJTResponseRunner:
                 seed = prompt_seed_int(
                     str(persona_hash or persona_uuid or "base_model"),
                     str(sjt.hash_id),
-                    str(t)
+                    str(t),
                 )
-                displayed, perm = self._make_shuffled_options(sjt.options_canonical, seed=seed)
+                displayed, perm = self._make_shuffled_options(
+                    sjt.options_canonical, seed=seed
+                )
                 displayed_options_list.append(displayed)
                 perms.append(perm)
-                prompts.append(self._build_prompt(persona_str=persona_str, sjt=sjt, displayed_options=displayed))
+                prompts.append(
+                    self._build_prompt(
+                        persona_str=persona_str, sjt=sjt, displayed_options=displayed
+                    )
+                )
 
             outputs = self.mgr.vllm_chat_batched(
                 prompts=prompts,
@@ -419,6 +460,7 @@ class SJTResponseRunner:
                 batch_size=self.args.batch_size,
                 num_workers=self.args.num_workers,
                 guided_choices=SJT_ANSWER_CHOICES,
+                default_guided_choice=SJT_ANSWER_CHOICES[0],
                 cache_enabled=True,
                 cache_dir=os.path.join(os.path.expanduser("~"), ".cache", "sjt_vllm_cache"),
                 cache_type='diskcache'
@@ -480,17 +522,18 @@ class SJTResponseRunner:
 
         # --- Load SJT dataset
         if self.args.hf_sjt_config:
-            sjt_ds = load_dataset(self.args.hf_sjt_path, name=self.args.hf_sjt_config)[self.args.hf_sjt_split]
+            sjt_ds = load_dataset(self.args.hf_sjt_path, name=self.args.hf_sjt_config)[
+                self.args.hf_sjt_split
+            ]
         else:
             sjt_ds = load_dataset(self.args.hf_sjt_path)[self.args.hf_sjt_split]
-        
-        
+
         # Select SJTs: debug => sample; no-debug => ALL
         if self.args.debug:
             sjt_count = min(self.args.n_sjtsample, len(sjt_ds))
         else:
             sjt_count = len(sjt_ds)
-        
+
         print(f"Loaded {sjt_count} SJTs")
 
         sjts: List[SJTSpec] = [extract_sjt_spec(sjt_ds[i], i) for i in range(sjt_count)]
@@ -498,24 +541,103 @@ class SJTResponseRunner:
         # Base-model mode (no personas)
         if self.args.persona_source == "base_model":
             print("Running SJTs on Base Model without Personas")
-            results["base_model"] = self._run_one_persona("base_model", None, None, sjts)
+            total_responses = sjt_count * self.args.n_times
+            print(
+                f"Total responses to generate: 1 (base model) x {sjt_count} SJTs x {self.args.n_times} iterations = {total_responses}"
+            )
+            results["base_model"] = self._run_one_persona(
+                "base_model", None, None, sjts
+            )
             return ExperimentResults(results)
 
-        # Persona mode
+        # PersonaLLM paper mode
+        if self.args.persona_source == "personallm_paper":
+            print("Using Persona LLM Paper Personas")
+            with open(self.args.personallm_paper_path, "r", encoding="utf-8") as f:
+                persona_datasets_total = json.load(f)
+
+            rng = random.Random(42)
+            if self.args.debug:
+                persona_count = min(
+                    self.args.n_personasample, len(persona_datasets_total)
+                )
+            else:
+                persona_count = len(persona_datasets_total)
+
+            persona_datasets = rng.sample(persona_datasets_total, persona_count)
+            print(f"Loaded {persona_count} Personas")
+            total_responses = persona_count * sjt_count * self.args.n_times
+            print(
+                f"Total responses to generate: {persona_count} personas x {sjt_count} SJTs x {self.args.n_times} iterations = {total_responses}"
+            )
+
+            truncated_count = 0
+            for i, persona_row in enumerate(tqdm(persona_datasets, desc="Personas")):
+                persona_uuid = (
+                    persona_row.get("uuid")
+                    or persona_row.get("persona_uuid")
+                    or persona_row.get("id")
+                    or f"persona_{i}"
+                )
+                persona_hash = persona_row.get("persona_hash")
+                persona_str = (
+                    persona_row.get("persona_string")
+                    or persona_row.get("attributes")
+                    or persona_row.get("persona")
+                    or json.dumps(persona_row)
+                )
+
+                persona_str = str(persona_str)
+                persona_str, was_trunc, orig_n, new_n = (
+                    self._truncate_persona_to_tokens(persona_str)
+                )
+                if was_trunc:
+                    truncated_count += 1
+                    if truncated_count <= 5:
+                        print(
+                            f"[persona trunc] {persona_uuid}: {orig_n} -> {new_n} tokens"
+                        )
+                    elif truncated_count == 6:
+                        print(
+                            "[persona trunc] ... (suppressing further truncation logs)"
+                        )
+
+                results[str(persona_uuid)] = self._run_one_persona(
+                    str(persona_uuid), persona_hash, persona_str, sjts
+                )
+
+            if truncated_count:
+                print(
+                    f"[persona trunc] total personas truncated: {truncated_count}/{persona_count}"
+                )
+            else:
+                print("[persona trunc] no personas exceeded 1150 tokens")
+
+            return ExperimentResults(results)
+
+        # HF persona mode
         if not self.args.hf_persona_path:
             raise ValueError("persona_source=hf requires --hf-persona-path")
 
         if self.args.hf_persona_config:
-            persona_ds = load_dataset(self.args.hf_persona_path, name=self.args.hf_persona_config)[self.args.hf_persona_split]
+            persona_ds = load_dataset(
+                self.args.hf_persona_path, name=self.args.hf_persona_config
+            )[self.args.hf_persona_split]
         else:
-            persona_ds = load_dataset(self.args.hf_persona_path)[self.args.hf_persona_split]
+            persona_ds = load_dataset(self.args.hf_persona_path)[
+                self.args.hf_persona_split
+            ]
 
         if self.args.debug:
             persona_count = min(self.args.n_personasample, len(persona_ds))
         else:
             persona_count = len(persona_ds)
-            
+
         print(f"Loaded {persona_count} Personas")
+        total_responses = persona_count * sjt_count * self.args.n_times
+        print(
+            f"Total responses to generate: {persona_count} personas x {sjt_count} SJTs x {self.args.n_times} iterations = {total_responses}"
+        )
 
         truncated_count = 0
 
@@ -528,14 +650,22 @@ class SJTResponseRunner:
                 or f"persona_{i}"
             )
             persona_hash = persona_row.get("persona_hash")
-            persona_str = persona_row.get("persona_string") or persona_row.get("attributes") or persona_row.get("persona")
+            persona_str = (
+                persona_row.get("persona_string")
+                or persona_row.get("attributes")
+                or persona_row.get("persona")
+            )
 
             if persona_str is None:
-                raise ValueError(f"Persona row missing persona_string/attributes/persona. Keys={list(persona_row.keys())}")
+                raise ValueError(
+                    f"Persona row missing persona_string/attributes/persona. Keys={list(persona_row.keys())}"
+                )
 
             # ✅ HARD ENFORCE: truncate persona to 1150 tokens (Qwen tokenizer)
             persona_str = str(persona_str)
-            persona_str, was_trunc, orig_n, new_n = self._truncate_persona_to_tokens(persona_str)
+            persona_str, was_trunc, orig_n, new_n = self._truncate_persona_to_tokens(
+                persona_str
+            )
             if was_trunc:
                 truncated_count += 1
                 # keep log lightweight but informative
@@ -544,10 +674,14 @@ class SJTResponseRunner:
                 elif truncated_count == 6:
                     print("[persona trunc] ... (suppressing further truncation logs)")
 
-            results[str(persona_uuid)] = self._run_one_persona(str(persona_uuid), persona_hash, persona_str, sjts)
+            results[str(persona_uuid)] = self._run_one_persona(
+                str(persona_uuid), persona_hash, persona_str, sjts
+            )
 
         if truncated_count:
-            print(f"[persona trunc] total personas truncated: {truncated_count}/{persona_count}")
+            print(
+                f"[persona trunc] total personas truncated: {truncated_count}/{persona_count}"
+            )
         else:
             print("[persona trunc] no personas exceeded 1150 tokens")
 
@@ -558,12 +692,14 @@ class SJTResponseRunner:
 # CLI / main
 # =========================
 
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
 
     # vLLM settings
-    # p.add_argument("--model", type=str, default="Qwen/Qwen3-4B-Instruct-2507")
-    p.add_argument("--model", type=str, default="google/gemma-3-4b-it")
+
+    # model options : google/gemma-3-4b-it, Qwen/Qwen2.5-7B-Instruct
+    p.add_argument("--model", type=str, default="Qwen/Qwen2.5-7B-Instruct")
     p.add_argument("--max-tokens", type=int, default=1)
     p.add_argument("--temperature", type=float, default=0.3)
     p.add_argument("--top-p", type=float, default=0.9)
@@ -572,8 +708,12 @@ def parse_args() -> argparse.Namespace:
 
     # Templates / SJT behavior
     p.add_argument("--template-key", type=str, default="gpt")
-    p.add_argument("--use-persona-template", action=argparse.BooleanOptionalAction, default=True)
-    p.add_argument("--answer-shuffle", action=argparse.BooleanOptionalAction, default=True)
+    p.add_argument(
+        "--use-persona-template", action=argparse.BooleanOptionalAction, default=True
+    )
+    p.add_argument(
+        "--answer-shuffle", action=argparse.BooleanOptionalAction, default=True
+    )
 
     # Experiment sizing
     p.add_argument("--n-times", type=int, default=5)
@@ -584,15 +724,31 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--debug", action=argparse.BooleanOptionalAction, default=False)
 
     # Persona source
-    p.add_argument("--persona-source", type=str, choices=["hf", "base_model"], default="hf")
+    p.add_argument(
+        "--persona-source",
+        type=str,
+        choices=["hf", "base_model", "personallm_paper"],
+        default="personallm_paper",
+    )
 
-    p.add_argument("--hf-persona-path", type=str, default="thoughtworks/psychometric_personas")
-    p.add_argument("--hf-persona-config", type=str, default="analysis")
+    p.add_argument(
+        "--hf-persona-path", type=str, default="thoughtworks/psychometric_personas"
+    )
+    p.add_argument("--hf-persona-config", type=str, default="comparison_openai")
     p.add_argument("--hf-persona-split", type=str, default="train")
 
+    p.add_argument(
+        "--personallm-paper-path",
+        type=str,
+        default="persona_llm_paper_seed_combinations.json",
+        help="Path to persona_llm_paper_seed_combinations.json (personallm_paper source).",
+    )
+
     # SJT dataset
-    p.add_argument("--hf-sjt-path", type=str, default="thoughtworks/psychometric_sjts_analysis")
-    p.add_argument("--hf-sjt-config", type=str, default="analysis")
+    p.add_argument(
+        "--hf-sjt-path", type=str, default="thoughtworks/psychometric_sjts_analysis"
+    )
+    p.add_argument("--hf-sjt-config", type=str, default="comparison_anthropic")
     p.add_argument("--hf-sjt-split", type=str, default="train")
 
     # Output
@@ -600,11 +756,35 @@ def parse_args() -> argparse.Namespace:
 
     # Hub push (only in no-debug)
     p.add_argument("--push-to-hub", action=argparse.BooleanOptionalAction, default=True)
-    p.add_argument("--target-hub-repo-id", type=str, default="thoughtworks/gemma_psychometrics_personas_responses")
-    p.add_argument("--target-hub-config", type=str, default="analysis_base")
+    p.add_argument(
+        "--target-hub-repo-id",
+        type=str,
+        default=None,
+        help="Target HF repo. Auto-selected by model family if not set.",
+    )
+    p.add_argument(
+        "--target-hub-config",
+        type=str,
+        default="personallm_persona_cmp_anthropic_sjts",
+    )
     p.add_argument("--target-hub-split", type=str, default="train")
 
     args = p.parse_args()
+
+    # Auto-select target repo based on model family when not explicitly provided
+    if args.target_hub_repo_id is None:
+        model_lower = args.model.lower()
+        if "qwen" in model_lower:
+            args.target_hub_repo_id = "thoughtworks/psychometric_personas_responses"
+        elif "gemma" in model_lower:
+            args.target_hub_repo_id = (
+                "thoughtworks/gemma_psychometrics_personas_responses"
+            )
+        else:
+            raise ValueError(
+                f"Cannot auto-select a target HF repo for model '{args.model}'. "
+                "Please pass --target-hub-repo-id explicitly."
+            )
 
     # Debug-mode overrides (exactly as you described)
     if args.debug:
@@ -615,16 +795,53 @@ def parse_args() -> argparse.Namespace:
 
     return args
 
+
 def main() -> None:
     args = parse_args()
 
     os.makedirs(os.path.dirname(args.out_json) or ".", exist_ok=True)
-    
+
     hf_token = os.getenv("HF_TOKEN")
     if hf_token:
         login(token=hf_token)
     else:
-        print("HF_TOKEN environment variable not set. Using other authentication methods or running anonymously.")
+        print(
+            "HF_TOKEN environment variable not set. Using other authentication methods or running anonymously."
+        )
+
+    print("\n=== SJT Response Generation Config ===")
+    if args.persona_source == "base_model":
+        print("Mode:             Base Model (no personas)")
+        print(f"Model:            {args.model}")
+    elif args.persona_source == "personallm_paper":
+        print("Mode:             PersonaLLM Paper")
+        print(f"Model:            {args.model}")
+        print(f"Persona file:     {args.personallm_paper_path}")
+    else:
+        print("Mode:             Persona (HF)")
+        print(f"Model:            {args.model}")
+        print(f"Persona HF repo:  {args.hf_persona_path}")
+        print(f"Persona config:   {args.hf_persona_config}")
+        print(f"Persona split:    {args.hf_persona_split}")
+    print(f"SJT HF repo:      {args.hf_sjt_path}")
+    print(f"SJT config:       {args.hf_sjt_config}")
+    print(f"SJT split:        {args.hf_sjt_split}")
+    if args.push_to_hub:
+        print(f"Target repo:      {args.target_hub_repo_id}")
+        print(f"Target config:    {args.target_hub_config}")
+        print(f"Target split:     {args.target_hub_split}")
+    else:
+        print("Target repo:      (push disabled)")
+    print(f"Debug mode:       {args.debug}")
+    print("======================================\n")
+
+    # Delete stale log so each run starts with a clean file.
+    _vllm_log = "/outputs/vllm_server.log"
+    try:
+        os.remove(_vllm_log)
+        print(f"Deleted existing log: {_vllm_log}")
+    except FileNotFoundError:
+        pass
 
     # NOTE: assumes you already have a running vLLM OpenAI-compatible server,
     # and VLLMServerManager is configured to talk to it.
@@ -643,12 +860,13 @@ def main() -> None:
 
     # Push to hub only in no-debug mode
     if args.push_to_hub:
-        
-
         push_results_to_hub(results, args)
-        print(f"Pushed to hub -> {args.target_hub_repo_id} (config={args.target_hub_config})")
+        print(
+            f"Pushed to hub -> {args.target_hub_repo_id} (config={args.target_hub_config})"
+        )
     else:
         print("Skipping hub push (debug mode or push disabled).")
+
 
 if __name__ == "__main__":
     main()

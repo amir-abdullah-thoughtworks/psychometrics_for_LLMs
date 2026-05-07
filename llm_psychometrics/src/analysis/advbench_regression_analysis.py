@@ -371,37 +371,37 @@ top_10_percent_x_test = X_test_c.head(int(X_test_c.shape[0] * 0.1))
 print("Overall predicted median:", y_pred.median())
 print("Top 10% true refusal rate median:", top_10_percent_x_test["true_target_refusal_rate"].median())
 
-# ── Section: Filtered Trait SJT Regression ────────────────────────────────────
-print("\n=== High Threat SJT Regression ===")
-high_threat_sjt_trait_df = pd.read_csv(
-    os.path.join(FACTOR_ANALYSIS_DATA_DIR, "filtered_trait", "high_threat_sjt_df")
-)
-high_threat_sjt_trait_df.columns = [
-    "uuid",
-    "honesty_humility_sjt_score",
-    "emotionality_sjt_score",
-    "extraversion_sjt_score",
-    "agreeableness_sjt_score",
-    "conscientiousness_sjt_score",
-    "openness_sjt_score",
-]
-get_regression_analysis(
-    high_threat_sjt_trait_df, mean_refusal_rate_per_persona_df, single_prompt_df, SJT_COLS.copy()
-)
+# # ── Section: Filtered Trait SJT Regression ────────────────────────────────────
+# print("\n=== High Threat SJT Regression ===")
+# high_threat_sjt_trait_df = pd.read_csv(
+#     os.path.join(FACTOR_ANALYSIS_DATA_DIR, "filtered_trait", "high_threat_sjt_df")
+# )
+# high_threat_sjt_trait_df.columns = [
+#     "uuid",
+#     "honesty_humility_sjt_score",
+#     "emotionality_sjt_score",
+#     "extraversion_sjt_score",
+#     "agreeableness_sjt_score",
+#     "conscientiousness_sjt_score",
+#     "openness_sjt_score",
+# ]
+# get_regression_analysis(
+#     high_threat_sjt_trait_df, mean_refusal_rate_per_persona_df, single_prompt_df, SJT_COLS.copy()
+# )
 
-print("\n=== Female Gender SJT Regression ===")
-female_gender_trait_df = pd.read_csv(
-    os.path.join(FACTOR_ANALYSIS_DATA_DIR, "filtered_trait", "female_gender_sjt_df")
-)
-female_gender_trait_df.columns = [
-    "uuid",
-    "honesty_humility_sjt_score",
-    "emotionality_sjt_score",
-    "extraversion_sjt_score",
-    "agreeableness_sjt_score",
-    "conscientiousness_sjt_score",
-    "openness_sjt_score",
-]
-get_regression_analysis(
-    female_gender_trait_df, mean_refusal_rate_per_persona_df, single_prompt_df, SJT_COLS.copy()
-)
+# print("\n=== Female Gender SJT Regression ===")
+# female_gender_trait_df = pd.read_csv(
+#     os.path.join(FACTOR_ANALYSIS_DATA_DIR, "filtered_trait", "female_gender_sjt_df")
+# )
+# female_gender_trait_df.columns = [
+#     "uuid",
+#     "honesty_humility_sjt_score",
+#     "emotionality_sjt_score",
+#     "extraversion_sjt_score",
+#     "agreeableness_sjt_score",
+#     "conscientiousness_sjt_score",
+#     "openness_sjt_score",
+# ]
+# get_regression_analysis(
+#     female_gender_trait_df, mean_refusal_rate_per_persona_df, single_prompt_df, SJT_COLS.copy()
+# )

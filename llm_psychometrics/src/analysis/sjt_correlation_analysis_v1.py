@@ -168,7 +168,7 @@ for trait in trait_stats.columns:
     icc = pg.intraclass_corr(
         data=df_trait, targets="persona_uuid", raters="iter", ratings="score"
     )
-    icc2 = icc[icc["Type"] == "ICC2"]["ICC"].values[0]
+    icc2 = icc[icc["Type"] == "ICC(A,1)"]["ICC"].values[0]
     sjt_icc_results.append({"trait": trait, "ICC": icc2})
 sjt_icc_results = pd.DataFrame(sjt_icc_results)
 print("\nSJT ICC Results:")
@@ -389,7 +389,7 @@ for trait in hexaco_icc_trait_cols:
     icc = pg.intraclass_corr(
         data=df_trait, targets="persona_id", raters="iter", ratings="score"
     )
-    icc2 = icc[icc["Type"] == "ICC2"]["ICC"].values[0]
+    icc2 = icc[icc["Type"] == "ICC(A,1)"]["ICC"].values[0]
     hexaco_icc_results.append({"trait": trait, "ICC": icc2})
 hexaco_icc_results = pd.DataFrame(hexaco_icc_results)
 print("\nHEXACO ICC Results:")

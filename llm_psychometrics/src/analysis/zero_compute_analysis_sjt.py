@@ -123,7 +123,7 @@ def get_trait_distribution_df(file_dir, file_str):
         hf_persona_sjt_results = read_json(os.path.join(file_dir, filename))
         persona_sjt_str_answers_df = pd.DataFrame(
             [
-                {"persona_id": key, "answers": get_trait_distribution_v1(hf_persona_sjt_results[key])}
+                {"persona_id": key, "answers": get_trait_distribution(hf_persona_sjt_results[key])}
                 for key in hf_persona_sjt_results
             ]
         )

@@ -54,7 +54,7 @@ def compute_icc(stats_series: pd.Series) -> pd.DataFrame:
             raters="iter",
             ratings="score",
         )
-        icc2 = icc[icc["Type"] == "ICC2"]["ICC"].values[0]
+        icc2 = icc[icc["Type"] == "ICC(A,1)"]["ICC"].values[0]
         icc_results.append({"trait": trait, "ICC": icc2})
     return pd.DataFrame(icc_results)
 
@@ -332,16 +332,33 @@ persona_truthfulqa_rank = pd.merge(
     persona_truthfulqa_rank, personas[["uuid", "archetype"]], left_on="persona_uuid", right_on="uuid"
 )
 
+sjt_col_rename = {
+    "agreeableness_sjt": "agreeableness_option",
+    "conscientiousness_sjt": "conscientiousness_option",
+    "emotionality_sjt": "emotionality_option",
+    "extraversion_sjt": "extraversion_option",
+    "honesty_humility_sjt": "honesty_humility_option",
+    "openness_sjt": "openness_option",
+}
+hexaco_col_rename = {
+    "agreeableness_hexaco": "agreeableness",
+    "conscientiousness_hexaco": "conscientiousness",
+    "emotionality_hexaco": "emotionality",
+    "extraversion_hexaco": "extraversion",
+    "honest_humility_hexaco": "honest-humility",
+    "openness_hexaco": "openness to experience",
+}
+
 print("\n=== Z-Score by Archetype: SJT Scores ===")
 for archetype in ARCHETYPE_VALS:
     print(f"\n{archetype}")
-    archetype_df = persona_sjt_score[persona_sjt_score["archetype"] == archetype]
+    archetype_df = persona_sjt_score[persona_sjt_score["archetype"] == archetype].rename(columns=sjt_col_rename)
     print(get_z_score_summary_df(base_sjt_score, archetype_df, sjt_cols))
 
 print("\n=== Z-Score by Archetype: HEXACO Scores ===")
 for archetype in ARCHETYPE_VALS:
     print(f"\n{archetype}")
-    archetype_df = persona_hexaco_score[persona_hexaco_score["archetype"] == archetype]
+    archetype_df = persona_hexaco_score[persona_hexaco_score["archetype"] == archetype].rename(columns=hexaco_col_rename)
     print(get_z_score_summary_df(base_hexaco_score, archetype_df, hexaco_cols))
 
 print("\n=== Z-Score by Archetype: EmoBench ===")
