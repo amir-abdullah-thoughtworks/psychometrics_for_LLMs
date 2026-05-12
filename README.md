@@ -1,5 +1,7 @@
 # LLM Psychometrics
 
+[![arXiv](https://img.shields.io/badge/arXiv-2510.22170-b31b1b.svg)](https://arxiv.org/abs/2510.22170) &nbsp; [![HuggingFace](https://img.shields.io/badge/🤗%20HuggingFace-Dataset%20Collection-yellow)](https://huggingface.co/collections/thoughtworks/psychometrics-resources)
+
 A framework for running standardized psychometric tests against large language models to evaluate personality consistency, validity, and reliability. Models are tested both as a base (no persona) and while roleplaying synthetic personas drawn from a curated dataset.
 
 ## What it does
