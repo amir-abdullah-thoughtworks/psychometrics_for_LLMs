@@ -1,157 +1,128 @@
 # LLM Psychometrics
 
-[![arXiv](https://img.shields.io/badge/arXiv-2510.22170-b31b1b.svg)](https://arxiv.org/abs/2510.22170) &nbsp; [![HuggingFace](https://img.shields.io/badge/🤗%20HuggingFace-Dataset%20Collection-yellow)](https://huggingface.co/collections/thoughtworks/psychometrics-resources)
+[![arXiv](https://img.shields.io/badge/arXiv-2510.22170-b31b1b.svg)](https://arxiv.org/abs/2510.22170) &nbsp; [![HuggingFace](https://img.shields.io/badge/🤗%20HuggingFace-Dataset%20Collection-yellow)](https://huggingface.co/collections/thoughtworks/psychometrics-resources) &nbsp; [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](.python-version)
 
-A framework for running standardized psychometric tests against large language models to evaluate personality consistency, validity, and reliability. Models are tested both as a base (no persona) and while roleplaying synthetic personas drawn from a curated dataset.
+**Persona conditioning is everywhere. Does it give a model stable behavioral structure — or just a costume?**
 
-## What it does
+This is the research framework behind [*Measure what Matters: Psychometric Evaluation of AI with Situational Judgment Tests*](https://arxiv.org/abs/2510.22170).
 
-Two primary psychometric instruments are used:
+Most LLM personality work asks a model to rate its agreement with statements like *"I would never accept a bribe."* That is self-report: easy to game, likely memorized from pretraining, loosely connected to what the model does. We take the route organizational psychology uses instead: drop the model into a concrete, expert-authored scenario and force a choice between six plausible actions, where **each action maps to exactly one HEXACO trait**. Repeat across thousands of personas and scenarios, and behavior becomes measurable with the standard machinery: item discrimination, test–retest ICC, multidimensional item response theory, external validity.
 
-- **HEXACO** — a 100-item personality questionnaire measuring six traits: Honesty-Humility, Emotionality, Extraversion, Agreeableness, Conscientiousness, and Openness to Experience.
-- **SJT (Situational Judgment Tests)** — scenario-based questions where a model chooses a response option, each option corresponding to a different personality trait.
+| | |
+|---|---|
+| 🧪 **A new instrument** | 4,000 HEXACO-keyed law-enforcement SJT items, grown from 20 expert-authored base scenarios and screened for *trait bleed* |
+| 🧍 **A persona pipeline** | 8,500 demographically grounded synthetic police officers + 2,200 British parliamentarians — swap one YAML to make your own |
+| ⚙️ **Response runners** | vLLM and Modal backed generation for HEXACO, SJT, TruthfulQA, EmoBench, and AdvBench |
+| 📊 **Analysis** | MIRT, ICC, Jensen–Shannon divergence, diversity metrics, LLM-as-judge against human-annotated ground truth |
 
-Experiments test whether models respond consistently across repeated runs (reliability), whether persona-conditioned responses shift trait scores in the expected direction (validity), and whether different models exhibit systematically different personality profiles.
+```python
+from datasets import load_dataset
 
----
+sjts     = load_dataset("thoughtworks/psychometric_sjts_analysis", "analysis")["train"]
+personas = load_dataset("thoughtworks/psychometric_personas",      "analysis")["train"]
 
-## Project Structure
-
-```
-llm_psychometrics/
-├── src/                        # All production source code
-├── notebooks/                  # Exploratory notebooks and converted scripts
-├── configs/                    # YAML configuration files
-├── psychometric_tests/         # Test question banks and scoring rubrics
-├── data/                       # Processed data, annotations, and generated datasets
-├── experiment_results/         # Raw and aggregated experiment outputs
-└── modal_scripts/              # Cloud execution wrappers (Modal.com)
+item = sjts[0]["corrected_sjt"]
+print(item["question"], "\n→", item["conscientiousness_option"])
+print(personas[0]["persona_string"][:400])
 ```
 
 ---
 
-## `src/` — Source Code
+## Three findings
 
-### `src/analysis/`
+From ~4M persona–scenario responses across the Gemma and Qwen families, over five sampling runs.
 
-Scripts that load experiment results and produce statistical analyses and visualizations. Each script corresponds to a specific analysis pipeline:
+- **Behavior predicts better than self-report.** SJT-derived Agreeableness correlates with EmoBench at **0.70**; HEXACO self-report Agreeableness manages **0.51**. The two instruments correlate at only 0.25–0.35 with each other — convergent, not redundant.
+- **Persona conditioning is a real intervention, not noise.** Against the base model, personas trade emotional calibration for epistemic accuracy (EmoBench **z = −1.06**, TruthfulQA **z = +1.13**), consistently across all eight archetypes.
+- **It replicates.** **ICC > 0.86** on every HEXACO dimension; mean JS divergence of **0.003** between SJT response distributions across runs.
 
-- `advbench_regression_analysis.py` — OLS and logistic regression on refusal rates across HEXACO traits and archetypes using AdvBench benchmark data.
-- `benchmark_behaviour_analysis.py` — ICC (intraclass correlation) and JS divergence analysis across EmoBench and TruthfulQA benchmarks, broken down by persona and model.
-- `sjt_correlation_analysis_v1.py` — Full SJT pipeline: JS stability, ICC per trait, train/test split, identity retrieval via JS similarity, and SJT–HEXACO trait correlation heatmap.
-- `sjt_histograms.py` — Histogram visualizations of SJT trait score distributions.
-- `zero_compute_analysis_hexaco.py` — Eigenvalue histograms, UMAP clustering, and trait correlation heatmaps over raw HEXACO answers, grouped by archetype, ethnicity, and age.
-- `zero_compute_analysis_sjt.py` — Same clustering and correlation pipeline applied to SJT one-hot encoded answers.
+→ The other three findings — trait clustering, archetype discriminability, and the full MIRT psychometrics — along with the validation and human-annotation results, are in **[§7 of the paper](https://arxiv.org/abs/2510.22170)**.
 
-### `src/evals/`
-
-Evaluation utilities used to score and judge model outputs:
-
-- `diversity_metrics.py` — Computes diversity and distributional spread metrics across persona responses.
-- `sjt_evaluation_llm_judge_v0.py` — Prompts an LLM judge to evaluate SJT responses against per-trait rubrics.
-
-### `src/external_response_generation/`
-
-Scripts that run psychometric tests against external model APIs or local vLLM servers and save results:
-
-- `hexaco_response_generator.py` — Class-based, vLLM-backed HEXACO runner. Supports configurable Likert shuffling, paraphrase mode, n-repetitions, per-answer audit logging (raw prompts, guided choices, Likert orderings), and push-to-HuggingFace-Hub.
-- `sjt_response_generator_merged.py` — Unified SJT runner with the same vLLM backend, supporting persona and base-model modes.
-- `adv_bench_generator.py` — Generates model responses to AdvBench adversarial prompts for refusal-rate measurement.
-- `prompt_set_generator_base.py` — Abstract base class for prompt set generators, providing hashing and metadata tracking.
-- `test_prompt_generation.py` — Validates that prompt templates render correctly before a run.
-
-### `src/persona_generation/`
-
-Scripts that synthetically generate persona datasets using LLMs:
-
-- `pydantic_persona_generation.py` — Generic Pydantic-validated persona generation pipeline (traits, demographics, psychological profile).
-- `pydantic_parliamentarian_generation.py` — Persona generation seeded from UK Parliament member profiles.
-- `british_persona_seed_generator.py` — Generates HEXACO-anchored persona seeds for British parliamentary archetypes.
-- `singapore_patients_seed_generator.py` — Generates patient personas seeded from Singapore demographic data.
-- `instances/handmade/` — A small set of manually authored reference personas (Frank Ladd, John Singleton, Norman Spencer, Peter Moskos).
-
-### `src/prompt_templates/`
-
-Jinja2 prompt template definitions used by the response generators:
-
-- `hexaco_base_prompt_templates.py` / `hexaco_persona_prompt_templates.py` — System and user message templates for base-model and persona-conditioned HEXACO runs.
-- `sjt_base_prompt_templates.py` / `sjt_persona_prompt_templates.py` — Equivalent templates for SJT runs.
-- `sjt_llm_judge_templates.py` — Detailed rubric-grounded templates for LLM-based SJT evaluation.
-
-### `src/synthetic_data_generation/`
-
-Scripts for generating synthetic SJT questions:
-
-- `synthetic_sjt_creation_v0.py` — Generates HEXACO-aligned SJT scenarios from seed attributes (urgency, threat level, ambiguity, demographics, etc.) using GPT-4, with a two-pass trait-bleed evaluation and correction step.
-- `persona_llm_paper_persona_creation.py` — Generates personas matching the PersonaLLM paper configuration.
-
-### `src/utils/`
-
-Shared infrastructure and I/O utilities:
-
-- `vllm_utils.py` — `VLLMServerManager`: starts, monitors, and connects to a vLLM OpenAI-compatible server.
-- `hf_utils.py` — `HFStreamingAppender`: incrementally appends rows to a HuggingFace dataset without loading the full dataset into memory.
-- `openai_utils.py` — Wrappers around the OpenAI API for structured-output generation.
-- `file_utils.py` — JSON read/write helpers with directory creation.
-- `census_utils.py` — Utilities for loading and sampling from census demographic data.
-- `check_vllm.py` / `start_vllm.py` — Server health-check and startup helpers.
-- `data/` — Data processing utilities:
-  - `sjt_responses_processing.py` — Cleans and reshapes raw SJT answer files.
-  - `demographics_data_processing.py` — Processes demographic fields for persona datasets.
-  - `adv_bench_processing.py` — Parses AdvBench output files.
-
-### Root-level `src/` files
-
-- `experiment.py` — Core experiment orchestration: loops over personas, runs the psychometric test, collects and saves results.
-- `utils_v0.py` — Legacy shared utilities (Likert inversion, list formatting, OpenAI API call wrapper).
-- `add_persona_str.py` — Converts structured persona objects into a single formatted string field for HuggingFace dataset embedding.
-- `modal_trigger.py` — Modal.com entry point for running experiments on cloud GPU instances.
-- `push_to_hub.py` — Uploads local results to a HuggingFace Hub dataset repo.
-- `run.py` — Example script showing how to invoke an experiment locally.
-
----
-
-## `notebooks/`
-
-Jupyter notebooks organized by purpose. Most have a corresponding converted `.py` script:
-
-- `analysis/` — Exploratory analysis notebooks (HEXACO profiles, SJT correlations, factor analysis, benchmark behavior, adversarial regression). Converted versions live in `src/analysis/`.
-- `reliability/` — Test-retest and inter-rater reliability experiments for both HEXACO and SJT.
-- `post_processing/` — Score computation and answer cleaning notebooks run after generation.
-- `evaluations/` — LLM judge runs (Anthropic, OpenAI) for persona and SJT quality review.
-- `generation_personas/` — Persona generation workflow notebooks.
-- `response_generation/` — Earlier notebook-style response generation scripts (pre-`src/external_response_generation/`).
-- `synthetic_data_generation/` — SJT question synthesis notebooks.
-- `archive/` — Older experiment notebooks, kept for reference.
-
----
-
-## `configs/`
-
-YAML files controlling experiment behavior:
-
-- `generation_config.yaml` — Likert scale definition, temperature, batch size, max tokens.
-- `personas_v2.yaml` — Handcrafted local persona definitions.
-- `synthetic_sjt_seeds.yaml` / `sjt_seeds.yaml` — Attribute seeds (urgency, threat level, demographics, etc.) used for SJT generation.
-- `police_seeds.yaml` / `parliament_seeds_enriched.yaml` / `skeleton_singapore_patients.yaml` — Domain-specific persona seed files.
-
-## `psychometric_tests/`
-
-- `hexaco_100_questions.yaml` — The 100 HEXACO questionnaire items.
-- `paraphrased_hexaco_100_questions.yaml` — Paraphrased variants for robustness testing.
-- `hexaco_100_eval.yaml` — Scoring rubric: maps question indices to traits and marks which items require reverse-scoring.
+> **Scope note.** These are stable *behavioral tendencies under persona and scenario conditioning* — not claims about model personality or internal states. See §9 and §10 of the paper, particularly on the risks of applying any of this in real hiring or law-enforcement settings.
 
 ---
 
 ## Setup
 
-Dependencies are managed per-module. The vLLM-based generators require a running vLLM server; see `src/utils/vllm_utils.py` for the `VLLMServerManager` interface.
+```bash
+poetry install                # or: pip install -r requirements.txt
 
-HuggingFace Hub access (for persona datasets and result uploads) requires either `huggingface-cli login` or an `HF_TOKEN` environment variable.
+export OPENAI_API_KEY=...     # persona generation, SJT synthesis, LLM-as-judge
+export HF_TOKEN=...           # dataset pulls and result pushes — or run `huggingface-cli login`
+```
+
+Python 3.11.9. Two things worth knowing before your first run:
+
+- Several generation scripts resolve config paths relative to the working directory — **run them from `llm_psychometrics/`**.
+- All OpenAI calls route through `src/utils/openai_utils.py`, which adds retries and disk caching. **Bump `CACHE_VERSION` there whenever prompt logic changes**, or you will silently score stale responses.
+
+## Running the experiments
+
+```bash
+cd llm_psychometrics/src
+
+# Serve a model (vLLM, OpenAI-compatible, port 9000)
+python utils/start_vllm.py --model-name google/gemma-3-4b-it --hf-token $HF_TOKEN
+
+# HEXACO — runs the persona-conditioned and unconditioned base conditions
+python external_response_generation/hexaco_response_generator.py \
+  --model-name google/gemma-3-4b-it --n-personasample 500 --n-times 5 --vllm-port 9000
+
+# SJT
+python external_response_generation/sjt_response_generator_merged.py --model google/gemma-3-4b-it
+
+# External benchmarks: truthful_qa_mc.py | emo_bench_qa.py | adv_bench_generator.py
+# Analysis:            analysis/sjt_correlation_analysis_v1.py | analysis/benchmark_behaviour_analysis.py
+```
+
+At scale, run on Modal (A100s, persistent `my-outputs` volume): `modal run llm_psychometrics/src/modal_trigger.py`.
+
+> ⚠️ `start_vllm.py` defaults to port **9000** while the runners default to **8000** — pass `--vllm-port 9000` or set the base URL explicitly.
+
+---
+
+## Make it yours
+
+The framework is not police-specific. **[docs/customizing.md](docs/customizing.md)** covers both levers, starting from working files in this repo:
+
+| Section | What it covers |
+|---|---|
+| [Build your own persona set](docs/customizing.md#build-your-own-persona-set) | Custom personas from your own YAML — the four seed catalogs, the demographics CSV schema, deterministic seed assignment, grounding ablations, porting to a new population |
+| [Bring your own assessment](docs/customizing.md#bring-your-own-psychometric-assessment) | Swapping the item bank of a self-report instrument, authoring and augmenting a new SJT-style instrument, or wiring a different response format |
+| [Validating what you build](docs/customizing.md#validating-what-you-build) | The five-step protocol from the paper, plus what "good" looked like on the released datasets |
+
+---
+
+## Datasets
+
+| Dataset | Contents |
+|---|---|
+| [`thoughtworks/psychometric_personas`](https://huggingface.co/datasets/thoughtworks/psychometric_personas) | 8,500 synthetic law-enforcement personas across 8 configs |
+| [`thoughtworks/psychometric_SJTs`](https://huggingface.co/datasets/thoughtworks/psychometric_SJTs) | The raw 4,000-item HEXACO-keyed SJT bank, pre-curation |
+| [`thoughtworks/psychometric_sjts_analysis`](https://huggingface.co/datasets/thoughtworks/psychometric_sjts_analysis) | Curated SJT subsets with embeddings, scenario metadata, and inter-rater reliability scores |
+
+Subset hierarchies, row counts, and how each config feeds into response runs: **[DATASETS.md](DATASETS.md)**.
+
+## Repository layout
+
+```
+llm_psychometrics/
+├── src/                        # Production source code
+├── notebooks/                  # Exploratory notebooks and converted scripts
+├── configs/                    # YAML seed and generation configs
+├── psychometric_tests/         # Question banks and scoring keys
+├── data/                       # Census data, SJT templates, annotations
+├── experiment_results/         # Raw and aggregated outputs
+└── modal_scripts/              # Cloud execution wrappers (Modal.com)
+```
+
+File-by-file reference: **[docs/repo-map.md](docs/repo-map.md)**. There is no formal test suite; experimental validation lives in `llm_psychometrics/notebooks/`.
+
+---
 
 ## Citation
 
-```
+```bibtex
 @misc{yost2025measurematterspsychometricevaluation,
       title={Measure what Matters: Psychometric Evaluation of AI with Situational Judgment Tests},
       author={Alexandra Yost and Shreyans Jain and Shivam Raval and Grant Corser and Allen Roush and Nina Xu and Jacqueline Hammack and Ravid Shwartz-Ziv and Amirali Abdullah},
@@ -163,6 +134,4 @@ HuggingFace Hub access (for persona datasets and result uploads) requires either
 }
 ```
 
-## Contact
-
-For questions or collaboration contact: amir.abdullah@thoughtworks.com, jshrey8@gmail.com
+Questions or collaboration: amir.abdullah@thoughtworks.com, jshrey8@gmail.com
