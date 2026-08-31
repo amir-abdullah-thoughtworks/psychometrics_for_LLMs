@@ -1,0 +1,524 @@
+\section{Alignment Between SJT and Self-Report \hexaco\ Trait Representations}
+\label{sec:alignment}
+We examine how behavioral traits expressed in synthetic Situational Judgment Test (SJT) responses align with underlying personality dimensions from the \hexaco\ framework. By clustering persona representations across both behavioral and self-reported trait spaces, it evaluates whether consistent archetypal structures emerge and how well simulated decision-making reflects trait-level psychological constructs. The study also explores differences between base-model behavior and rich persona-conditioned responses across archetypes and demographics, providing insight into the alignment between behavioral outputs and personality structure. Responses for this analysis were generated using GPT-4.1.
+
+
+% This analysis investigates the relationship between behavioral expressions in the synthetic Situational Judgment Tests (SJTs) and the underlying personality dimensions from the \hexaco\;  framework. The goal is to investigate what kind of trait patterns exists in the base model vs a rich-persona specific context or across various archetypes and demographics, validating the alignment between simulated decision-making and trait-level psychological constructs. Responses for this analysis were generated using GPT-4.1.
+
+\subsection{Aggregate-Level Cluster Comparison}
+
+At the aggregate level, persona embeddings derived from SJT responses and \hexaco\;  scores are independently clustered. We then compare these clustering structures to examine whether similar archetypal groupings appear across both modalities.
+
+At the aggregate level, \hexaco\ representations form more well-separated clusters, whereas SJT-derived representations are more distributed. This suggests LLMs more reliably reproduce canonical, self-reported trait structures than behaviorally grounded decision patterns, supporting the use of SJTs as a more sensitive probe of personality-driven behavior.
+
+The Avoider archetype exhibits a distinct preference for \textcolor{hexC}{Conscientiousness}-aligned options (46\% vs.\ 33\% overall), whereas most other archetypes predominantly select \textcolor{hexH}{Honesty--Humility}-aligned responses.
+
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\columnwidth]{figures/interfactor_clusters_hexaco_color_by_archetypegpt-4_1.png}
+\caption{Clusters using \hexaco\;  Answers, colored by archetypes}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\columnwidth]{figures/interfactor_clusters_sjt_color_by_archetypegpt-4_1.png}
+\caption{Clusters using SJT Answers, colored by archetypes}
+\end{figure}
+
+
+\subsection{Trait Distributions and Preferences}
+
+Similar to the archetype level analyses presented earlier, we extended our examination to additional persona attributes such as ethnic background, age, and gender. Notably, personas representing Colombian, East Asian, Hispanic/Latino, and Southeast Asian backgrounds exhibited a remarkably higher preference for the \textcolor{hexC}{Conscientiousness}-aligned options, whereas most other groups predominantly favored \textcolor{hexH}{Honesty–Humility}-aligned choices. Specifically, these ethnic groups selected \textcolor{hexC}{Conscientiousness} options at approximately \textasciitilde52\%, more than twice the overall population mean of \textasciitilde24\%.
+
+This observation suggests a potential trait inclination bias associated with certain minority ethnic representations, warranting further analysis into how demographic conditioning may influence model-driven personality expression and decision tendencies.
+
+\section{Construct validity between SJT and Self-Report \hexaco\; Traits}
+\label{sec:factor_experiments}
+
+To investigate the psychometric alignment between the psychometric Hexaco scores assigned via SJT vs those from the base \hexaco\ instrument, we conduct a correlation and regression modeling. For this analysis, Qwen2.5-7B was used to generate responses for
+a larger set of 1504 personas across 500 SJT items.
+
+
+\subsection{Aggregate-Level Correlation Analysis}
+
+At the aggregate level, we compute the Pearson correlation coefficient ($r$) between average SJT scores (aggregated across all scenarios for a given persona) and the corresponding \hexaco\;  trait scores. The SJT scores are calculated as the proportion of answers answered per trait and the \hexaco\;  scores are calculated following the standard \hexaco\;  Scoring Guide \citep{lee2018psychometric}. This step evaluates whether global behavioral tendencies captured by SJTs align with expected personality gradients across the six \hexaco\;  dimensions — \textcolor{hexH}{Honesty-Humility}, \textcolor{hexE}{Emotionality}, \textcolor{hexX}{eXtraversion}, \textcolor{hexA}{Agreeableness}, \textcolor{hexC}{Conscientiousness}, and \textcolor{hexO}{Openness to Experience}.
+
+Highest positive correlation (\textasciitilde 0.504) is for the \textcolor{hexX}{eXtraversion} trait, indicating that its the most accurately answered trait in SJTs. \textcolor{hexH}{Honesty-Humility} is the most commonly chosen trait, sometimes even when the trait is absent, leading to the only negative correlation (\textasciitilde -0.12)
+
+Importantly, a high overall $R^2$ can arise even when the correlation for individual \hexaco\ scores is not high with the trait SJT scores, as the combined linear contribution of multiple traits (potentially in different directions) can explain substantially more variance than any single predictor alone. This multivariate structure highlights that while individual \hexaco\ score vs SJT score correlations may be weak, the joint configuration of traits captures meaningful patterns of behavioral predictability, providing a complementary measure of construct validity.
+
+\begin{table}[H]
+\centering
+\caption{Trait wise Pearson R Correlation between SJTs and \hexaco\; }
+\begin{tabularx}{\columnwidth}{|X|c|}
+\hline
+\textbf{Trait} & \textbf{Pearson R Correlation} \\
+\hline
+\textcolor{hexH}{Honesty-Humility} & -0.122 \\
+\hline
+\textcolor{hexE}{Emotionality}  & 0.216 \\
+\hline
+\textcolor{hexX}{eXtraversion} & 0.504 \\
+\hline
+\textcolor{hexA}{Agreeableness} & 0.329 \\
+\hline
+\textcolor{hexC}{Conscientiousness} & 0.277 \\
+\hline
+\textcolor{hexO}{Openness} & 0.343 \\
+\hline
+\end{tabularx}
+\end{table}
+
+
+% \subsection{Item-Level Analysis}
+
+% At the item (scenario) level, we measure how specific decision tendencies relate to individual trait expressions.
+
+% For each SJT, we compute the point-biserial correlation ($r_{pb}$) between:
+
+% \begin{itemize}
+%     \item a binary indicator representing whether a trait-specific option was chosen in the SJT response, and
+
+%     \item the corresponding \hexaco\;  trait score for that persona.
+
+% \end{itemize}
+
+% This produces a fine-grained measure of trait-behaviour alignment, showing how likely individuals high in a given trait are to choose options designed to express that trait. For majority of the traits, at least 75-80\% of the SJTs have a positive point-biserial correlation value, with the exception of \honestyhumility\;, where the correlation is positive only for \textasciitilde 25\% of the SJTs, due to high proportion of SJTs being answered for \honestyhumility\; even when the trait is absent, aligning with our aggregate level findings.
+
+% \begin{table}[H]
+% \centering
+% \caption{Descriptive Summary of Point-Biserial correlation}
+% \renewcommand\arraystretch{1.2}
+% \resizebox{\columnwidth}{!}{%
+% \begin{tabular}{|p{3cm}|c|c|c|c|}
+% \hline
+% \textbf{Trait} & \textbf{Mean} & \textbf{25\%} & \textbf{50\%} & \textbf{75\%} \\
+% \hline
+% \honestyhumility & -0.009 & -0.035 & -0.006 & 0.018 \\
+% \hline
+% \emotionality & 0.027 & 0.001 & 0.018 & 0.054 \\
+% \hline
+% \extraversion & 0.087 & 0.037 & 0.076 & 0.123 \\
+% \hline
+% \agreeableness & 0.062 & 0.023 & 0.056 & 0.095 \\
+% \hline
+% \conscientiousness & 0.048 & 0.022 & 0.044 & 0.074 \\
+% \hline
+% \openness & 0.040 & 0.013 & 0.035 & 0.066 \\
+% \hline
+% \end{tabular}%
+% }
+% \end{table}
+
+% \begin{table}[ht]
+% \centering
+% \caption{Summary of Trait-Wise Linear Regression Models}
+% \renewcommand\arraystretch{1.2}
+% \resizebox{\columnwidth}{!}{%
+% \begin{tabular}{|p{3cm}|c|c|c|}
+% \hline
+% \textbf{Trait} & \textbf{R-Squared} & \textbf{Adj.~R-Squared} & \textbf{Trait Coeff.} \\
+% \hline
+% \textcolor{hexH}{Honesty-Humility} & 0.993 & 0.993 & 0.045 \\
+% \hline
+% \textcolor{hexE}{Emotionality} & 0.864 & 0.863 & 0.035 \\
+% \hline
+% \textcolor{hexX}{eXtraversion} & 0.870 & 0.869 & 0.118 \\
+% \hline
+% \textcolor{hexA}{Agreeableness} & 0.941 & 0.940 & 0.161 \\
+% \hline
+% \textcolor{hexC}{Conscientiousness} & 0.940 & 0.939 & 0.284 \\
+% \hline
+% \textcolor{hexO}{Openness} & 0.977 & 0.977 & 0.162 \\
+% \hline
+% \end{tabular}%
+% }
+% \end{table}
+
+% \section{Reliability Experiments}
+% \label{sec:reliability_experiments}
+
+% \section{Psychometrics Framework Design}
+% \label{sec:psych_framework_design}
+
+% Below, we outline the key features and configurable modules of our scalable Psychometric framework.
+
+% \subsection{Synthetic SJT Creation:}
+
+% \begin{enumerate}
+%     \item \textbf{Base Templates:} Scenarios are instantiated from a uniform pool of templates to prevent topical bias.
+%     \item \textbf{Seed Expansion:} Each SJT is created using random combinations of attributes (e.g., age, race, gender, threat level) and a base template. User can pass how many seed combinations they want per base template to create a new set of SJTs.
+% \end{enumerate}
+
+% \subsection{Synthetic Persona Creation:}
+
+% \subsection{Experiments:}
+
+% \begin{enumerate}
+%     \item \textbf{Fast and Modular Execution:}
+% \end{enumerate}
+
+% \subsection{LLM-Judge Evaluation:}
+
+% \begin{enumerate}
+%     \item \textbf{Rubric Scoring:} Evaluations are conducted under multiple rubrics—covering psychological coherence, ethical reasoning, and trait alignment. Rubrics are designed to evaluate different aspects of the synthetic dataset in a complementary manner to minimize any biases or errors inherent in the LLM-as-Judge process.
+%     \item \textbf{Rubric Definition:} Modules are flexible to incorporate additional or different rubric definitions suitable for the context.
+% \end{enumerate}
+
+\subsection{Trait Regression Analysis}
+\label{app:regression}
+\begin{table}[!htb]
+\centering
+\caption{Summary of Trait-Wise Linear Regression Models}
+\label{tab:regression_analysis}
+\renewcommand\arraystretch{1.2}
+
+\begin{tabularx}{\columnwidth}{@{}Xcc@{}}
+\toprule
+\textbf{Trait} & \textbf{R-Squared} & \textbf{Adj.~R-Squared} \\
+\midrule
+\textcolor{hexH}{Honesty--Humility}   & 0.993 & 0.993 \\
+\textcolor{hexE}{Emotionality}        & 0.864 & 0.863 \\
+\textcolor{hexX}{Extraversion}        & 0.870 & 0.869 \\
+\textcolor{hexA}{Agreeableness}       & 0.941 & 0.940 \\
+\textcolor{hexC}{Conscientiousness}   & 0.940 & 0.939 \\
+\textcolor{hexO}{Openness}            & 0.977 & 0.977 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+To aggregate and quantify the explanatory power of personality traits on SJT performance, we train a linear regression model using \hexaco\; scores as input predictors and aggregated SJT scores as the dependent variable. Responses for this analysis were collected using Qwen 2.5-7B Instruct Model \citep{qwen2025qwen25technicalreport}. Across all traits, the models yield consistently high adjusted $R^2$ values (\textasciitilde 0.8--0.9) as seen in Table \ref{tab:regression_analysis} with generally positive coefficients, particularly for the focal trait being predicted.
+% For more details and analyses, refer to Appendix \ref{sec:factor_experiments}.
+
+\section{Trait-Behavior Benchmark Coherence}\label{app:trait_behaviour_benchmark}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.9\columnwidth]{figures/trait_benchmark_corr.png}
+\caption{Correlation between \hexaco\; traits and benchmarks}
+\label{fig:trait_benchmark_corr}
+\end{figure}
+
+For evaluating Trait-Behaviour coherence with each other, we calculated Spearman correlations for ranks across 500 personas (Figure \ref{fig:trait_benchmark_corr}). It reveals that SJT is a stronger predictor of external benchmark performance than \hexaco\; self-report scores, with SJT trait ranks showing consistently higher correlations with both EmoBench and TruthfulQA. EmoBench performance is broadly trait-driven, correlating positively with warm and open traits, most strongly \agreeableness\; SJT ($0.70$), \openness\; SJT (0.65), and \emotionality\; HEXACO (0.56), while TruthfulQA shows the opposite pattern, correlating negatively with social and expressive traits, most strongly \extraversion\; SJT ($-0.79$), suggesting that less interpersonally assertive personas are associated with higher truthfulness. \conscientiousness\; SJT emerges as a suppressor variable, negatively correlating with nearly all other traits, including \agreeableness\; SJT ($-0.86$) and \openness\; SJT ($-0.85$), while predicting lower EmoBench ($-0.63$) and higher TruthfulQA (0.41) performance, reflecting a rule-bound behavioral orientation that trades off against warmth and creativity.
+
+At the structural level, SJT traits organise into two coherent clusters that map cleanly onto the benchmark split: a warm-expressive cluster (\agreeableness\;, \openness\;, \emotionality\;, \honestyhumility\;) that predicts higher EmoBench and lower TruthfulQA, and a task-assertive cluster (\conscientiousness\;, \extraversion\;) that predicts the reverse (Table \ref{tab:cluster_sjt_trait}). This two-cluster structure emerges organically from the correlation patterns and aligns with the known \hexaco\; higher-order factor structure, lending structural validity to the SJT instrument. A notable exception is \hexaco\; \extraversion\;, which correlates negatively with EmoBench $-0.24$) (contrary to trait-theoretic expectations) and shows near-zero correlation with TruthfulQA and weak alignment with its SJT counterpart, warranting further examination as a divergent validity concern.
+
+
+\begin{table}[H]
+\centering
+\caption{SJT vs Trait Behaviour Clusters}
+\label{tab:cluster_sjt_trait}
+\begin{tabularx}{\columnwidth}{|X|X|c|c|}
+\hline
+\textbf{Cluster} & \textbf{Trait} & \textbf{EmoBench (r)} & \textbf{TruthfulQA (r)} \\
+\hline
+\multirow{4}{*}{Warm-Expressive}
+& Agreeableness (SJT)     & +0.70 & -0.11 \\
+& Openness (SJT)          & +0.65 & -0.36 \\
+& Emotionality (SJT)      & +0.29 & +0.00 \\
+& Honesty-Humility (SJT)  & +0.36 & -0.44 \\
+\hline
+\multirow{2}{*}{Task-Assertive}
+& Conscientiousness (SJT) & -0.63 & +0.41 \\
+& eXtraversion (SJT)      & +0.26 & -0.79 \\
+\hline
+\end{tabularx}
+\end{table}
+
+
+
+\section{Personas as a Consistent Conditioning Construct}
+\label{app:persona_consistent_construct}
+
+To evaluate whether persona conditioning induces coherent, trait-consistent behavioral shifts, we compare persona-conditioned model responses against a base model baseline across four instruments: a synthetic Situational Judgment Test (SJT) mapped to \hexaco\; facets, a self-report \hexaco\; questionnaire, and two external benchmarks - EmoBench and TruthfulQA. For each measure, we compute the z-scores relative to the persona distribution to quantify the direction and magnitude of deviation from baseline, and examine the results both at an aggregate level as well as across individual archetypes.
+
+The analysis reveals two overarching patterns in how persona conditioning shapes model behavior (Table \ref{tab:basemodel_z_persona}). First, persona conditioning produces a consistent and theoretically coherent trade-off between emotional and epistemic performance: conditioned models score lower on EmoBench (z =$-1.06$) but higher on TruthfulQA (z = +1.13), and this TruthfulQA improvement holds universally across all eight archetypes regardless of character type, suggesting that persona framing activates a more identity-anchored response mode that increases truthfulness. Second, the SJT and \hexaco\; instruments reveal a systematic attitudinal-behavioral dissociation: traits such as \honestyhumility\; show large behavioral suppression in dilemma scenarios (SJT z = $-1.85$) while remaining comparatively stable in self-report (\hexaco\; z = $-0.47$), mirroring patterns well-documented in human psychometric research \citep{olaru2019situational} under role-induced demand characteristics.
+
+At the archetype level, persona effects are discriminant rather than uniform, and the variation aligns with character definitions in theoretically expected ways (Table \ref{tab:archetype_z_base_model}). The Avoider (Lazy Officer) produces the most extreme deviations across emotional calibration (EmoBench $z = -5.22$), honesty in dilemma scenarios (\honestyhumility\; SJT $z = -5.42$), and social initiative (\extraversion\; SJT $z = -4.22$) — coherent with a disengaged, low-agency character — while the Reciprocator (Nice Cop) leads on \agreeableness\; (SJT $z = +2.02$) and \openness\; (SJT $z = +2.21$) behavioral scores, consistent with its socially warm character definition. \honestyhumility\; SJT scores are negative for every archetype without exception (range: -1.29 to -5.42), likely reflecting a domain-specific prior in the law enforcement archetype family that structurally favors authority-oriented choices over humility-signaling options.
+
+Lastly, to assess the stability persona-conditioning across repeated runs, we evaluate consistency using \textbf{Jensen--Shannon (JS) divergence} and the \textbf{Intraclass Correlation Coefficient (ICC)} across both benchmark performance and SJT-derived \hexaco\; trait distributions. EmoBench and TruthfulQA exhibit perfect distributional stability (JS divergence = 0) with high reliability (ICC = 0.95 and 0.90, respectively), while SJT trait distributions show only negligible variation across iterations (mean JS divergence = 0.003, $\sigma = 0.001$) alongside consistently high trait-wise ICC values.
+
+
+\begin{table}[H]
+\centering
+\caption{Base Model Scores Relative to Persona Score Distributions}
+\label{tab:basemodel_z_persona}
+\begin{tabularx}{\columnwidth}{|X|c|c|c|c|}
+\hline
+\textbf{Metric} & \textbf{Persona Mean} & \textbf{Persona Std} & \textbf{Base Score} & \textbf{Z Score} \\
+\hline
+
+\multicolumn{5}{|c|}{\textbf{Benchmarks}} \\
+\hline
+Emobench & 0.330 & 0.084 & 0.420 & -1.058 \\
+TruthfulQA & 0.450 & 0.040 & 0.399 & 1.133 \\
+\hline
+
+\multicolumn{5}{|c|}{\textbf{SJT Trait Scores}} \\
+\hline
+\textcolor{hexH}{Honesty-Humility} & 0.214 & 0.057 & 0.319 & -1.852 \\
+\textcolor{hexE}{Emotionality} & 0.019 & 0.025 & 0.014 & 0.227 \\
+\textcolor{hexX}{Extraversion} & 0.028 & 0.036 & 0.035 & -0.174 \\
+\textcolor{hexA}{Agreeableness} & 0.123 & 0.146 & 0.042 & 0.556 \\
+\textcolor{hexC}{Conscientiousness} & 0.563 & 0.210 & 0.576 & -0.065 \\
+\textcolor{hexO}{Openness} & 0.052 & 0.040 & 0.014 & 0.962 \\
+\hline
+
+\multicolumn{5}{|c|}{\textbf{HEXACO Trait Scores}} \\
+\hline
+\textcolor{hexH}{Honesty-Humility} & 3.487 & 0.381 & 3.667 & -0.473 \\
+\textcolor{hexE}{Emotionality} & 3.351 & 0.317 & 3.500 & -0.471 \\
+\textcolor{hexX}{Extraversion} & 2.763 & 0.250 & 2.750 & 0.053 \\
+\textcolor{hexA}{Agreeableness} & 3.247 & 0.306 & 3.250 & -0.011 \\
+\textcolor{hexC}{Conscientiousness} & 3.080 & 0.493 & 2.500 & 1.175 \\
+\textcolor{hexO}{Openness} & 3.242 & 0.416 & 3.750 & -1.222 \\
+\hline
+
+\end{tabularx}
+\end{table}
+
+
+
+\begin{table}[H]
+\centering
+\caption{Archetype-wise Z-Scores Relative to the Base Model}
+\label{tab:archetype_z_base_model}
+\begin{tabular}
+{@{}p{2.5cm}p{1.5cm}p{1.5cm}p{1.5cm}p{1.5cm}p{1.5cm}p{1.5cm}p{1.5cm}p{1.5cm}@{}}
+\hline
+\textbf{Metric} &
+\textbf{Problem Solver / Public Servant} &
+\textbf{Enforcer (Crime-Fighter)} &
+\textbf{Avoider (Unconfident Officer)} &
+\textbf{Professional (Service-Oriented)} &
+\textbf{Avoider (Lazy Officer)} &
+\textbf{Problem Solver / Investigator} &
+\textbf{Tough Cop (Authoritarian)} &
+\textbf{Reciprocator (Nice Cop)} \\
+\hline
+
+\multicolumn{9}{|c|}{\textbf{Benchmarks}} \\
+\hline
+Emobench & -0.53 & -1.47 & -1.74 & -0.47 & -5.22 & -1.25 & -1.89 & -0.35 \\
+TruthfulQA & 0.88 & 0.61 & 2.44 & 1.38 & 2.67 & 1.12 & 0.53 & 1.54 \\
+\hline
+
+\multicolumn{9}{|c|}{\textbf{SJT Trait Scores}} \\
+\hline
+\textcolor{hexA}{Agreeableness} & 0.96 & 0.08 & 0.68 & 1.22 & -0.02 & 0.08 & -0.27 & 2.02 \\
+\textcolor{hexC}{Conscientiousness} & -0.84 & 0.22 & 0.10 & -0.71 & 2.13 & 0.64 & 0.58 & -1.56 \\
+\textcolor{hexE}{Emotionality} & 0.26 & -0.52 & 0.90 & 0.30 & 0.23 & -0.90 & -1.46 & 1.00 \\
+\textcolor{hexX}{Extraversion} & 0.10 & 0.41 & -3.94 & -0.27 & -4.22 & -0.63 & 0.51 & -0.52 \\
+\textcolor{hexH}{Honesty-Humility} & -1.29 & -1.55 & -3.02 & -1.65 & -5.42 & -2.22 & -1.89 & -2.62 \\
+\textcolor{hexO}{Openness} & 1.55 & 1.02 & 1.10 & 1.84 & 0.32 & 1.14 & 0.79 & 2.21 \\
+\hline
+
+\multicolumn{9}{|c|}{\textbf{HEXACO Trait Scores}} \\
+\hline
+\textcolor{hexA}{Agreeableness} & 0.23 & -0.44 & -0.05 & 1.03 & -0.22 & -0.03 & -0.44 & 0.68 \\
+\textcolor{hexC}{Conscientiousness} & 0.84 & 1.37 & 1.06 & 1.48 & 1.37 & 1.43 & 1.28 & 0.85 \\
+\textcolor{hexE}{Emotionality} & 0.10 & -0.61 & 0.08 & 0.00 & -1.62 & -0.78 & -0.84 & -0.03 \\
+\textcolor{hexX}{Extraversion} & -0.04 & 0.23 & -0.30 & -0.34 & 0.38 & 0.30 & 0.33 & -0.21 \\
+\textcolor{hexH}{Honesty-Humility} & -0.16 & -0.77 & -0.13 & 0.05 & -0.96 & -0.67 & -1.06 & -0.22 \\
+\textcolor{hexO}{Openness} & -0.89 & -1.44 & -1.35 & -1.00 & -2.82 & -1.37 & -2.52 & -0.68 \\
+\hline
+
+\end{tabular}
+\end{table}
+
+% \section{Behavior Trait Correlations}\label{app:inter_trait}
+% In this section, we study the relationship between traits, namely between (1) \hexaco\ and our SJTs, (2) between our SJTs and the behavioral benchmarks (both EmoBench and TruthfulQA), and (3) between \hexaco and the behavioral benchmarks.
+
+% We further analyze the relationship between trait scores and option-selection behavior by computing correlations between \hexaco\; trait scores and the traits associated with the most frequently selected SJT options (Figure \ref{fig:sjt_hexaco_corr}). Prior work in human personality measurement suggests that correlations in the range of 0.25–0.35 are considered sufficient evidence of reasonable convergent validity between trait measurements from independent instruments. In our setting, we observe that several same-trait correlations (e.g., agreeableness with agreeableness-aligned options) fall within this range, suggesting that the SJT-based scoring procedure captures signals broadly consistent with the intended \hexaco\; dimensions.
+
+% Interestingly, we also observe that cross-trait correlations are often comparable to or larger than same-trait correlations. For instance, option selections associated with emotionality and openness show relatively strong correlations with \textcolor{hexC}{Conscientiousness} and agreeableness aligned decisions respectively. This pattern suggests that the model’s decision behavior may not operate over strictly independent trait axes. Instead, the observed correlations indicate that the model may encode personality traits in a coupled internal representation, where changes in one dimension are systematically associated with signals from others. Consequently, decisions appear to be generated from a shared latent personality space rather than from isolated \hexaco\; traits, which may explain why cross-trait correlations can exceed the corresponding same-trait correlations. Also, the trait trade-offs observed under persona conditioning align with the inter-trait correlation structure observed in model decisions, suggesting that these dependencies may reflect underlying coupling in the model’s internal representation of personality traits.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\columnwidth]{figures/Sjt_hexaco_corr.png}
+\caption{Correlation between \hexaco\; trait scores and SJT scores}
+\label{fig:sjt_hexaco_corr}
+\end{figure}
+
+% \section{Consistency Across Iterations}
+% \label{app:iter_consistency}
+
+% Lastly, to assess the stability of our framework across repeated runs, we evaluate the consistency of model behavior by calculating \textbf{Jensen-Shannon (JS) divergence} and the \textbf{Intraclass Correlation Coefficient (ICC)} between \hexaco\; score distributions derived by SJTs across iterations and benchmark performance across iterations. JS divergence measures distributional differences across runs, while ICC quantifies the reliability of scores across iterations. For EmoBench and TruthfulQA, the response distributions are perfectly stable across iterations, with a mean JS divergence of 0, indicating identical distributions across runs. Correspondingly, the ICC values are 0.95 for EmoBench and 0.90 for TruthfulQA, reflecting very high reliability across repeated evaluations.
+
+% For Situational Judgment Tests (SJTs), the mean JS divergence across iterations is 0.003 ($\sigma = 0.001$), indicating extremely small distributional variation between runs. Trait-wise ICC values are consistently high across all \hexaco\; dimensions, demonstrating strong stability of trait scoring across iterations.
+\section{Psychometric Validation via Multidimensional IRT}\label{app:mirt}
+
+We evaluated the psychometric properties of the situational judgment test (SJT) framework using a confirmatory multidimensional item response theory (MIRT) \citep{reckase200618} model aligned with the HEXACO personality structure.
+
+Before fitting the MIRT model, we linked personas, SJT items, and generated responses using hash-based identifiers \texttt{persona\_hash} and \texttt{question\_hash}. For each persona--item pair, five independent responses were generated and mapped into one of six normalized HEXACO-aligned categories. To obtain a single response per persona-item pair for psychometric analysis, we collapsed these five samples to the modal category; ties were broken uniformly at random using a fixed seed. This produced a complete response table of 150{,}000 persona--item pairs, of which 8{,}006 (5.3\%) exhibited tied modal responses, indicating that most aggregated responses were stable across repeated sampling. The collapsed long-form response table was then reshaped into a persona-by-item response matrix for MIRT estimation.
+
+Each SJT item presents six response options, each explicitly mapped to one of the six HEXACO traits (Agreeableness, Conscientiousness, Emotionality, Extraversion, Honesty--Humility, Openness). This allows responses to be modeled using a categorical (nominal) response formulation~\citep{bock1972estimating}, in which each option corresponds to a trait-specific utility.
+
+Formally, for persona $p$ and item $j$, the probability of selecting response category $k \in \{1,\dots,6\}$ is given by:
+\[
+P(Y_{pj} = k) = \frac{\exp(\alpha_{jk} + a_j \cdot \theta_{p,d(k)})}{\sum_{k'} \exp(\alpha_{jk'} + a_j \cdot \theta_{p,d(k')})},
+\]
+where $\theta_p \in \mathbb{R}^6$ is the latent HEXACO trait vector for persona $p$, $a_j$ is an item-specific scalar discrimination parameter, $\alpha_{jk}$ are category-specific intercepts, and $d(k)$ maps each response option to its corresponding HEXACO trait dimension. In the present implementation, the response categories were encoded as $0,\dots,5$ with a fixed one-to-one mapping to the six HEXACO dimensions in the order: \agreeableness, \conscientiousness, \emotionality, \extraversion, \honestyhumility, and \openness. This induces a confirmatory structure in which each response category loads on a single predefined trait dimension.
+
+For computational tractability, the model was estimated on a pilot subset of 250 personas and 150 SJT items, sampled uniformly without replacement from the full response table. Letting $P$ denote the number of personas, $J$ the number of items, $K=6$ the number of response categories, and $D=6$ the number of latent dimensions, the model was implemented in PyMC~\cite{pymc2023} as a Bayesian categorical-response MIRT model.
+
+Persona latent trait vectors were assigned independent standard normal priors,
+\[
+\theta_p \sim \mathcal{N}(0, I_D),
+\]
+item discrimination parameters were constrained to be positive via half-normal priors,
+\[
+a_j \sim \mathrm{HalfNormal}(1),
+\]
+and item-category intercepts were assigned normal priors before being mean-centered within each item for identifiability,
+\[
+\alpha_{jk}^{\mathrm{raw}} \sim \mathcal{N}(0,1), \qquad
+\alpha_{jk} = \alpha_{jk}^{\mathrm{raw}} - \frac{1}{K}\sum_{k'=1}^{K}\alpha_{jk'}^{\mathrm{raw}}.
+\]
+
+Given persona index $p(n)$ and item index $j(n)$ for observation $n$, the category utilities are
+\[
+\eta_{nk} = \alpha_{j(n)k} + a_{j(n)}\,\theta_{p(n),d(k)},
+\]
+and observed responses are modeled as
+\[
+Y_n \sim \mathrm{Categorical}\!\left(\mathrm{softmax}(\eta_{n1},\dots,\eta_{nK})\right).
+\]
+
+Posterior inference was performed using the No-U-Turn Sampler (NUTS)~\citep{hoffman2014no} with 8 chains, 300 warmup iterations, and 300 posterior draws per chain, with target acceptance probability set to 0.9. All parameters exhibit excellent MCMC convergence, with 100\% of $\hat{R}$ values in the range $1.00 \le \hat{R} \le 1.01$ (3{,}450/3{,}450 parameters), indicating stable and well-mixed posterior estimates. No divergent transitions were observed.
+
+\subsection{Item discrimination}
+\label{app:mirt_1}
+In this formulation, the discrimination parameter determines how strongly an SJT scenario amplifies differences in latent behavioral traits, with higher values indicating that the scenario more effectively distinguishes between personas with different trait profiles.
+Table~\ref{tab:item_discrimination} and Figure~\ref{fig:mirt_discrimination_distribution} summarizes the distribution of item discrimination parameters. The majority of items exhibit moderate to strong discrimination, while a small subset of items provide little diagnostic information.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcc}
+\hline
+Discrimination range & Number of items & Percentage \\
+\hline
+$a < 0.5$ (very weak) & 4 & 2.7\% \\
+$0.5 \le a < 1.0$ (weak--moderate) & 32 & 21.3\% \\
+$1.0 \le a < 2.0$ (good) & 73 & 48.7\% \\
+$2.0 \le a < 3.0$ (strong) & 38 & 25.3\% \\
+$a \ge 3.0$ (very strong) & 3 & 2.0\% \\
+\hline
+Total & 150 & 100\% \\
+\hline
+\end{tabular}
+\caption{Distribution of item discrimination parameters estimated by the MIRT model.}
+\label{tab:item_discrimination}
+\end{table}
+
+Overall, 76\% of items have discrimination $a > 1.0$, indicating that most scenarios meaningfully differentiate between personas with distinct latent behavioral profiles. Only 2.7\% of items exhibit very low discrimination ($a < 0.5$), suggesting that a small number of scenarios provide limited diagnostic value and may be candidates for refinement.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.75\linewidth]{figures/mirt_distribution.png}
+\caption{
+Distribution of item discrimination parameters ($a$) estimated by the MIRT model.
+In multidimensional item response theory, the discrimination parameter quantifies how strongly a scenario differentiates between personas with different latent trait levels: higher values indicate that small differences in latent traits lead to larger differences in response probabilities.
+The distribution is centered around moderate-to-high values (mean $\approx 1.6$), with most items exhibiting $a > 1.0$, indicating that the majority of SJT scenarios provide meaningful information about underlying behavioral tendencies. A small number of low-discrimination items correspond to scenarios that are less diagnostic and may be candidates for refinement.
+}
+\label{fig:mirt_discrimination_distribution}
+\end{figure}
+
+\subsection{Label-invariant variance decomposition}
+\label{app:mirt_2}
+
+To quantify the relative contributions of persona identity and scenario context to response behavior, we use a crossed, label-invariant variance decomposition on all five responses for each of the 500 personas and 300 scenarios. Because the six response categories are nominal rather than ordinal, each response is represented as a six-dimensional one-hot vector instead of assigning the categories integer scores. We then decompose the trace variance of these vectors under the balanced crossed model
+\[
+\mathbf{y}_{pjr} = \boldsymbol{\mu} + \mathbf{u}_p + \mathbf{v}_j + \mathbf{w}_{pj} + \boldsymbol{\epsilon}_{pjr},
+\]
+where $\mathbf{u}_p$ is the persona main effect, $\mathbf{v}_j$ is the scenario main effect, $\mathbf{w}_{pj}$ is the interaction between persona and scenario, and $\boldsymbol{\epsilon}_{pjr}$ is the residual. Variance components are estimated from the corresponding mean squares. Unlike a decomposition based on integer-coded response labels, this analysis is invariant to any permutation of the six HEXACO category names. The results are shown in Table~\ref{tab:variance_decomposition}.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lcc}
+\hline
+Component & Variance & Percent of total \\
+\hline
+Persona & 0.059 & 9.08\% \\
+Scenario & 0.172 & 26.40\% \\
+Persona $\times$ scenario & 0.098 & 15.03\% \\
+\hline
+\end{tabular}
+\caption{Estimated persona and scenario components from the label-invariant crossed variance decomposition of one-hot SJT responses. Percentages are relative to total response variance.}
+\label{tab:variance_decomposition}
+\end{table}
+
+Persona identity accounts for 9.08\% of response variation as a stable main effect across scenarios, compared with 26.40\% for scenario identity. Thus, the persona main effect is approximately one third the magnitude of the scenario main effect. A further 15.03\% is associated with the interaction between persona and scenario: personas differ not only in their average response tendencies, but also in how they respond to particular scenarios. This interaction is jointly attributable to persona and scenario and is therefore reported separately rather than assigned exclusively to either factor.
+
+To assess the persona main effect, we perform a block-permutation test that shuffles complete five-response blocks among persona labels independently within each scenario. This preserves scenario-specific category distributions and within-pair generation variability while breaking the consistency of persona identity across scenarios. None of 2{,}000 permutations produces a persona effect as large as the observed effect (finite-sample corrected Monte Carlo $p = 0.0005$), indicating that the persona contribution is highly statistically reliable.
+
+The 15.03\% interaction component captures systematic departures of each persona and scenario combination from the response distribution predicted by the two main effects. Thus, 9.08\% can be assigned exclusively to stable persona differences across scenarios, while a further 15.03\% captures context-specific differentiation involving both persona and scenario. Only the former is the persona main effect. The interaction provides separate evidence that persona conditioning changes how the model reacts to particular situations, rather than producing only a uniform shift across all scenarios.
+
+\subsection{Latent trait recovery}
+\label{app:mirt_3}
+
+We extract posterior mean estimates of persona-level latent HEXACO traits from the MIRT model, yielding a six-dimensional latent behavioral profile for each persona. These latent traits represent the underlying behavioral tendencies that best explain each persona's pattern of responses across all SJT items.
+
+The MIRT model recovers substantial variation in latent HEXACO traits across personas, with estimated values spanning multiple standard deviations across all six dimensions, indicating meaningful separation in behavioral profiles. See Figure~\ref{fig:hexaco_trait_distributions}.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\linewidth]{figures/hexaco_trait_distributions.png}
+\caption{
+Distribution of recovered latent HEXACO trait values across personas under the confirmatory MIRT model.
+Each subplot shows the inferred latent trait values (posterior means) for one personality dimension.
+In MIRT, these latent values represent continuous behavioral tendencies inferred from response patterns across scenarios.
+All six traits exhibit substantial spread (spanning multiple standard deviations), indicating that the instrument recovers meaningful variation across personas rather than collapsing to a narrow range. The approximate unimodal shapes further suggest that the model is capturing coherent underlying behavioral dimensions rather than noise.
+}
+\label{fig:hexaco_trait_distributions}
+\end{figure}
+
+\subsection{Construct validity: Latent trait--behavior relationship}
+\label{app:mirt_4}
+
+To assess construct validity, we evaluated whether latent HEXACO traits predict the selection of trait-aligned response options. For each response option, we fit a logistic regression predicting the probability of selecting that option as a function of all six latent traits. The results are shown in Table~\ref{tab:trait_prediction}.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcc}
+\hline
+Trait & Coefficient & p-value \\
+\hline
+Agreeableness & 1.105 & $3.59 \times 10^{-4}$ \\
+Conscientiousness & 0.679 & $3.83 \times 10^{-4}$ \\
+Emotionality & 1.058 & $1.06 \times 10^{-1}$ \\
+Extraversion & 1.379 & $1.47 \times 10^{-2}$ \\
+Honesty--Humility & 1.042 & $9.92 \times 10^{-7}$ \\
+Openness & 0.884 & $2.72 \times 10^{-2}$ \\
+\hline
+\end{tabular}
+\caption{Logistic regression predicting selection of trait-aligned response options from latent HEXACO trait scores.}
+\label{tab:trait_prediction}
+\end{table}
+
+Five of the six HEXACO traits significantly predict the selection of their corresponding response options ($p < 0.05$), with consistently positive coefficients. This indicates that higher latent trait values increase the likelihood of selecting trait-aligned responses, supporting the interpretability of the recovered latent dimensions. Emotionality does not reach statistical significance, suggesting weaker alignment for that dimension under the current formulation.
+
+Test--retest reliability is high across all traits (Table~\ref{tab:icc_values}), with intraclass correlation coefficients (ICC) exceeding 0.86, indicating that inferred trait scores are stable across repeated response-generation runs for the same personas.
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{lc}
+\hline
+\textbf{Trait} & \textbf{ICC} \\
+\hline
+\agreeableness\; & 0.992 \\
+\conscientiousness\; & 0.990 \\
+\emotionality\; & 0.930 \\
+\extraversion\; & 0.958 \\
+\honestyhumility\; & 0.868 \\
+\openness\; & 0.944 \\
+\hline
+\end{tabular}
+\caption{Trait-wise ICC values across repeated response-generation runs for SJT-based \hexaco\; trait scoring.}
+\label{tab:icc_values}
+\end{table}
+
+Across analyses, the SJT framework demonstrates strong psychometric properties. Most scenarios exhibit moderate to high discrimination, indicating effective differentiation between personas. Persona identity contributes reliable variation in responses, although scenario context remains a dominant factor. The MIRT model recovers latent trait structure that predicts behavioral choices in a theoretically consistent manner.
+
+Overall, these results indicate that the framework produces highly consistent and informative behavioral measurements, supporting its validity as a psychometric instrument.
