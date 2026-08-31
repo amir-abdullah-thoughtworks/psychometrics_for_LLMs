@@ -106,6 +106,7 @@ Shared infrastructure and I/O utilities:
 - `modal_trigger.py` — Modal.com entry point for running experiments on cloud GPU instances.
 - `push_to_hub.py` — Uploads local results to a HuggingFace Hub dataset repo.
 - `run.py` — Example script showing how to invoke an experiment locally.
+- `run_blind_hexaco_eval.py` — Blind HEXACO trait detection evaluation: presents SJT response options to an LLM judge *without* trait labels and measures whether the judge can correctly identify the intended HEXACO trait for each option (top-predicted trait vs. ground truth). Runs in parallel across both GPT-4o-mini and Claude-3-5-Sonnet on 500 SJTs from `thoughtworks/psychometric_SJTs`. Used to validate that trait-option mappings are genuinely distinguishable without prior knowledge of the mapping.
 
 ---
 

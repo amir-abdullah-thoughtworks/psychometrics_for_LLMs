@@ -102,16 +102,23 @@ def openai_api_call(prompt, response_format, persona_prompt="You are a helpful a
     ]
 
     # Call the Chat API
-    response = client.beta.chat.completions.parse(
+    response = client.chat.completions.create(
         model=model,
         messages=messages,
         temperature=temperature,
         top_p=top_p,
         presence_penalty=presence_penalty,
         frequency_penalty=frequency_penalty,
-        response_format=response_format,
+        response_format={
+            "type": "json_schema",
+            "json_schema": {
+                "name": "StructuredResponse",
+                "schema": response_format.model_json_schema()
+            }
+        }
     )
-    return response.choices[0].message.parsed
+    parsed = response.choices[0].message.content
+    return response_format.model_validate_json(parsed)
 
 
 def anthropic_api_call(prompt, response_format, persona_prompt="You are a helpful assistant. Always respond with valid JSON. No explanations.", model="claude-sonnet-4-5",
